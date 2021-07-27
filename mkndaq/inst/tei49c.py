@@ -12,10 +12,10 @@ class TEI49C:
     Instrument of type Thermo TEI 49C with methods, attributes for interaction.
     """
 
-    def __init__(self, name, port, config):
+    def __init__(self, name, port, config, log=True, test=True) -> None:
         """
-        Constructor
-
+        Initialize instrument class.
+        
         Parameters
         ----------
         name : str
@@ -26,17 +26,20 @@ class TEI49C:
             dictionary of attributes defining the instrument and port
         """
         try:                        
+            self._test = test
             # setup logging
-            logdir = os.path.expanduser(config['logfile'])
-            os.makedirs(logdir, exist_ok=True)
-            logfile = '%s.log' % time.strftime('%Y%m%d')
-            self.logfile = os.path.join(logdir, logfile)
-            self.logger = logging.getLogger(__name__)
-            logging.basicConfig(level=logging.DEBUG,
-                                format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                                datefmt='%y-%m-%d %H:%M:%S',
-                                filename=str(self.logfile),
-                                filemode='a')
+            self._log = log
+            if log:
+                logs = os.path.expanduser(config['logs'])
+                os.makedirs(logs, exist_ok=True)
+                logfile = '%s.log' % time.strftime('%Y%m%d')
+                self.logfile = os.path.join(logs, logfile)
+                self.logger = logging.getLogger(__name__)
+                logging.basicConfig(level=logging.DEBUG,
+                                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                                    datefmt='%y-%m-%d %H:%M:%S',
+                                    filename=str(self.logfile),
+                                    filemode='a')
 
             # configure serial port
             ser = serial.Serial()
@@ -58,9 +61,23 @@ class TEI49C:
             self._id = config[name]['id'] + 128
             self._type = config[name]['type']
             self._serial_number = config[name]['serial_number']
-            self._get_config = config[name]['get_config']
-            self._set_config = config[name]['set_config']
-            self._get_data = config[name]['get_data']
+            self._get_config = ["mode",
+                                "gas unit", 
+                                "range", 
+                                "avg time", 
+                                "temp comp", 
+                                "pres comp", 
+                                "format", 
+                                "lrec format"]
+            self._set_config = ["set mode remote", 
+                                "set gas unit ppb", 
+                                "set range 1", 
+                                "set avg time 3", 
+                                "set temp comp on", 
+                                "set pres comp on", 
+                                "set format 00", 
+                                "set lrec format 01 02"]
+            self._get_data = "lrec"
             
             # setup data directory
             datadir = os.path.expanduser(config['data'])
@@ -78,38 +95,42 @@ class TEI49C:
             print(err)
                     
             
-    def get_config(self, log=True):
+    def get_config(self) -> dict:
         """
-        Read current configuration of instrument
+        Read current configuration of instrument.
         
         Read current configuration of instrument and optionally write to log
-
-        Parameters
-        ----------
-        log : bln, optional
-            Should output be written to logfile? The default is True.
+        
 
         Returns
         -------
-        dictionary with configuration.
+        dict
+            configuration or errors, if any.
 
         """
         try:                        
+            err = None
             cfg = []
             self._serial.open()
             for cmd in self._get_config:
-                self._serial.write(bytes([self._id]) + ('%s\x0D' % cmd).encode())
-                cfg.append(self._serial.read(256).decode())
+                if self._test:
+                    print("Echo: %s" % cmd)
+                    cfg.append(cmd)
+                else:
+                    self._serial.write(bytes([self._id]) + ('%s\x0D' % cmd).encode())
+                    cfg.append(self._serial.read(256).decode())
             self._serial.close()
-            if log:
-                self.logger.info("Current configuration of '%s': %s" % (self._name, cfg))
-            return(cfg)
+
+            if self._log:
+                self.logger.info("Current configuration of '%s': %s" % (self._name, cfg))        
+            
+            return(err, cfg)
+
         except Exception as err:
-            self.logger.error(err)
             self._serial.close()
-        
+            return(err, cfg)            
     
-    def set_config(self, log=True):
+    def set_config(self):
         """
         Set configuration of instrument
         
@@ -129,10 +150,14 @@ class TEI49C:
             cfg = []
             self._serial.open()
             for cmd in self._set_config:
-                self._serial.write(bytes([self._id]) + ('%s\x0D' % cmd).encode())
-                cfg.append(self._serial.read(256).decode())
+                if self._test:
+                    print("Echo: %s" % cmd)
+                    cfg.append(cmd)
+                else:
+                    self._serial.write(bytes([self._id]) + ('%s\x0D' % cmd).encode())
+                    cfg.append(self._serial.read(256).decode())
             self._serial.close()
-            if log:
+            if self._log:
                 self.logger.info("Configuration of '%s' set to: %s" % (self._name, cfg))        
             return(cfg)
         except Exception as err:
@@ -140,9 +165,9 @@ class TEI49C:
             self._serial.close()
 
 
-    def get_data(self, log=False):
+    def get_data(self):
         """
-        Retrieve data from instrument
+        Retrieve data from instrument.
         
         Retrieve data from instrument and optionally write to log
 
@@ -161,16 +186,21 @@ class TEI49C:
             # retrieve data
             self._serial.open()
             for cmd in self._get_data:
-                self._serial.write(bytes([self._id]) + ('%s\x0D' % cmd).encode())
-                res.append(self._serial.read(256).decode())
+                if self._test:
+                    print("Echo: %s" % cmd)
+                    res.append(cmd)
+                else:
+                    self._serial.write(bytes([self._id]) + ('%s\x0D' % cmd).encode())
+                    res.append(self._serial.read(256).decode())
             self._serial.close()
-            if log:
+            if self._log:
                 self.logger.info("Data retrieved from '%s': %s" % (self._name, res))
                             
             return(res)
         except Exception as err:
             self.logger.error(err)
             self._serial.close()
+
 
     # def save_data(self, reading, log=False):
     #     """

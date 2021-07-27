@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
-
 import os
 # import logging
 import yaml
 import time
 
-from daqman.tei49c import TEI49C
+from inst.tei49c import TEI49C
 
-def config(config_file):
+
+def config(config_file) -> dict:
     """
     Read config file.
     
@@ -21,7 +21,8 @@ def config(config_file):
         
     Returns
     -------
-    configuration information as dictionary
+    dict
+        configuration information as dictionary
     """
     try:
         with open(os.path.abspath(config_file), "r") as f:
