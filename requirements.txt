@@ -1,0 +1,6 @@
+pyserial~=3.5
+PyYAML~=5.4.1
+pysftp~=0.2.9
+sockslib~=1.4.5
+schedule~=1.1.0
+setuptools~=57.4.0

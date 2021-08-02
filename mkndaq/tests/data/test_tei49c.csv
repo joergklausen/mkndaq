@@ -1,0 +1,12 @@
+o3 3.180E-03 ppb*
+sum 041dlrec
+17:41 07-28-21  flags D800500 o3 0.722 cellai 123858.000 cellbi 94570.000 bncht 31.220 lmpt 53.754 o3lt 68.363 flowa 0.000 flowb 0.000 pres 724.798*
+sum 26fbsrec
+15:00 07-28-21  flags D800500 o3 -0.009*
+sum 0a73o3 5.158E-01 ppb*
+sum 0422lrec
+17:42 07-28-21  flags D800500 o3 0.394 cellai 123853.000 cellbi 94558.000 bncht 31.220 lmpt 53.754 o3lt 68.363 flowa 0.000 flowb 0.000 pres 724.798*
+sum 2702srec
+15:00 07-28-21  flags D800500 o3 -0.009*
+sum 0a73erec
+17:42 07-28-21 flags D800500 o3 0.000  1 lo o3 0.500  1 lampi 0000 bencht 31.246 lampt 53.754 ozlampt 68.363 flowa 0.000 flowb 0.006 Pres 724.497 avgt 10 lo avgt 60 O3bkg 0.000 O3 coef 1.000 lo O3 coef 1.004 O3 range 5000.000 lo O3 range 200.000 int a

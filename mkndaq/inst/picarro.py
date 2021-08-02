@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Define a class G2401 facilitating communication with a Picarro G2401 instrument.
+
+@author: joerg.klausen@meteoswiss.ch
+"""
 
 import os
 import socket

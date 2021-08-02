@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Created on Tue Feb 11 18:37:35 2020
@@ -6,41 +7,31 @@ Created on Tue Feb 11 18:37:35 2020
 """
 
 import os
-from ftplib import FTP
-import io
-import pandas as pd
+from mkndaq.utils import configparser
+from mkndaq.utils.filetransfer import SFTPClient
 
+def main():
+    config = configparser.config()
 
-host = '127.0.0.1'
-port = '21'
-usr = 'gast'
-pwd = 'gast'
-path = 'gast'
-localdata = '~/git/gawkenya/daqman/data'
-filename = 'CFKADS2329-20200131-083057Z-DataLog_User_Sync.dat'
+    sftp = SFTPClient(config)
 
-# create local directory if it doesn't exists
-localdata = os.path.join(os.path.expanduser(localdata),
-                        path)
-os.makedirs(localdata, exist_ok=True)
-localfile = os.path.join(localdata, filename)
+    # transfer single file
+    localpath = os.path.abspath(os.path.join(os.pardir, "mkndaq.cfg"))
+    remotepath = None
+    print("Transfering file %s > %s" % (localpath, remotepath))
+    sftp.put(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
-# create ftp context manager and transfer file
-# with FTP(host) as ftp:
-#     ftp.login(user=usr, passwd=pwd)
-#     files = ftp.nlst()
-    
-#     with open(localfile, 'wb') as f:
-#         response = ftp.retrbinary('RETR ' + filename,
-#                        f.write)
-#         f.close()
+    # transfer folder
+    localpath = os.path.expanduser(config['logs'])
+    remotepath = 'logs'
+    print("Transfering folder %s > %s" % (localpath, remotepath))
+    sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
-# read file into a pandas data.frame
-virtual_file = io.BytesIO()
-with FTP(host) as ftp:
-    ftp.login(user=usr, passwd=pwd)
-    ftp.retrbinary('RETR ' + filename,
-                       virtual_file.write)
-    virtual_file.seek(0)
-    df = pd.read_fwf(virtual_file)
-    virtual_file.close()
+    # transfer folder with subfolder(s)
+    localpath = os.path.expanduser(config['staging']['path'])
+    remotepath = 'data'
+    print("Transfering folder %s > %s" % (localpath, remotepath))
+    sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
+
+if __name__ == "__main__":
+    main()
