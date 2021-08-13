@@ -37,7 +37,7 @@ class TEI49C:
     _zip = False
 
     @classmethod
-    def __init__(cls, name: str, config=None, simulate=False) -> None:
+    def __init__(cls, name: str, config: dict, simulate=False) -> None:
         """
         Initialize instrument class.
         
@@ -65,8 +65,6 @@ class TEI49C:
         """
         print("# Initialize TEI49C")
 
-        if config is None:
-            config = configparser.config()
         try:
             cls._simulate = simulate
             # setup logging
@@ -94,15 +92,16 @@ class TEI49C:
             cls._data_header = config[name]['data_header']
 
             # configure serial port
-            port = config[name]['port']
-            cls._serial = serial.Serial(port=port,
-                                        baudrate=config[port]['baudrate'],
-                                        bytesize=config[port]['bytesize'],
-                                        parity=config[port]['parity'],
-                                        stopbits=config[port]['stopbits'],
-                                        timeout=config[port]['timeout'])
-            if cls._serial.is_open:
-                cls._serial.close()
+            if not cls._simulate:
+                port = config[name]['port']
+                cls._serial = serial.Serial(port=port,
+                                            baudrate=config[port]['baudrate'],
+                                            bytesize=config[port]['bytesize'],
+                                            parity=config[port]['parity'],
+                                            stopbits=config[port]['stopbits'],
+                                            timeout=config[port]['timeout'])
+                if cls._serial.is_open:
+                    cls._serial.close()
 
             # sampling, aggregation, reporting/storage
             cls._sampling_interval = config[name]['sampling_interval']
@@ -117,7 +116,7 @@ class TEI49C:
             cls._staging = os.path.expanduser(config['staging']['path'])
             cls._zip = config['staging']['zip']
 
-            msg = "Instrument '%s' successfully initialized." % cls._name
+            msg = "%s Instrument '%s' successfully initialized." % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name)
             cls._logger.info(msg)
             print(msg)
 
@@ -168,7 +167,7 @@ class TEI49C:
         :return current configuration of instrument
         
         """
-        print(".get_config (name=%s)" % cls._name)
+        print("%s .get_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
         cfg = []
         try:
             cls._serial.open()
@@ -194,7 +193,7 @@ class TEI49C:
 
         :return new configuration as returned from instrument
         """
-        print(".set_config (name=%s)" % cls._name)
+        print("%s .set_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
         cfg = []
         try:
             cls._serial.open()
@@ -223,20 +222,21 @@ class TEI49C:
         :return str response as decoded string
         """
         try:
-            print(".get_data (name=%s, save=%s, simulate=%s)" % (cls._name, save, cls._simulate))
+            print("%s .get_data (name=%s, save=%s, simulate=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                    cls._name, save, cls._simulate))
 
             if cmd is None:
                 cmd = cls._get_data
 
-            if cls._serial.is_open:
-                cls._serial.close()
-
-            cls._serial.open()
-            data = cls.serial_comm(cmd)
-            cls._serial.close()
-
             if cls._simulate:
                 data = cls.simulate_get_data(cmd)
+            else:
+                if cls._serial.is_open:
+                    cls._serial.close()
+
+                cls._serial.open()
+                data = cls.serial_comm(cmd)
+                cls._serial.close()
 
             if save:
                 # generate the datafile name

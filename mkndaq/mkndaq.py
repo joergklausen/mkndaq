@@ -17,7 +17,6 @@ from mkndaq.utils.filetransfer import SFTPClient
 from mkndaq.inst.tei49c import TEI49C
 from mkndaq.inst.tei49i import TEI49I
 
-
 def main():
     logs = None
     logger = None
@@ -28,12 +27,14 @@ def main():
             usage='mkndaq.pyz [-s]')
         parser.add_argument('-s', '--simulate', action='store_true',
                             help='simulate communication with instruments', required=False)
+        parser.add_argument('-c', '--configuration', type=str, help='path to configuration file', required=True)
         args = parser.parse_args()
 
         simulate = args.simulate
 
         # read config file
-        config_file = os.path.join(os.pardir, "mkndaq.cfg")
+#        config_file = os.path.join(os.pardir, "mkndaq.cfg")
+        config_file = args.configuration
         cfg = config(config_file)
 
         # setup logging
@@ -61,7 +62,7 @@ def main():
         tei49i.set_config()
 
         # initialize data transfer
-        sftp = SFTPClient()
+        sftp = SFTPClient(config=cfg)
 
         # transfer configuration file
         sftp.put(localpath=os.path.abspath(config_file), remotepath=None)
@@ -69,12 +70,16 @@ def main():
         # transfer any existing log files
         sftp.put_r(localpath=os.path.expanduser(cfg['logs']), remotepath='logs')
 
+        # transfer any existing data files
+        sftp.move_r()
+
         # schedule for data acquisition
         schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(tei49c.get_data)
         schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(tei49i.get_data)
 
         # schedule for data transfer
-        schedule.every(cfg['reporting_interval']).minutes.at('00:20').do(sftp.move_r)
+        rep_int = cfg['reporting_interval']
+        schedule.every(rep_int).minutes.at(':20').do(sftp.move_r)
 
         print("# Begin data acquisition and file transfer")
         while True:

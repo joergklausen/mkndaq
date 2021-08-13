@@ -4,7 +4,22 @@ import os
 import yaml
 
 
-def config(file=os.path.join(os.pardir, "mkndaq.cfg")) -> dict:
+def expanduser_dict_recursive(d):
+    try:
+        for key, value in d.items():
+            if isinstance(value, str):
+                if '~' in value:
+                    d[key] = os.path.expanduser(d[key])
+            elif isinstance(value, dict):
+                value = expanduser_dict_recursive(value)
+    except Exception as err:
+        print(err)
+
+    finally:
+        return d
+
+
+def config(file) -> dict:
     """
     Read config file.
 
@@ -16,6 +31,16 @@ def config(file=os.path.join(os.pardir, "mkndaq.cfg")) -> dict:
         with open(os.path.abspath(file), "r") as fh:
             cfg = yaml.safe_load(fh)
             fh.close()
+
+        # see if HOME is set, otherwise set from config file
+        try:
+            if os.environ['HOME'] is None:
+                os.environ['HOME'] = cfg['home']
+        except Exception:
+            os.environ['HOME'] = cfg['home']
+
+        # expand all relative paths in config file
+        cfg = expanduser_dict_recursive(cfg)
 
         return cfg
 

@@ -12,7 +12,6 @@ import re
 import pysftp
 import sockslib
 import time
-from mkndaq.utils import configparser
 
 
 class SFTPClient:
@@ -33,7 +32,7 @@ class SFTPClient:
     _sftphost = None
 
     @classmethod
-    def __init__(cls, config=None):
+    def __init__(cls, config: dict):
         """
         Initialize class.
 
@@ -48,8 +47,6 @@ class SFTPClient:
         """
         print("# Initialize SFTPClient")
         try:
-            if config is None:
-                config = configparser.config()
 
             # setup logging
             if config['sftp']['logs']:
@@ -159,7 +156,7 @@ class SFTPClient:
     def put(cls, localpath, remotepath, preserve_mtime=True) -> None:
         try:
             with pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey) as conn:
-                msg = "sftp %s > %s" % (localpath, remotepath)
+                msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
                 print(msg)
                 conn.put(localpath=localpath, remotepath=remotepath, confirm=True, preserve_mtime=preserve_mtime)
                 cls._logger.info(msg)
@@ -212,7 +209,7 @@ class SFTPClient:
                 for localitem in files:
                     localitem = re.sub(r'(/?\.?\\){1,2}', '/', os.path.join(root, localitem))
                     remoteitem = "/".join([remotepath, re.sub("".join([localpath, "/"]), "", localitem)])
-                    msg = "sftp %s > %s" % (localitem, remoteitem)
+                    msg = "%s .put_r %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)
                     print(msg)
                     conn.put(localpath=localitem, remotepath=remoteitem, confirm=True, preserve_mtime=preserve_mtime)
                     cls._logger.info(msg)
@@ -240,13 +237,14 @@ class SFTPClient:
             staged = cls.localfiles(localpath)
             staged = [re.sub(cls._localpath, '.', s) for s in staged]
             remote = cls.remotefiles(remotepath)
+            remote = [re.sub(remotepath, '.', r) for r in remote]
 
             # compare lists, find duplicates, then remove from staging
             xfered = set(remote).intersection(staged)
             for ele in xfered:
                 os.remove(re.sub('\\./', "".join([cls._localpath, '/']), ele))
             if cls._log:
-                cls._logger.info("Finished transfering %s" % xfered)
+                cls._logger.info("Finished transfering %s" % str(xfered))
 
         except Exception as err:
             if cls._log:

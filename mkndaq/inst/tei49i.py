@@ -39,7 +39,7 @@ class TEI49I:
     _zip = False
 
     @classmethod
-    def __init__(cls, name: str, config=None, simulate=False) -> None:
+    def __init__(cls, name: str, config: dict, simulate=False) -> None:
         """
         Initialize instrument class.
         
@@ -66,8 +66,6 @@ class TEI49I:
         """
         print("# Initialize TEI49I")
 
-        if config is None:
-            config = configparser.config()
         try:
             cls._simulate = simulate
             # setup logging
@@ -115,7 +113,7 @@ class TEI49I:
 
             msg = "Instrument '%s' successfully initialized." % cls._name
             cls._logger.info(msg)
-            print(msg)
+            print(time.strftime('%Y-%m-%d %H:%M:%S'), msg)
 
         except Exception as err:
             if cls._log:
@@ -183,7 +181,7 @@ class TEI49I:
         :return (err, cfg) configuration or errors, if any.
         
         """
-        print(".get_config (name=%s)" % cls._name)
+        print("%s .get_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
         cfg = []
         try:
             for cmd in cls._get_config:
@@ -207,7 +205,7 @@ class TEI49I:
 
         :return (err, cfg) configuration set or errors, if any.
         """
-        print(".set_config (name=%s)" % cls._name)
+        print("%s .set_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
         cfg = []
         try:
             for cmd in cls._set_config:
@@ -234,7 +232,8 @@ class TEI49I:
         :return str response as decoded string
         """
         try:
-            print(".get_data (name=%s, save=%s, simulate=%s)" % (cls._name, save, cls._simulate))
+            print("%s .get_data (name=%s, save=%s, simulate=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                    cls._name, save, cls._simulate))
 
             if cmd is None:
                 cmd = cls._get_data
