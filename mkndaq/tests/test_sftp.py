@@ -11,12 +11,13 @@ from mkndaq.utils import configparser
 from mkndaq.utils.filetransfer import SFTPClient
 
 def main():
-    config = configparser.config()
+    config_file = input("Enter full path to config file: ")
+    config = configparser.config(config_file)
 
     sftp = SFTPClient(config)
 
     # transfer single file
-    localpath = os.path.abspath(os.path.join(os.pardir, "mkndaq.cfg"))
+    localpath = input("Enter full path to file to transfer: ")
     remotepath = None
     print("Transfering file %s > %s" % (localpath, remotepath))
     sftp.put(localpath=localpath, remotepath=remotepath, preserve_mtime=True)

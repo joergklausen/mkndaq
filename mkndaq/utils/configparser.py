@@ -27,7 +27,7 @@ def config(file) -> dict:
     :return: configuration information
     """
     try:
-        print("# Read configuration from %s:" % os.path.abspath(file))
+        print("# Read configuration from %s" % os.path.abspath(file))
         with open(os.path.abspath(file), "r") as fh:
             cfg = yaml.safe_load(fh)
             fh.close()

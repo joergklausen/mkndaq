@@ -11,7 +11,6 @@ import shutil
 import socket
 import time
 import zipfile
-from mkndaq.utils import configparser
 from mkndaq.utils import datetimebin
 
 
@@ -74,12 +73,11 @@ class TEI49I:
                 logs = os.path.expanduser(config['logs'])
                 os.makedirs(logs, exist_ok=True)
                 logfile = '%s.log' % time.strftime('%Y%m%d')
-                cls.logfile = os.path.join(logs, logfile)
                 cls._logger = logging.getLogger(__name__)
                 logging.basicConfig(level=logging.DEBUG,
                                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                     datefmt='%y-%m-%d %H:%M:%S',
-                                    filename=str(cls.logfile),
+                                    filename=str(os.path.join(logs, logfile)),
                                     filemode='a')
 
             # read instrument control properties for later use
@@ -118,8 +116,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def tcpip_comm(cls, cmd: str, tidy=True) -> str:
@@ -170,8 +167,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def get_config(cls) -> list:
@@ -195,8 +191,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def set_config(cls) -> list:
@@ -219,8 +214,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def get_data(cls, cmd=None, save=True) -> str:
@@ -274,8 +268,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def simulate_get_data(cls, cmd=None) -> str:

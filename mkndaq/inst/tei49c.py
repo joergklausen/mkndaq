@@ -11,7 +11,6 @@ import serial
 import shutil
 import time
 import zipfile
-from mkndaq.utils import configparser
 from mkndaq.utils import datetimebin
 
 
@@ -73,12 +72,11 @@ class TEI49C:
                 logs = os.path.expanduser(config[name]['logs'])
                 os.makedirs(logs, exist_ok=True)
                 logfile = '%s.log' % time.strftime('%Y%m%d')
-                cls.logfile = os.path.join(logs, logfile)
                 cls._logger = logging.getLogger(__name__)
                 logging.basicConfig(level=logging.DEBUG,
                                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                     datefmt='%y-%m-%d %H:%M:%S',
-                                    filename=str(cls.logfile),
+                                    filename=str(os.path.join(logs, logfile)),
                                     filemode='a')
 
             # read instrument control properties for later use
@@ -123,14 +121,12 @@ class TEI49C:
         except serial.SerialException as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def serial_comm(cls, cmd: str) -> str:
@@ -146,8 +142,10 @@ class TEI49C:
             if cls._simulate:
                 _id = b''
             cls._serial.write(_id + ('%s\x0D' % cmd).encode())
+            time.sleep(0.5)
             while cls._serial.in_waiting > 0:
                 rcvd = rcvd + cls._serial.read(1024)
+                time.sleep(0.1)
 
             rcvd = rcvd.decode()
 
@@ -156,8 +154,7 @@ class TEI49C:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def get_config(cls) -> list:
@@ -183,8 +180,7 @@ class TEI49C:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def set_config(cls) -> list:
@@ -209,8 +205,7 @@ class TEI49C:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def get_data(cls, cmd=None, save=True) -> str:
@@ -270,8 +265,7 @@ class TEI49C:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def simulate_get_data(cls, cmd=None) -> str:
