@@ -35,7 +35,6 @@ if __name__ == '__main__':
          }
 
     tei49c = TEI49C(name='tei49c', config=cfg, simulate=False)
-
     print(tei49c.get_config())
     print(tei49c.set_config())
 
