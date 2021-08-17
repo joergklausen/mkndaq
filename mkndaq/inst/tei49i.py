@@ -11,7 +11,6 @@ import shutil
 import socket
 import time
 import zipfile
-from mkndaq.utils import configparser
 from mkndaq.utils import datetimebin
 
 
@@ -74,12 +73,11 @@ class TEI49I:
                 logs = os.path.expanduser(config['logs'])
                 os.makedirs(logs, exist_ok=True)
                 logfile = '%s.log' % time.strftime('%Y%m%d')
-                cls.logfile = os.path.join(logs, logfile)
                 cls._logger = logging.getLogger(__name__)
                 logging.basicConfig(level=logging.DEBUG,
                                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                     datefmt='%y-%m-%d %H:%M:%S',
-                                    filename=str(cls.logfile),
+                                    filename=str(os.path.join(logs, logfile)),
                                     filemode='a')
 
             # read instrument control properties for later use
@@ -111,15 +109,24 @@ class TEI49I:
             cls._staging = os.path.expanduser(config['staging']['path'])
             cls._zip = config['staging']['zip']
 
-            msg = "Instrument '%s' successfully initialized." % cls._name
-            cls._logger.info(msg)
-            print(time.strftime('%Y-%m-%d %H:%M:%S'), msg)
+            # query instrument to see if communication is possible
+            if not cls._simulate:
+                dte = cls.get_data('date', save=False)
+                if dte:
+                    tme = cls.get_data('time', save=False)
+                    msg = "%s Instrument '%s' initialized. Instrument datetime is %s %s." % \
+                          (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name, dte, tme)
+                    cls._logger.info(msg)
+                else:
+                    msg = "%s Instrument '%s' did not respond as expected." % \
+                          (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name)
+                    cls._logger.error(msg)
+                print(msg)
 
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def tcpip_comm(cls, cmd: str, tidy=True) -> str:
@@ -170,8 +177,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def get_config(cls) -> list:
@@ -195,8 +201,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def set_config(cls) -> list:
@@ -219,8 +224,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def get_data(cls, cmd=None, save=True) -> str:
@@ -274,8 +278,7 @@ class TEI49I:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def simulate_get_data(cls, cmd=None) -> str:

@@ -54,21 +54,28 @@ def test_serial_loopback(port='COM1', cfg=None, sleep=0.5, cmd="Hello, World"):
         ser.stopbits = cfg[3]
         ser.timeout = cfg[4]
         ser.open()
+        rcvd = b''
         if ser.is_open:
             print('%s successfully opened.' % port)
             msg = ('%s\x0D' % cmd).encode()
             print('sent (encoded): ', msg)
             ser.write(msg)
             time.sleep(sleep)
-            resp = ser.read(256).decode()
-            print('response (decoded): ', resp)
+
+            while ser.in_waiting > 0:
+                rcvd = rcvd + ser.read(1024)
+                time.sleep(0.1)
+
+            rcvd = rcvd.decode()
+
+            print('response (decoded): ', rcvd)
             ser.close()
             if not ser.is_open:
                 print("%s correctly closed." % port)
         else:
             raise
 
-        return err, resp
+        return rcvd
 
     except Exception as err:
         print(err)
@@ -79,4 +86,4 @@ if __name__ == '__main__':
     print("Serial ports found: %s" % serial_ports)
 
     for port in serial_ports:
-        print(i, test_serial_loopback(port))
+        print(port, test_serial_loopback(port))

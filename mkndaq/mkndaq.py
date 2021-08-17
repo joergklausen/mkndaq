@@ -24,7 +24,7 @@ def main():
         print("###  MKNDAQ started on %s" % time.strftime("%Y-%m-%d %H:%M"))
         parser = argparse.ArgumentParser(
             description='Data acquisition and transfer for MKN Global GAW Station.',
-            usage='mkndaq.pyz [-s]')
+            usage='mkndaq[.exe] [-s] -c')
         parser.add_argument('-s', '--simulate', action='store_true',
                             help='simulate communication with instruments', required=False)
         parser.add_argument('-c', '--configuration', type=str, help='path to configuration file', required=True)
@@ -33,7 +33,6 @@ def main():
         simulate = args.simulate
 
         # read config file
-#        config_file = os.path.join(os.pardir, "mkndaq.cfg")
         config_file = args.configuration
         cfg = config(config_file)
 
@@ -53,29 +52,36 @@ def main():
 
         logger.info("=== mkndaq started ===")
 
-        # initialize instruments
-        tei49c = TEI49C(name='tei49c', config=cfg, simulate=simulate)
-        tei49c.get_config()
-        tei49c.set_config()
-        tei49i = TEI49I(name='tei49i', config=cfg, simulate=simulate)
-        tei49i.get_config()
-        tei49i.set_config()
-
         # initialize data transfer
         sftp = SFTPClient(config=cfg)
 
-        # transfer configuration file
-        sftp.put(localpath=os.path.abspath(config_file), remotepath=None)
-
         # transfer any existing log files
+        print("%s Transfering existing log files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
         sftp.put_r(localpath=os.path.expanduser(cfg['logs']), remotepath='logs')
 
         # transfer any existing data files
+        print("%s Transfering existing staged files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
         sftp.move_r()
 
-        # schedule for data acquisition
-        schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(tei49c.get_data)
-        schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(tei49i.get_data)
+        # initialize instruments, get and set configurations and define schedules
+        # NB: In case, more instruments should be handled, the relevant calls need to be included here below.
+        try:
+            if cfg['tei49c']:
+                tei49c = TEI49C(name='tei49c', config=cfg, simulate=simulate)
+                tei49c.get_config()
+                tei49c.set_config()
+                schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(tei49c.get_data)
+        except Exception as err:
+            logger.error(err)
+
+        try:
+            if cfg['tei49i']:
+                tei49i = TEI49I(name='tei49i', config=cfg, simulate=simulate)
+                tei49i.get_config()
+                tei49i.set_config()
+                schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(tei49i.get_data)
+        except Exception as err:
+            logger.error(err)
 
         # schedule for data transfer
         rep_int = cfg['reporting_interval']
