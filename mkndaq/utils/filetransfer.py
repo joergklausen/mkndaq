@@ -82,8 +82,7 @@ class SFTPClient:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def localfiles(cls, localpath=None) -> list:
@@ -115,8 +114,30 @@ class SFTPClient:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
+
+
+    @classmethod
+    def transfer_most_recent_file(cls, localpath: str, remotepath: str) -> None:
+        """
+        Given a path to a dir, transfer the most recent file
+        (by name, which coincides with last modified date).
+
+        :param localpath:
+        :return:
+        """
+        try:
+            filename = max(os.listdir(localpath))
+            localpath = os.path.join(localpath, filename)
+            localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
+            remotepath = "/".join([remotepath, filename])
+            cls.put(localpath=localpath, remotepath=remotepath)
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
 
     @classmethod
     def remotefiles(cls, remotepath=None) -> list:
@@ -149,23 +170,22 @@ class SFTPClient:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def put(cls, localpath, remotepath, preserve_mtime=True) -> None:
         try:
+            msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
             with pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey) as conn:
-                msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
-                print(msg)
+                conn = pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey)
                 conn.put(localpath=localpath, remotepath=remotepath, confirm=True, preserve_mtime=preserve_mtime)
+                print(msg)
                 cls._logger.info(msg)
 
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def put_r(cls, localpath, remotepath, preserve_mtime=True) -> None:
@@ -218,8 +238,7 @@ class SFTPClient:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def remove_uploaded_files(cls, localpath=None, remotepath=None) -> None:
@@ -249,8 +268,7 @@ class SFTPClient:
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
-            else:
-                print(err)
+            print(err)
 
     @classmethod
     def move_r(cls, localpath=None, remotepath=None) -> None:

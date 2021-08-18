@@ -17,6 +17,7 @@ from mkndaq.utils.filetransfer import SFTPClient
 from mkndaq.inst.tei49c import TEI49C
 from mkndaq.inst.tei49i import TEI49I
 
+
 def main():
     logs = None
     logger = None
@@ -55,9 +56,9 @@ def main():
         # initialize data transfer
         sftp = SFTPClient(config=cfg)
 
-        # transfer any existing log files
-        print("%s Transfering existing log files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
-        sftp.put_r(localpath=os.path.expanduser(cfg['logs']), remotepath='logs')
+        # transfer most recent log file
+        print("%s Transfering most recent log file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        sftp.transfer_most_recent_file(localpath=os.path.expanduser(cfg['logs']), remotepath='logs')
 
         # transfer any existing data files
         print("%s Transfering existing staged files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))

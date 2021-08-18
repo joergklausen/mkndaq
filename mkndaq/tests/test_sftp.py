@@ -16,6 +16,9 @@ def main():
 
     sftp = SFTPClient(config)
 
+    # find most recent log file
+    path = sftp.most_recent_logfile(os.path.expanduser(config['logs']))
+
     # transfer single file
     localpath = input("Enter full path to file to transfer: ")
     remotepath = None
