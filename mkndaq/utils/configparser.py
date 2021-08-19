@@ -49,4 +49,4 @@ def config(file) -> dict:
 
 
 if __name__ == "__main__":
-    print(config())
+    pass
