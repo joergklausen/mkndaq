@@ -7,6 +7,7 @@ Define a class TEI49C facilitating communication with a Thermo TEI49c instrument
 
 import logging
 import os
+import re
 import serial
 import shutil
 import time
@@ -67,9 +68,9 @@ class TEI49C:
         try:
             cls._simulate = simulate
             # setup logging
-            if config[name]['logs']:
+            if config['logs']:
                 cls._log = True
-                logs = os.path.expanduser(config[name]['logs'])
+                logs = os.path.expanduser(config['logs'])
                 os.makedirs(logs, exist_ok=True)
                 logfile = '%s.log' % time.strftime('%Y%m%d')
                 cls._logger = logging.getLogger(__name__)
@@ -114,19 +115,20 @@ class TEI49C:
             cls._staging = os.path.expanduser(config['staging']['path'])
             cls._zip = config['staging']['zip']
 
-            # query instrument to see if communication is possible
+            # query instrument to see if communication is possible, set date and time
             if not cls._simulate:
                 dte = cls.get_data('date', save=False)
                 if dte:
                     tme = cls.get_data('time', save=False)
-                    msg = "%s Instrument '%s' initialized. Instrument datetime is %s %s." % \
-                          (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name, dte, tme)
+                    msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (cls._name, dte, tme)
                     cls._logger.info(msg)
+
+                    # set date and time
+                    cls.set_datetime()
                 else:
-                    msg = "%s Instrument '%s' did not respond as expected." % \
-                          (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name)
+                    msg = "Instrument '%s' did not respond as expected." % cls._name
                     cls._logger.error(msg)
-                print(msg)
+                print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
 
         except serial.SerialException as err:
             if cls._log:
@@ -139,11 +141,12 @@ class TEI49C:
             print(err)
 
     @classmethod
-    def serial_comm(cls, cmd: str) -> str:
+    def serial_comm(cls, cmd: str, tidy=True) -> str:
         """
         Send a command and retrieve the response. Assumes an open connection.
 
         :param cmd: command sent to instrument
+        :param tidy: remove echo and checksum after '*'
         :return: response of instrument, decoded
         """
         _id = bytes([cls._id])
@@ -158,7 +161,14 @@ class TEI49C:
                 time.sleep(0.1)
 
             rcvd = rcvd.decode()
-
+            if tidy:
+                # - remove checksum after and including the '*'
+                rcvd = rcvd.split("*")[0]
+                # - remove echo before and including '\n'
+                if cmd.join("\n") in rcvd:
+                    rcvd = rcvd.split("\n")[1]
+                # remove trailing '\r\n'
+                rcvd = rcvd.rstrip()
             return rcvd
 
         except Exception as err:
@@ -193,6 +203,36 @@ class TEI49C:
             print(err)
 
     @classmethod
+    def set_datetime(cls) -> None:
+        """
+        Synchronize date and time of instrument with computer time.
+
+        :return:
+        """
+        try:
+            if cls._serial.is_open:
+                cls._serial.close()
+
+            cls._serial.open()
+            dte = cls.serial_comm("set date %s" % time.strftime('%m-%d-%y'))
+            cls._serial.close()
+            msg = "Date of instrument %s set to: %s" % (cls._name, dte)
+            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            cls._logger.info(msg)
+
+            cls._serial.open()
+            tme = cls.serial_comm("set time %s" % time.strftime('%H:%M:%S'))
+            cls._serial.close()
+            msg = "Time of instrument %s set to: %s" % (cls._name, tme)
+            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            cls._logger.info(msg)
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
+    @classmethod
     def set_config(cls) -> list:
         """
         Set configuration of instrument and optionally write to log.
@@ -206,6 +246,7 @@ class TEI49C:
             for cmd in cls._set_config:
                 cfg.append(cls.serial_comm(cmd))
             cls._serial.close()
+            time.sleep(1)
 
             if cls._log:
                 cls._logger.info("Configuration of '%s' set to: %s" % (cls._name, cfg))
@@ -227,8 +268,12 @@ class TEI49C:
         :return str response as decoded string
         """
         try:
-            print("%s .get_data (name=%s, save=%s, simulate=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
-                                                                    cls._name, save, cls._simulate))
+            if cls._simulate:
+                print("%s .get_data (name=%s, save=%s, simulate=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                        cls._name, save, cls._simulate))
+            else:
+                print("%s .get_data (name=%s, save=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                        cls._name, save))
 
             if cmd is None:
                 cmd = cls._get_data

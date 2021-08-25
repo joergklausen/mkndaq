@@ -56,11 +56,16 @@ def main():
         # initialize data transfer
         sftp = SFTPClient(config=cfg)
 
-        # transfer most recent log file
-        print("%s Transfering most recent log file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
-        sftp.transfer_most_recent_file(localpath=os.path.expanduser(cfg['logs']), remotepath='logs')
+        # stage most recent config file
+        print("%s Staging current config file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        sftp.stage_current_config_file(config_file)
 
-        # transfer any existing data files
+        # stage most recent log file and define schedule
+        print("%s Staging current log file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        sftp.stage_current_log_file()
+        schedule.every().day.at('00:00').do(sftp.stage_current_log_file)
+
+        # transfer any existing staged files
         print("%s Transfering existing staged files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
         sftp.move_r()
 
@@ -85,8 +90,7 @@ def main():
             logger.error(err)
 
         # schedule for data transfer
-        rep_int = cfg['reporting_interval']
-        schedule.every(rep_int).minutes.at(':20').do(sftp.move_r)
+        schedule.every(cfg['reporting_interval']).minutes.at(':20').do(sftp.move_r)
 
         print("# Begin data acquisition and file transfer")
         while True:

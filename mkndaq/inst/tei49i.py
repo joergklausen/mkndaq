@@ -68,7 +68,7 @@ class TEI49I:
         try:
             cls._simulate = simulate
             # setup logging
-            if config[name]['logs']:
+            if config['logs']:
                 cls._log = True
                 logs = os.path.expanduser(config['logs'])
                 os.makedirs(logs, exist_ok=True)
@@ -109,19 +109,18 @@ class TEI49I:
             cls._staging = os.path.expanduser(config['staging']['path'])
             cls._zip = config['staging']['zip']
 
-            # query instrument to see if communication is possible
+            # query instrument to see if communication is possible, set date and time
             if not cls._simulate:
                 dte = cls.get_data('date', save=False)
                 if dte:
                     tme = cls.get_data('time', save=False)
-                    msg = "%s Instrument '%s' initialized. Instrument datetime is %s %s." % \
-                          (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name, dte, tme)
+                    msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (cls._name, dte, tme)
                     cls._logger.info(msg)
+                    cls.set_datetime()
                 else:
-                    msg = "%s Instrument '%s' did not respond as expected." % \
-                          (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name)
+                    msg = "Instrument '%s' did not respond as expected." % cls._name
                     cls._logger.error(msg)
-                print(msg)
+                print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
 
         except Exception as err:
             if cls._log:
@@ -204,6 +203,29 @@ class TEI49I:
             print(err)
 
     @classmethod
+    def set_datetime(cls) -> None:
+        """
+        Synchronize date and time of instrument with computer time.
+
+        :return:
+        """
+        try:
+            dte = cls.tcpip_comm("set date %s" % time.strftime('%m-%d-%y'))
+            msg = "Date of instrument %s set to: %s" % (cls._name, dte)
+            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            cls._logger.info(msg)
+
+            tme = cls.tcpip_comm("set time %s" % time.strftime('%H:%M:%S'))
+            msg = "Time of instrument %s set to: %s" % (cls._name, tme)
+            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            cls._logger.info(msg)
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
+    @classmethod
     def set_config(cls) -> list:
         """
         Set configuration of instrument and optionally write to log.
@@ -215,6 +237,7 @@ class TEI49I:
         try:
             for cmd in cls._set_config:
                 cfg.append(cls.tcpip_comm(cmd))
+            time.sleep(1)
 
             if cls._log:
                 cls._logger.info("Configuration of '%s' set to: %s" % (cls._name, cfg))
@@ -236,8 +259,12 @@ class TEI49I:
         :return str response as decoded string
         """
         try:
-            print("%s .get_data (name=%s, save=%s, simulate=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
-                                                                    cls._name, save, cls._simulate))
+            if cls._simulate:
+                print("%s .get_data (name=%s, save=%s, simulate=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                        cls._name, save, cls._simulate))
+            else:
+                print("%s .get_data (name=%s, save=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                           cls._name, save))
 
             if cmd is None:
                 cmd = cls._get_data

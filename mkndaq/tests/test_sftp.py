@@ -17,7 +17,14 @@ def main():
     sftp = SFTPClient(config)
 
     # find most recent log file
-    path = sftp.most_recent_logfile(os.path.expanduser(config['logs']))
+    # path = sftp.most_recent_logfile(os.path.expanduser(config['logs']))
+
+    # transfer folder with subfolder(s)
+    localpath = os.path.expanduser(config['staging']['path'])
+    remotepath = '.'
+    print("Transfering folder(s) %s > %s" % (localpath, remotepath))
+    sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
+    sftp.move_r()
 
     # transfer single file
     localpath = input("Enter full path to file to transfer: ")
@@ -31,11 +38,6 @@ def main():
     print("Transfering folder %s > %s" % (localpath, remotepath))
     sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
-    # transfer folder with subfolder(s)
-    localpath = os.path.expanduser(config['staging']['path'])
-    remotepath = 'data'
-    print("Transfering folder %s > %s" % (localpath, remotepath))
-    sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
 if __name__ == "__main__":
     main()

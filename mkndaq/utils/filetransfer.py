@@ -9,7 +9,10 @@ Manage files. Currently, sftp transfer to MeteoSwiss is supported.
 import os
 import logging
 import re
+import zipfile
+
 import pysftp
+import shutil
 import sockslib
 import time
 
@@ -23,10 +26,12 @@ class SFTPClient:
     - move_r(): recursively move files
     """
 
+    _zip = None
+    _logs = None
+    _staging = None
+    _logfile = None
     _log = False
     _logger = None
-    _localpath = None
-    _remotepath = None
     _sftpkey = None
     _sftpusr = None
     _sftphost = None
@@ -49,17 +54,17 @@ class SFTPClient:
         try:
 
             # setup logging
-            if config['sftp']['logs']:
+            if config['logs']:
                 cls._log = True
-                logs = os.path.expanduser(config['sftp']['logs'])
-                os.makedirs(logs, exist_ok=True)
-                logfile = '%s.log' % time.strftime('%Y%m%d')
-                logfile = os.path.join(logs, logfile)
+                cls._logs = os.path.expanduser(config['logs'])
+                os.makedirs(cls._logs, exist_ok=True)
+                cls._logfile = '%s.log' % time.strftime('%Y%m%d')
+                cls._logfile = os.path.join(cls._logs, cls._logfile)
                 cls._logger = logging.getLogger(__name__)
                 logging.basicConfig(level=logging.DEBUG,
                                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                     datefmt='%y-%m-%d %H:%M:%S',
-                                    filename=str(logfile),
+                                    filename=str(cls._logfile),
                                     filemode='a')
                 logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
 
@@ -74,10 +79,10 @@ class SFTPClient:
                     sock.set_proxy((config['sftp']['proxy']['socks5'],
                                     config['sftp']['proxy']['port']), sockslib.Socks.SOCKS5)
 
-            # configure localpath, remotepath
-            cls._localpath = os.path.expanduser(config['staging']['path'])
-            cls._localpath = re.sub(r'(/?\.?\\){1,2}', '/', cls._localpath)
-            cls._remotepath = os.path.basename(config['data'])
+            # configure staging
+            cls._staging = os.path.expanduser(config['staging']['path'])
+            cls._staging = re.sub(r'(/?\.?\\){1,2}', '/', cls._staging)
+            cls._zip = config['staging']['zip']
 
         except Exception as err:
             if cls._log:
@@ -91,7 +96,7 @@ class SFTPClient:
         onames = []
 
         if localpath is None:
-            localpath = cls._localpath
+            localpath = cls._staging
 
         def store_files_name(name):
             fnames.append(name)
@@ -116,28 +121,51 @@ class SFTPClient:
                 cls._logger.error(err)
             print(err)
 
-
     @classmethod
-    def transfer_most_recent_file(cls, localpath: str, remotepath: str) -> None:
+    def stage_current_log_file(cls) -> None:
         """
-        Given a path to a dir, transfer the most recent file
-        (by name, which coincides with last modified date).
+        Stage the most recent file
 
-        :param localpath:
         :return:
         """
         try:
-            filename = max(os.listdir(localpath))
-            localpath = os.path.join(localpath, filename)
-            localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
-            remotepath = "/".join([remotepath, filename])
-            cls.put(localpath=localpath, remotepath=remotepath)
+            root = os.path.join(cls._staging, os.path.basename(cls._logs))
+            os.makedirs(root, exist_ok=True)
+            if cls._zip:
+                # create zip file
+                archive = os.path.join(root, "".join([os.path.basename(cls._logfile[:-4]), ".zip"]))
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                    fh.write(cls._logfile, os.path.basename(cls._logfile))
+            else:
+                shutil.copyfile(cls._logfile, os.path.join(root, os.path.basename(cls._logfile)))
 
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
             print(err)
 
+    @classmethod
+    def stage_current_config_file(cls, config_file: str) -> None:
+        """
+        Stage the most recent file
+
+        :param: str config_file: path to config file
+        :return:
+        """
+        try:
+            os.makedirs(cls._staging, exist_ok=True)
+            if cls._zip:
+                # create zip file
+                archive = os.path.join(cls._staging, "".join([os.path.basename(config_file[:-4]), ".zip"]))
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                    fh.write(config_file, os.path.basename(config_file))
+            else:
+                shutil.copyfile(config_file, os.path.join(cls._staging, os.path.basename(config_file)))
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
 
     @classmethod
     def remotefiles(cls, remotepath=None) -> list:
@@ -177,7 +205,6 @@ class SFTPClient:
         try:
             msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
             with pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey) as conn:
-                conn = pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey)
                 conn.put(localpath=localpath, remotepath=remotepath, confirm=True, preserve_mtime=preserve_mtime)
                 print(msg)
                 cls._logger.info(msg)
@@ -211,13 +238,13 @@ class SFTPClient:
                     conn.mkdir(remotepath)
                 except OSError:
                     pass
-                for dir in dirs:
-                    dir = re.sub(r'(/?\.?\\){1,2}', '/', dir)
-                    dir = re.sub("".join([localpath, "/"]), "", "/".join([root, dir]))
+                for _dir in dirs:
+                    _dir = re.sub(r'(/?\.?\\){1,2}', '/', _dir)
+                    _dir = re.sub("".join([localpath, "/"]), "", "/".join([root, _dir]))
                     if remotepath:
-                        remoteitem = "/".join([remotepath, dir])
+                        remoteitem = "/".join([remotepath, _dir])
                     else:
-                        remoteitem = dir
+                        remoteitem = _dir
                     try:
                         conn.mkdir(remoteitem)
                     except OSError:
@@ -250,18 +277,19 @@ class SFTPClient:
         :return:
         """
         if localpath is None:
-            localpath = cls._localpath
+            localpath = cls._staging
 
         try:
             staged = cls.localfiles(localpath)
-            staged = [re.sub(cls._localpath, '.', s) for s in staged]
+            staged = [re.sub(cls._staging, '.', s) for s in staged]
             remote = cls.remotefiles(remotepath)
-            remote = [re.sub(remotepath, '.', r) for r in remote]
+            if remotepath != '.':
+                remote = [re.sub(remotepath, '.', r) for r in remote]
 
             # compare lists, find duplicates, then remove from staging
             xfered = set(remote).intersection(staged)
             for ele in xfered:
-                os.remove(re.sub('\\./', "".join([cls._localpath, '/']), ele))
+                os.remove(re.sub('\\./', "".join([cls._staging, '/']), ele))
             if cls._log:
                 cls._logger.info("Finished transfering %s" % str(xfered))
 
@@ -280,10 +308,10 @@ class SFTPClient:
         :return:
         """
         if localpath is None:
-            localpath = cls._localpath
+            localpath = cls._staging
 
         if remotepath is None:
-            remotepath = cls._remotepath
+            remotepath = '.'
 
         print(".move_r (source: %s, target: %s/%s/%s)" % (localpath, cls._sftphost, cls._sftpusr, remotepath))
         cls.put_r(localpath, remotepath)
