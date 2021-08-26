@@ -35,6 +35,8 @@ if __name__ == '__main__':
          }
 
     tei49c = TEI49C(name='tei49c', config=cfg, simulate=False)
+    print('hallo')
+    r = tei49c.serial_comm('set date 08-23-20')
     print(tei49c.get_config())
     print(tei49c.set_config())
 

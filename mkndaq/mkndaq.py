@@ -89,6 +89,14 @@ def main():
         except Exception as err:
             logger.error(err)
 
+        try:
+            if cfg['g2401']:
+                g2401 = G2401('g2401', config=cfg)
+                g2401.stage_latest_file()
+                schedule.every(cfg['g2401']['reporting_interval']).minutes.at(':00').do(g2401.stage_latest_file)
+        except Exception as err:
+            logger.error(err)
+
         # schedule for data transfer
         schedule.every(cfg['reporting_interval']).minutes.at(':20').do(sftp.move_r)
 
