@@ -259,12 +259,11 @@ class TEI49I:
         :return str response as decoded string
         """
         try:
+            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
             if cls._simulate:
-                print("%s .get_data (name=%s, save=%s, simulate=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
-                                                                        cls._name, save, cls._simulate))
+                print("%s .get_data (name=%s, save=%s, simulate=%s)" % (dtm, cls._name, save, cls._simulate))
             else:
-                print("%s .get_data (name=%s, save=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
-                                                           cls._name, save))
+                print("%s .get_data (name=%s, save=%s)" % (dtm, cls._name, save))
 
             if cmd is None:
                 cmd = cls._get_data
@@ -286,7 +285,7 @@ class TEI49I:
                         fh.write("%s\n" % cls._data_header)
                         fh.close()
                 with open(cls._datafile, "at") as fh:
-                    fh.write("%s\n" % data)
+                    fh.write("%s %s\n" % (dtm, data))
                     fh.close()
 
                 # stage data for transfer

@@ -16,6 +16,7 @@ from mkndaq.utils.configparser import config
 from mkndaq.utils.filetransfer import SFTPClient
 from mkndaq.inst.tei49c import TEI49C
 from mkndaq.inst.tei49i import TEI49I
+from mkndaq.inst.picarro import G2401
 
 
 def main():
@@ -77,6 +78,7 @@ def main():
                 tei49c.get_config()
                 tei49c.set_config()
                 schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(tei49c.get_data)
+                schedule.every().hour.at(':00').do(tei49c._set_config)
         except Exception as err:
             logger.error(err)
 
@@ -86,14 +88,15 @@ def main():
                 tei49i.get_config()
                 tei49i.set_config()
                 schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(tei49i.get_data)
+                schedule.every().day.at(':00').do(tei49c._set_config)
         except Exception as err:
             logger.error(err)
 
         try:
             if cfg['g2401']:
                 g2401 = G2401('g2401', config=cfg)
-                g2401.stage_latest_file()
-                schedule.every(cfg['g2401']['reporting_interval']).minutes.at(':00').do(g2401.stage_latest_file)
+                g2401.store_and_stage_latest_file()
+                schedule.every(cfg['g2401']['reporting_interval']).minutes.at(':00').do(g2401.store_and_stage_latest_file)
         except Exception as err:
             logger.error(err)
 

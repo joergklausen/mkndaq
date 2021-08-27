@@ -21,6 +21,7 @@ class G2401:
     Instrument of type Picarro G2410 with methods, attributes for interaction.
     """
 
+    _data_storage = None
     _log = None
     _zip = None
     _staging = None
@@ -44,6 +45,8 @@ class G2401:
         config : dict
             dictionary of attributes defining the instrument and port
         """
+        print("# Initialize G2401")
+
         try:
             # setup logging
             logdir = os.path.expanduser(config['logs'])
@@ -98,8 +101,9 @@ class G2401:
             print(err)
 
     @classmethod
-    def stage_latest_file(cls):
+    def store_and_stage_latest_file(cls):
         try:
+            # get data file from netshare
             if cls._data_storage == 'hourly':
                 path = os.path.join(cls._netshare, time.strftime("/%Y/%m/%d"))
             elif cls._data_storage == 'daily':
@@ -107,7 +111,9 @@ class G2401:
             else:
                 raise ValueError("Configuration 'data_storage' of %s must be <hourly|daily>." % cls._name)
             file = max(os.listdir(path))
-            print(file)
+
+            # store data file
+            shutil.copyfile(os.path.join(path, file), os.path.join(cls._datadir, file))
 
             # stage data for transfer
             stage = os.path.join(cls._staging, cls._name)
@@ -120,6 +126,9 @@ class G2401:
                     fh.write(os.path.join(path, file), file)
             else:
                 shutil.copyfile(os.path.join(path, file), os.path.join(stage, file))
+
+            print("%s .store_and_stage_latest_file (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
