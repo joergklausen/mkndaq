@@ -41,5 +41,8 @@ TCP/IP communication. Specify formats in the config file.
 	- choose IP
 	- align subnet mask and gateway
 	
+#### Picarro G2401
+Data collection from this instrument is currently handled simply through a network share.
+
 ### References
 [0] https://realpython.com/pyinstaller-python/#customizing-your-builds
