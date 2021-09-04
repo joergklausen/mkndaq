@@ -34,7 +34,7 @@ startup and every 5' thereafter. This is pre-configured and available as follows
 Serial communication using RS-232. Specify formats in
 the config file.
 
-#### TEI49I
+#### Thermo Model 49I
 TCP/IP communication. Specify formats in the config file.
 - Align TCP/IP settings with what router provides, specifically
     - DHCP to OFF
