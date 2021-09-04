@@ -5,6 +5,7 @@ Define a class TEI49C facilitating communication with a Thermo TEI49c instrument
 @author: joerg.klausen@meteoswiss.ch
 """
 
+import colorama
 import logging
 import os
 import serial
@@ -62,6 +63,7 @@ class TEI49C:
             - config['staging']['zip']
         :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
         """
+        colorama.init(autoreset=True)
         print("# Initialize TEI49C")
 
         try:
@@ -114,25 +116,25 @@ class TEI49C:
             cls._staging = os.path.expanduser(config['staging']['path'])
             cls._zip = config['staging']['zip']
 
-            # query instrument to see if communication is possible, set date and time
-            if not cls._simulate:
-                dte = cls.get_data('date', save=False)
-                if dte:
-                    tme = cls.get_data('time', save=False)
-                    msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (cls._name, dte, tme)
-                    cls._logger.info(msg)
+            # # query instrument to see if communication is possible, set date and time
+            # if not cls._simulate:
+            #     dte = cls.get_data('date', save=False)
+            #     if dte:
+            #         tme = cls.get_data('time', save=False)
+            #         msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (cls._name, dte, tme)
+            #         cls._logger.info(msg)
+            #
+            #         # set date and time
+            #         cls.set_datetime()
+            #     else:
+            #         msg = "Instrument '%s' did not respond as expected." % cls._name
+            #         cls._logger.error(msg)
+            #     print(colorama.Fore.RED + "%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
 
-                    # set date and time
-                    cls.set_datetime()
-                else:
-                    msg = "Instrument '%s' did not respond as expected." % cls._name
-                    cls._logger.error(msg)
-                print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
-
-        except serial.SerialException as err:
-            if cls._log:
-                cls._logger.error(err)
-            print(err)
+        # except serial.SerialException as err:
+        #     if cls._log:
+        #         cls._logger.error(err)
+        #     print(err)
 
         except Exception as err:
             if cls._log:
@@ -209,19 +211,12 @@ class TEI49C:
         :return:
         """
         try:
-            if cls._serial.is_open:
-                cls._serial.close()
-
-            cls._serial.open()
             dte = cls.serial_comm("set date %s" % time.strftime('%m-%d-%y'))
-            cls._serial.close()
             msg = "Date of instrument %s set to: %s" % (cls._name, dte)
             print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
             cls._logger.info(msg)
 
-            cls._serial.open()
             tme = cls.serial_comm("set time %s" % time.strftime('%H:%M:%S'))
-            cls._serial.close()
             msg = "Time of instrument %s set to: %s" % (cls._name, tme)
             print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
             cls._logger.info(msg)
@@ -314,6 +309,34 @@ class TEI49C:
                     shutil.copyfile(cls._datafile, os.path.join(root, os.path.basename(cls._datafile)))
 
             return data
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
+    @classmethod
+    def get_o3(cls) -> str:
+        try:
+            cls._serial.open()
+            o3 = cls.serial_comm('O3')
+            cls._serial.close()
+            return o3
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
+    @classmethod
+    def print_o3(cls) -> None:
+        try:
+            cls._serial.open()
+            o3 = cls.serial_comm('O3')
+            cls._serial.close()
+
+            print(colorama.Fore.GREEN + "%s [%s] %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                        cls._name, o3))
 
         except Exception as err:
             if cls._log:

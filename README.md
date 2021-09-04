@@ -11,7 +11,7 @@ A stand-alone Windows 10 executable can be generated using pyinstaller [0].
 
 In PyCharm, set up the PyInstaller workflow under File>Settings>Tools>External Tools>PyInstaller.
 Use the following tool seetings:
-- Program: C:\Users\jkl\Public\git\gaw-mkn-daq\venv\Scripts\pyinstaller.exe
+- Program: <path>\gaw-mkn-daq\venv\Scripts\pyinstaller.exe
 - Arguments: --onefile --name mkndaq.exe $FilePath$
 To execute the workflow:
 - highlight the CLI script, __main__.py
@@ -40,6 +40,21 @@ TCP/IP communication. Specify formats in the config file.
     - DHCP to OFF
 	- choose IP
 	- align subnet mask and gateway
-	
+
+#### Picarro G2401
+Mount network share in Windows. Document path in config file.
+
+#### Aerosol rack
+See [1,2]. Enable sharing of /Data/send as 'psi'. Lookup IP address using ifconfig.
+
+- Identify workgroup on Windows 10 machine:
+    - net config workstation
+
+- Identify and set workgroup on Ubuntu machine
+    - sudo gedit /etc/samba/smb.conf
+    - if needed, change the default entry 'workgroup = WORKGROUP' to match the Windows workgroup
+    
 ### References
-[0] https://realpython.com/pyinstaller-python/#customizing-your-builds
+- [0] https://realpython.com/pyinstaller-python/#customizing-your-builds
+- [1] https://itsfoss.com/share-folders-local-network-ubuntu-windows
+- [2] https://www.digitalcitizen.life/workgroup-ubuntu-linux/

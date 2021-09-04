@@ -5,12 +5,15 @@ Define a class TEI49I facilitating communication with a Thermo TEI49i instrument
 @author: joerg.klausen@meteoswiss.ch
 """
 
-import os
 import logging
+import os
 import shutil
 import socket
 import time
 import zipfile
+
+import colorama
+
 from mkndaq.utils import datetimebin
 
 
@@ -63,6 +66,7 @@ class TEI49I:
             - config['staging']['zip']
         :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
         """
+        colorama.init(autoreset=True)
         print("# Initialize TEI49I")
 
         try:
@@ -109,18 +113,18 @@ class TEI49I:
             cls._staging = os.path.expanduser(config['staging']['path'])
             cls._zip = config['staging']['zip']
 
-            # query instrument to see if communication is possible, set date and time
-            if not cls._simulate:
-                dte = cls.get_data('date', save=False)
-                if dte:
-                    tme = cls.get_data('time', save=False)
-                    msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (cls._name, dte, tme)
-                    cls._logger.info(msg)
-                    cls.set_datetime()
-                else:
-                    msg = "Instrument '%s' did not respond as expected." % cls._name
-                    cls._logger.error(msg)
-                print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            # # query instrument to see if communication is possible, set date and time
+            # if not cls._simulate:
+            #     dte = cls.get_data('date', save=False)
+            #     if dte:
+            #         tme = cls.get_data('time', save=False)
+            #         msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (cls._name, dte, tme)
+            #         cls._logger.info(msg)
+            #         cls.set_datetime()
+            #     else:
+            #         msg = "Instrument '%s' did not respond as expected." % cls._name
+            #         cls._logger.error(msg)
+            #     print(colorama.Fore.RED + "%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
 
         except Exception as err:
             if cls._log:
@@ -300,6 +304,28 @@ class TEI49I:
                     shutil.copyfile(cls._datafile, os.path.join(root, os.path.basename(cls._datafile)))
 
             return data
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
+    @classmethod
+    def get_o3(cls) -> str:
+        try:
+            return cls.tcpip_comm('o3')
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
+    @classmethod
+    def print_o3(cls) -> None:
+        try:
+            print(colorama.Fore.GREEN + "%s [%s] %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                        cls._name,
+                                                        cls.tcpip_comm('O3')))
 
         except Exception as err:
             if cls._log:

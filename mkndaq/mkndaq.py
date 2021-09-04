@@ -6,6 +6,7 @@ This relies on https://schedule.readthedocs.io/en/stable/index.html.
 
 @author: joerg.klausen@meteoswiss.ch
 """
+import colorama
 import os
 import logging
 import time
@@ -16,26 +17,33 @@ from mkndaq.utils.configparser import config
 from mkndaq.utils.filetransfer import SFTPClient
 from mkndaq.inst.tei49c import TEI49C
 from mkndaq.inst.tei49i import TEI49I
-from mkndaq.inst.picarro import G2401
+from mkndaq.inst.g2401 import G2401
 
 
 def main():
+    global tei49i, g2401, tei49c
     logs = None
     logger = None
     try:
+        colorama.init(autoreset=True)
+
         print("###  MKNDAQ started on %s" % time.strftime("%Y-%m-%d %H:%M"))
+        # collect and interprete CLI arguments
         parser = argparse.ArgumentParser(
             description='Data acquisition and transfer for MKN Global GAW Station.',
             usage='mkndaq[.exe] [-s] -c')
         parser.add_argument('-s', '--simulate', action='store_true',
                             help='simulate communication with instruments', required=False)
         parser.add_argument('-c', '--configuration', type=str, help='path to configuration file', required=True)
+        parser.add_argument('-f', '--fetch', type=int, default=20,
+                            help='interval in seconds to fetch and display current instrument data',
+                            required=False)
         args = parser.parse_args()
-
         simulate = args.simulate
+        fetch = args.fetch
+        config_file = args.configuration
 
         # read config file
-        config_file = args.configuration
         cfg = config(config_file)
 
         # setup logging
@@ -73,32 +81,29 @@ def main():
         # initialize instruments, get and set configurations and define schedules
         # NB: In case, more instruments should be handled, the relevant calls need to be included here below.
         try:
-            if cfg['tei49c']:
+            if cfg.get('tei49c', None):
                 tei49c = TEI49C(name='tei49c', config=cfg, simulate=simulate)
                 tei49c.get_config()
                 tei49c.set_config()
                 schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(tei49c.get_data)
-                schedule.every().hour.at(':00').do(tei49c._set_config)
-        except Exception as err:
-            logger.error(err)
-
-        try:
-            if cfg['tei49i']:
+                schedule.every(6).hours.at(':00').do(tei49c.set_datetime)
+                schedule.every(fetch).seconds.do(tei49c.print_o3)
+            if cfg.get('tei49i', None):
                 tei49i = TEI49I(name='tei49i', config=cfg, simulate=simulate)
                 tei49i.get_config()
                 tei49i.set_config()
                 schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(tei49i.get_data)
-                schedule.every().day.at(':00').do(tei49c._set_config)
-        except Exception as err:
-            logger.error(err)
-
-        try:
-            if cfg['g2401']:
+                schedule.every().day.at('00:00').do(tei49i.set_datetime)
+                schedule.every(fetch).seconds.do(tei49i.print_o3)
+            if cfg.get('g2401', None):
                 g2401 = G2401('g2401', config=cfg)
                 g2401.store_and_stage_latest_file()
-                schedule.every(cfg['g2401']['reporting_interval']).minutes.at(':00').do(g2401.store_and_stage_latest_file)
+                schedule.every(cfg['g2401']['reporting_interval']).minutes.at(':00').do(
+                    g2401.store_and_stage_latest_file)
+                schedule.every(fetch).seconds.do(g2401.print_co2_ch4_co)
+
         except Exception as err:
-            logger.error(err)
+            print(err)
 
         # schedule for data transfer
         schedule.every(cfg['reporting_interval']).minutes.at(':20').do(sftp.move_r)
