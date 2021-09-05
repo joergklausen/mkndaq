@@ -18,16 +18,18 @@ from mkndaq.utils.filetransfer import SFTPClient
 from mkndaq.inst.tei49c import TEI49C
 from mkndaq.inst.tei49i import TEI49I
 from mkndaq.inst.g2401 import G2401
+from mkndaq.inst.meteo import METEO
+from mkndaq.inst.aerosol import AEROSOL
 
 
 def main():
-    global tei49i, g2401, tei49c
+#    global tei49i, g2401, tei49c, meteo
     logs = None
     logger = None
     try:
         colorama.init(autoreset=True)
 
-        print("###  MKNDAQ started on %s" % time.strftime("%Y-%m-%d %H:%M"))
+        print("###  MKNDAQ (v0.4.1) started on %s" % time.strftime("%Y-%m-%d %H:%M"))
         # collect and interprete CLI arguments
         parser = argparse.ArgumentParser(
             description='Data acquisition and transfer for MKN Global GAW Station.',
@@ -60,7 +62,7 @@ def main():
         logging.getLogger('schedule').setLevel(level=logging.ERROR)
         logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
 
-        logger.info("=== mkndaq started ===")
+        logger.info("=== mkndaq (v0.4.1) started ===")
 
         # initialize data transfer
         sftp = SFTPClient(config=cfg)
@@ -68,15 +70,6 @@ def main():
         # stage most recent config file
         print("%s Staging current config file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
         sftp.stage_current_config_file(config_file)
-
-        # stage most recent log file and define schedule
-        print("%s Staging current log file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
-        sftp.stage_current_log_file()
-        schedule.every().day.at('00:00').do(sftp.stage_current_log_file)
-
-        # transfer any existing staged files
-        print("%s Transfering existing staged files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
-        sftp.move_r()
 
         # initialize instruments, get and set configurations and define schedules
         # NB: In case, more instruments should be handled, the relevant calls need to be included here below.
@@ -101,11 +94,28 @@ def main():
                 schedule.every(cfg['g2401']['reporting_interval']).minutes.at(':00').do(
                     g2401.store_and_stage_latest_file)
                 schedule.every(fetch).seconds.do(g2401.print_co2_ch4_co)
+            if cfg.get('meteo', None):
+                meteo = METEO('meteo', config=cfg)
+                meteo.store_and_stage_files()
+                schedule.every(cfg['meteo']['staging_interval']).minutes.do(meteo.store_and_stage_files)
+                schedule.every(cfg['meteo']['staging_interval']).minutes.do(meteo.print_meteo)
+            if cfg.get('aerosol', None):
+                aerosol = AEROSOL('aerosol', config=cfg)
+                aerosol.store_and_stage_files()
+                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.store_and_stage_files)
+                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.print_aerosol)
 
         except Exception as err:
             print(err)
 
-        # schedule for data transfer
+        # stage most recent log file and define schedule
+        print("%s Staging current log file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        sftp.stage_current_log_file()
+        schedule.every().day.at('00:00').do(sftp.stage_current_log_file)
+
+        # transfer any existing staged files and define schedule for data transfer
+        print("%s Transfering existing staged files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        sftp.move_r()
         schedule.every(cfg['reporting_interval']).minutes.at(':20').do(sftp.move_r)
 
         print("# Begin data acquisition and file transfer")
