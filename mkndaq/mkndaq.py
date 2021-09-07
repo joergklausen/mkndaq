@@ -12,6 +12,7 @@ import logging
 import time
 import argparse
 import schedule
+import threading
 
 from mkndaq.utils.configparser import config
 from mkndaq.utils.filetransfer import SFTPClient
@@ -22,14 +23,19 @@ from mkndaq.inst.meteo import METEO
 from mkndaq.inst.aerosol import AEROSOL
 
 
+def run_threaded(job_func):
+    job_thread = threading.Thread(target=job_func)
+    job_thread.start()
+
+
 def main():
-#    global tei49i, g2401, tei49c, meteo
+    #    global tei49i, g2401, tei49c, meteo
     logs = None
     logger = None
     try:
         colorama.init(autoreset=True)
 
-        print("###  MKNDAQ (v0.4.2) started on %s" % time.strftime("%Y-%m-%d %H:%M"))
+        print("###  MKNDAQ (v0.4.3) started on %s" % time.strftime("%Y-%m-%d %H:%M"))
         # collect and interprete CLI arguments
         parser = argparse.ArgumentParser(
             description='Data acquisition and transfer for MKN Global GAW Station.',
@@ -62,7 +68,7 @@ def main():
         logging.getLogger('schedule').setLevel(level=logging.ERROR)
         logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
 
-        logger.info("=== mkndaq (v0.4.2) started ===")
+        logger.info("=== mkndaq (v0.4.3) started ===")
 
         # initialize data transfer
         sftp = SFTPClient(config=cfg)
@@ -78,32 +84,33 @@ def main():
                 tei49c = TEI49C(name='tei49c', config=cfg, simulate=simulate)
                 tei49c.get_config()
                 tei49c.set_config()
-                schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(tei49c.get_data)
-                schedule.every(6).hours.at(':00').do(tei49c.set_datetime)
-                schedule.every(fetch).seconds.do(tei49c.print_o3)
+                schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49c.get_data)
+                schedule.every(6).hours.at(':00').do(run_threaded, tei49c.set_datetime)
+                schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
             if cfg.get('tei49i', None):
                 tei49i = TEI49I(name='tei49i', config=cfg, simulate=simulate)
                 tei49i.get_config()
                 tei49i.set_config()
-                schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(tei49i.get_data)
-                schedule.every().day.at('00:00').do(tei49i.set_datetime)
-                schedule.every(fetch).seconds.do(tei49i.print_o3)
+                schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i.get_data)
+                schedule.every().day.at('00:00').do(run_threaded, tei49i.set_datetime)
+                schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
             if cfg.get('g2401', None):
                 g2401 = G2401('g2401', config=cfg)
                 g2401.store_and_stage_latest_file()
                 schedule.every(cfg['g2401']['reporting_interval']).minutes.at(':00').do(
                     g2401.store_and_stage_latest_file)
-                schedule.every(fetch).seconds.do(g2401.print_co2_ch4_co)
+                schedule.every(fetch).seconds.do(run_threaded, g2401.print_co2_ch4_co)
             if cfg.get('meteo', None):
                 meteo = METEO('meteo', config=cfg)
                 meteo.store_and_stage_files()
-                schedule.every(cfg['meteo']['staging_interval']).minutes.do(meteo.store_and_stage_files)
-                schedule.every(cfg['meteo']['staging_interval']).minutes.do(meteo.print_meteo)
+                schedule.every(cfg['meteo']['staging_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
+                schedule.every(cfg['meteo']['staging_interval']).minutes.do(run_threaded, meteo.print_meteo)
             if cfg.get('aerosol', None):
                 aerosol = AEROSOL('aerosol', config=cfg)
                 aerosol.store_and_stage_files()
-                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.store_and_stage_files)
-                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.print_aerosol)
+                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(run_threaded,
+                                                                              aerosol.store_and_stage_files)
+                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(run_threaded, aerosol.print_aerosol)
 
         except Exception as err:
             print(err)
@@ -111,12 +118,12 @@ def main():
         # stage most recent log file and define schedule
         print("%s Staging current log file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
         sftp.stage_current_log_file()
-        schedule.every().day.at('00:00').do(sftp.stage_current_log_file)
+        schedule.every().day.at('00:00').do(run_threaded, sftp.stage_current_log_file)
 
         # transfer any existing staged files and define schedule for data transfer
         print("%s Transfering existing staged files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
         sftp.move_r()
-        schedule.every(cfg['reporting_interval']).minutes.at(':20').do(sftp.move_r)
+        schedule.every(cfg['reporting_interval']).minutes.at(':20').do(run_threaded, sftp.move_r)
 
         print("# Begin data acquisition and file transfer")
         while True:
