@@ -332,11 +332,11 @@ class TEI49C:
     def print_o3(cls) -> None:
         try:
             cls._serial.open()
-            o3 = cls.serial_comm('O3')
+            o3 = cls.serial_comm('O3').split()
             cls._serial.close()
 
-            print(colorama.Fore.GREEN + "%s [%s] %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
-                                                        cls._name, o3))
+            print(colorama.Fore.GREEN + "%s [%s] %s %s %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                        cls._name, o3[0], str(float(o3[1])), o3[2]))
 
         except Exception as err:
             if cls._log:

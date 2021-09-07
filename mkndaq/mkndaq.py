@@ -29,7 +29,7 @@ def main():
     try:
         colorama.init(autoreset=True)
 
-        print("###  MKNDAQ (v0.4.1) started on %s" % time.strftime("%Y-%m-%d %H:%M"))
+        print("###  MKNDAQ (v0.4.2) started on %s" % time.strftime("%Y-%m-%d %H:%M"))
         # collect and interprete CLI arguments
         parser = argparse.ArgumentParser(
             description='Data acquisition and transfer for MKN Global GAW Station.',
@@ -62,7 +62,7 @@ def main():
         logging.getLogger('schedule').setLevel(level=logging.ERROR)
         logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
 
-        logger.info("=== mkndaq (v0.4.1) started ===")
+        logger.info("=== mkndaq (v0.4.2) started ===")
 
         # initialize data transfer
         sftp = SFTPClient(config=cfg)

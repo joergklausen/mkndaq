@@ -323,9 +323,10 @@ class TEI49I:
     @classmethod
     def print_o3(cls) -> None:
         try:
-            print(colorama.Fore.GREEN + "%s [%s] %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+            o3 = cls.tcpip_comm('O3').split()
+            print(colorama.Fore.GREEN + "%s [%s] %s %s %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
                                                         cls._name,
-                                                        cls.tcpip_comm('O3')))
+                                                        o3[0], str(float(o3[1])), o3[2]))
 
         except Exception as err:
             if cls._log:

@@ -22,7 +22,6 @@ class AEROSOL:
     These data files are moved locally and staged for transfer.
     """
 
-    _netshare = None
     _log = None
     _staging = None
     _datadir = None
@@ -68,7 +67,8 @@ class AEROSOL:
             os.makedirs(cls._datadir, exist_ok=True)
 
             # source of data files
-            cls._netshare = config[name]['netshare']
+            # cls._netshare = config[name]['netshare']
+            cls._source = config[name]['source']
 
             # interval to fetch and stage data files
             cls._staging_interval = config[name]['staging_interval']
@@ -93,7 +93,7 @@ class AEROSOL:
             print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
 
             # get data file from local source
-            files = os.listdir(cls._netshare)
+            files = os.listdir(cls._source)
 
             if files:
                 # staging location for transfer
@@ -103,7 +103,7 @@ class AEROSOL:
                 # store and stage data files
                 for file in files:
                     # stage file
-                    shutil.copyfile(os.path.join(cls._source, file), os.path.join(stage, file))
+                    shutil.move(os.path.join(cls._source, file), os.path.join(stage, file))
 
         except Exception as err:
             if cls._log:
@@ -114,11 +114,11 @@ class AEROSOL:
     def print_aerosol(cls) -> None:
         try:
             # files = os.listdir(cls._source)
-            # if files != []:
+            # if files:
             #     file = max([x for x in files if "VMSW" in x])
             #
             #     data = cls.extract_short_bulletin(os.path.join(cls._source, file))
-            print(colorama.Fore.GREEN + "%s [%s] display not implemented." %
+            print(colorama.Fore.GREEN + "%s [%s] near-real-time display not implemented." %
                   (time.strftime("%Y-%m-%d %H:%M:%S"), cls._name))
 
         except Exception as err:
