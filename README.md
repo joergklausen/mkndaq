@@ -42,7 +42,7 @@ TCP/IP communication. Specify formats in the config file.
 	- align subnet mask and gateway
 
 #### Picarro G2401
-Mount network share in Windows. Document path in config file.
+Hourly files are pushed from Picarro to Minix using simple ftp. Files are staged from there.
 
 #### Aerosol rack
 See [1,2]. Enable sharing of /Data/send as 'psi'. Lookup IP address using ifconfig.
@@ -53,7 +53,12 @@ See [1,2]. Enable sharing of /Data/send as 'psi'. Lookup IP address using ifconf
 - Identify and set workgroup on Ubuntu machine
     - sudo gedit /etc/samba/smb.conf
     - if needed, change the default entry 'workgroup = WORKGROUP' to match the Windows workgroup
-    
+
+Files are now also pushed by simple ftp to Minix and staged from there.
+
+#### Meteo
+Files are pushed by simple ftp to Minix and staged from there.
+
 ### References
 - [0] https://realpython.com/pyinstaller-python/#customizing-your-builds
 - [1] https://itsfoss.com/share-folders-local-network-ubuntu-windows
