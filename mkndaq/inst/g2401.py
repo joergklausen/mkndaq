@@ -22,6 +22,7 @@ class G2401:
     Instrument of type Picarro G2410 with methods, attributes for interaction.
     """
 
+    _source = None
     _socksleep = None
     _sockaddr = None
     _socktout = None
@@ -71,14 +72,6 @@ class G2401:
             cls._socktout = config[name]['socket']['timeout']
             cls._socksleep = config[name]['socket']['sleep']
 
-            # # configure ftp access
-            # self._ftp_host = config[name]['ftp']['host']
-            # self._ftp_port = config[name]['ftp']['port']
-            # self._ftp_usr = config[name]['ftp']['usr']
-            # self._ftp_pwd = config[name]['ftp']['pwd']
-            # self._ftp_path = config[name]['ftp']['path']
-            # self._ftp_archive_on_server = config[name]['ftp']['archive_on_server']
-
             # read instrument control properties for later use
             cls._name = name
             cls._type = config[name]['type']
@@ -89,6 +82,12 @@ class G2401:
             datadir = os.path.expanduser(config['data'])
             cls._datadir = os.path.join(datadir, name)
             os.makedirs(cls._datadir, exist_ok=True)
+
+            # source of data files
+            cls._source = config[name]['source']
+
+            # interval to fetch and stage data files
+            cls._staging_interval = config[name]['staging_interval']
 
             # reporting/storage
             cls._reporting_interval = config[name]['reporting_interval']
@@ -175,6 +174,43 @@ class G2401:
                 shutil.copyfile(os.path.join(path, file), os.path.join(stage, file))
 
             print("%s .store_and_stage_latest_file (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
+    @classmethod
+    def store_and_stage_files(cls):
+        """
+        Fetch data files from local source and move to datadir. Zip files and place in staging area.
+
+        :return: None
+        """
+        try:
+            print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+
+            # get data file from local source
+            files = os.listdir(cls._source)
+
+            if files:
+                # staging location for transfer
+                stage = os.path.join(cls._staging, cls._name)
+                os.makedirs(stage, exist_ok=True)
+
+                # store and stage data files
+                for file in files:
+                    # stage file
+                    if cls._zip:
+                        # create zip file
+                        archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
+                        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                            fh.write(os.path.join(cls._source, file), file)
+                    else:
+                        shutil.copyfile(os.path.join(cls._source, file), os.path.join(stage, file))
+
+                    # move to data storage location
+                    shutil.move(os.path.join(cls._source, file), os.path.join(cls._datadir, file))
 
         except Exception as err:
             if cls._log:

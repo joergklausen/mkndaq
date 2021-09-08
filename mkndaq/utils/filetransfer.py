@@ -16,6 +16,7 @@ import shutil
 import sockslib
 import time
 
+import colorama
 
 class SFTPClient:
     """
@@ -50,6 +51,7 @@ class SFTPClient:
                     config['sftp']['logs']: relative path of log file, or empty
                     config['staging']['path']: relative path of staging area
         """
+        colorama.init(autoreset=True)
         print("# Initialize SFTPClient")
         try:
 
@@ -168,39 +170,6 @@ class SFTPClient:
             print(err)
 
     @classmethod
-    def remotefiles(cls, remotepath=None) -> list:
-        fnames = []
-        dnames = []
-        onames = []
-
-        if remotepath is None:
-            remotepath = '.'
-
-        def store_files_name(name):
-            fnames.append(name)
-
-        def store_dir_name(name):
-            dnames.append(name)
-
-        def store_other_file_types(name):
-            onames.append(name)
-
-        try:
-            with pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey) as conn:
-                conn.walktree(remotepath, store_files_name, store_dir_name, store_other_file_types)
-                # tidy up names
-                # dnames = [re.sub(r'(/?\.?\\){1,2}', '/', s) for s in dnames]
-                fnames = [re.sub(r'(/?\.?\\){1,2}', '/', s) for s in fnames]
-                # onames = [re.sub(r'(/?\.?\\){1,2}', '/', s) for s in onames]
-
-            return fnames
-
-        except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
-            print(err)
-
-    @classmethod
     def put(cls, localpath, remotepath, preserve_mtime=True) -> None:
         try:
             msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
@@ -215,9 +184,20 @@ class SFTPClient:
             print(err)
 
     @classmethod
+    def file_exists(cls, remotepath) -> bool:
+        try:
+#            msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
+            with pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey) as conn:
+                res = conn.isfile(remotepath=remotepath)
+            return res
+
+        except Exception as err:
+            print(err)
+
+    @classmethod
     def put_r(cls, localpath, remotepath, preserve_mtime=True) -> None:
         """
-        Recursively transfer all files from localpath to remotepath.
+        Recursively transfer (copy) all files from localpath to remotepath.
         Note: At present, parent elements of remote path must already exist.
 
         :param str localpath:
@@ -268,54 +248,69 @@ class SFTPClient:
             print(err)
 
     @classmethod
-    def remove_uploaded_files(cls, localpath=None, remotepath=None) -> None:
+    def xfer_r(cls, localpath=None, remotepath=None, preserve_mtime=True) -> None:
         """
-        Compare files in localpath with remote path, remove duplicates from localpath
+        Recursively transfer (move) all files from localpath to remotepath.
+        Note: At present, parent elements of remote path must already exist.
 
-        :param localpath: local path from which to transfer directories and files
-        :param remotepath: remote path to transfer files to
-        :return:
+        :param str localpath:
+        :param str remotepath:
+        :param bln preserve_mtime: see pysftp documentation
+        :return: Nothing
         """
-        if localpath is None:
-            localpath = cls._staging
-
         try:
-            staged = cls.localfiles(localpath)
-            staged = [re.sub(cls._staging, '.', s) for s in staged]
-            remote = cls.remotefiles(remotepath)
-            if remotepath != '.':
-                remote = [re.sub(remotepath, '.', r) for r in remote]
+            if localpath is None:
+                localpath = cls._staging
 
-            # compare lists, find duplicates, then remove from staging
-            xfered = set(remote).intersection(staged)
-            for ele in xfered:
-                os.remove(re.sub('\\./', "".join([cls._staging, '/']), ele))
-            if cls._log:
-                cls._logger.info("Finished transfering %s" % str(xfered))
+            if remotepath is None:
+                remotepath = '.'
+
+            print(".xfer_r (source: %s, target: %s/%s/%s)" % (localpath, cls._sftphost, cls._sftpusr, remotepath))
+            conn = pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey)
+
+            # sanitize localpath
+            localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
+
+            # make sure remote directory structure is complete
+            for root, dirs, files in os.walk(localpath):
+                root = re.sub(r'(/?\.?\\){1,2}', '/', root)
+                try:
+                    conn.mkdir(remotepath)
+                except OSError:
+                    pass
+                for _dir in dirs:
+                    _dir = re.sub(r'(/?\.?\\){1,2}', '/', _dir)
+                    _dir = re.sub("".join([localpath, "/"]), "", "/".join([root, _dir]))
+                    if remotepath:
+                        remoteitem = "/".join([remotepath, _dir])
+                    else:
+                        remoteitem = _dir
+                    try:
+                        conn.mkdir(remoteitem)
+                    except OSError:
+                        pass
+
+            # copy all local files to remote host
+            for root, dirs, files in os.walk(localpath):
+                root = re.sub(r'(/?\.?\\){1,2}', '/', root)
+                for localitem in files:
+                    localitem = re.sub(r'(/?\.?\\){1,2}', '/', os.path.join(root, localitem))
+                    remoteitem = "/".join([remotepath, re.sub("".join([localpath, "/"]), "", localitem)])
+                    conn.put(localpath=localitem, remotepath=remoteitem, confirm=True, preserve_mtime=preserve_mtime)
+                    if conn.isfile(remoteitem):
+                        msg = "%s %s > %s okay." % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)
+                        os.remove(localitem)
+                        print(msg)
+                    else:
+                        msg = "%s %s > %s failed." % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)
+                        print(colorama.Fore.RED + msg)
+                        cls._logger.info(msg)
+            conn.close()
 
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
             print(err)
-
-    @classmethod
-    def move_r(cls, localpath=None, remotepath=None) -> None:
-        """
-        Recursively put files using sftp, then verify existence of remote files and remove local copies.
-
-        :param localpath: local path from which to transfer directories and files
-        :param remotepath: remote path to transfer files to
-        :return:
-        """
-        if localpath is None:
-            localpath = cls._staging
-
-        if remotepath is None:
-            remotepath = '.'
-
-        print(".move_r (source: %s, target: %s/%s/%s)" % (localpath, cls._sftphost, cls._sftpusr, remotepath))
-        cls.put_r(localpath, remotepath)
-        cls.remove_uploaded_files(localpath, remotepath)
 
 
 if __name__ == "__main__":

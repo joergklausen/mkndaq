@@ -11,33 +11,44 @@ from mkndaq.utils import configparser
 from mkndaq.utils.filetransfer import SFTPClient
 
 def main():
-    config_file = input("Enter full path to config file: ")
+    config_file = input("Enter full path to config file or <Enter> for default: ")
+    if config_file == "":
+        config_file = "C:/Users/jkl/Public/git/gaw-mkn-daq/dist/mkndaq.cfg"
     config = configparser.config(config_file)
 
     sftp = SFTPClient(config)
 
-    # find most recent log file
-    # path = sftp.most_recent_logfile(os.path.expanduser(config['logs']))
+    menu = "[1] Transfer files in staging folder with subfolder(s)\n"
+    menu += "[2] Transfer files in some other folder\n"
+    menu += "[4] Verify remote file exists\n"
 
-    # transfer folder with subfolder(s)
-    localpath = os.path.expanduser(config['staging']['path'])
-    remotepath = '.'
-    print("Transfering folder(s) %s > %s" % (localpath, remotepath))
-    sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
-    sftp.move_r()
+    choice = input(menu)
+    if choice == '1':
+        # transfer folder with subfolder(s)
+        localpath = os.path.expanduser(config['staging']['path'])
+        remotepath = '.'
+        print("Transfering folder(s) %s > %s" % (localpath, remotepath))
+        sftp.xfer_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
+        # sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
+        # sftp.move_r()
 
-    # transfer single file
-    localpath = input("Enter full path to file to transfer: ")
-    remotepath = None
-    print("Transfering file %s > %s" % (localpath, remotepath))
-    sftp.put(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
+    if choice == '2':
+        # transfer folder with subfolder(s)
+        localpath = os.path.expanduser("~/Desktop/tmp")
+        remotepath = './test'
+        print("Transfering folder(s) %s > %s" % (localpath, remotepath))
+        sftp.xfer_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
-    # transfer folder
-    localpath = os.path.expanduser(config['logs'])
-    remotepath = 'logs'
-    print("Transfering folder %s > %s" % (localpath, remotepath))
-    sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
+    if choice == '3':
+        # transfer logs folder
+        localpath = os.path.expanduser(config['logs'])
+        remotepath = 'logs'
+        print("Transfering folder %s > %s" % (localpath, remotepath))
+        sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
-
+    if choice == '4':
+        # verify existence of file on remote server
+        remotepath = "./logs/20210908.zip"
+        print(sftp.file_exists(remotepath))
 if __name__ == "__main__":
     main()
