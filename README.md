@@ -1,4 +1,4 @@
-# gaw-mkn-daq
+# gaw-mkn
 
 @author: joerg.klausen@meteoswiss.ch
 
@@ -11,7 +11,7 @@ A stand-alone Windows 10 executable can be generated using pyinstaller [0].
 
 In PyCharm, set up the PyInstaller workflow under File>Settings>Tools>External Tools>PyInstaller.
 Use the following tool seetings:
-- Program: <path>\gaw-mkn-daq\venv\Scripts\pyinstaller.exe
+- Program: <path>\gaw-mkn\venv\Scripts\pyinstaller.exe
 - Arguments: --onefile --name mkndaq.exe $FilePath$
 To execute the workflow:
 - highlight the CLI script, __main__.py
@@ -42,10 +42,12 @@ TCP/IP communication. Specify formats in the config file.
 	- align subnet mask and gateway
 
 #### Picarro G2401
-Hourly files are pushed from Picarro to Minix using simple ftp. Files are staged from there.
+Hourly files are pushed from Picarro to Minix using simple ftp. Files are staged from there. 
+(NB: There is also a file share setup on the MKN MINIX. Share is not needed for mkndaq, but may be useful anyway).
 
 #### Aerosol rack
-See [1,2]. Enable sharing of /Data/send as 'psi'. Lookup IP address using ifconfig.
+Hourly files are pushed from PSI NUC to Minix using simple ftp. 
+See [1,2]. Enable sharing of /Data/send as 'psi'. Lookup IP address using ifconfig. (NB: Share is not needed for mkndaq, but may be useful anyway).
 
 - Identify workgroup on Windows 10 machine:
     - net config workstation
