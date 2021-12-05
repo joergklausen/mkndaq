@@ -1,8 +1,8 @@
-# gaw-mkn
+# mkndaq
 
 @author: joerg.klausen@meteoswiss.ch
 
-## mkndaq
+## scope
 Data acquisition of MKN data and transfer to MeteoSwiss. Supported instruments are queried and all data are staged as 
 zip files for periodic transfer via sftp.
 

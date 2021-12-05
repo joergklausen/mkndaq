@@ -20,7 +20,8 @@ def main():
 
     menu = "[1] Transfer files in staging folder with subfolder(s)\n"
     menu += "[2] Transfer files in some other folder\n"
-    menu += "[4] Verify remote file exists\n"
+    menu += "[4] Verify remote file exists (.file_exists)\n"
+    menu += "[5] Transfer test file and verify transfer\n"
 
     choice = input(menu)
     if choice == '1':
@@ -50,5 +51,11 @@ def main():
         # verify existence of file on remote server
         remotepath = "./logs/20210908.zip"
         print(sftp.file_exists(remotepath))
+
+    if choice == '5':
+        # Transfer test file and verify transfer
+        localpath = os.path.expanduser("~/Desktop/tmp/testfile")
+        remotepath = "./test"
+        sftp.put(localpath=localpath, remotepath=remotepath)
 if __name__ == "__main__":
     main()
