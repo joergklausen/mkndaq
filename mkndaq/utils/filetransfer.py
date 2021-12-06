@@ -92,7 +92,31 @@ class SFTPClient:
             print(err)
 
     @classmethod
+    def test_connection(cls) -> bool:
+        """Test connection to sftp server.
+
+        Returns:
+            bool: [description]
+        """
+        try:
+            with pysftp.Connection(cls._sftphost, username=cls._sftpusr, password=cls._sftpkey) as conn:
+                conn.put(None)
+                # sftp.close()
+                return True
+        except Exception as err:
+            print(err)
+            return False
+
+    @classmethod
     def localfiles(cls, localpath=None) -> list:
+        """Establish list of local files.
+
+        Args:
+            localpath ([type], optional): [description]. Defaults to None.
+
+        Returns:
+            list: [description]
+        """
         fnames = []
         dnames = []
         onames = []
@@ -126,7 +150,7 @@ class SFTPClient:
     @classmethod
     def stage_current_log_file(cls) -> None:
         """
-        Stage the most recent file
+        Stage the most recent file.
 
         :return:
         """
@@ -149,7 +173,7 @@ class SFTPClient:
     @classmethod
     def stage_current_config_file(cls, config_file: str) -> None:
         """
-        Stage the most recent file
+        Stage the most recent file.
 
         :param: str config_file: path to config file
         :return:
@@ -198,8 +222,7 @@ class SFTPClient:
     @classmethod
     def put_r(cls, localpath, remotepath, preserve_mtime=True) -> None:
         """
-        Recursively transfer (copy) all files from localpath to remotepath.
-        Note: At present, parent elements of remote path must already exist.
+        Recursively transfer (copy) all files from localpath to remotepath. Note: At present, parent elements of remote path must already exist.
 
         :param str localpath:
         :param str remotepath:
@@ -251,8 +274,7 @@ class SFTPClient:
     @classmethod
     def xfer_r(cls, localpath=None, remotepath=None, preserve_mtime=True) -> None:
         """
-        Recursively transfer (move) all files from localpath to remotepath.
-        Note: At present, parent elements of remote path must already exist.
+        Recursively transfer (move) all files from localpath to remotepath. Note: At present, parent elements of remote path must already exist.
 
         :param str localpath:
         :param str remotepath:
