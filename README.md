@@ -17,6 +17,14 @@ To execute the workflow:
 - highlight the CLI script, __main__.py
 - run >Tools>External Tools>PyInstaller.
 
+In VS Code, open a terminal in your venv, then navigate to
+	
+``(venv) user@host:~/<path>/mkndaq$``
+	
+Execute
+
+``pyinstaller --onefile --name mkndaq.exe ~/<path>/mkndaq/mkndaq/mkndaq.py``
+	
 ### usage
 Execute in a command window as
 
