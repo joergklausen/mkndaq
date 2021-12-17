@@ -254,7 +254,7 @@ class SFTPClient:
                 with ssh.open_sftp() as sftp:
                     # determine local directory structure, establish same structure on remote host
                     for dirpath, dirnames, filenames in os.walk(top=localpath):
-                        dirpath = dirpath.replace(localpath, remotepath)
+                        dirpath = re.sub(r'(/?\.?\\){1,2}', '/', dirpath).replace(localpath, remotepath)
                         try:
                             sftp.mkdir(dirpath, mode=16877)
                         except OSError:

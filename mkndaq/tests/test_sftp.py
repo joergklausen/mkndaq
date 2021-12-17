@@ -37,6 +37,7 @@ def main():
         localpath = os.path.expanduser(config['staging']['path'])
         remotepath = './test'
         print("Transfering folder(s) %s > %s" % (localpath, remotepath))
+        sftp.setup_remote_folders(localpath=localpath)
         sftp.xfer_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
     if choice == '3':
