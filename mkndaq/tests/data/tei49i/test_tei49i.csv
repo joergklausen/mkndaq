@@ -1,0 +1,464 @@
+lrec
+14:38 07-28-21  flags D800500 o3 0.367 cellai 124629.000 cellbi 95993.000 bncht 28.703 lmpt 53.718 o3lt 68.294 flowa 0.000 flowb 0.001 pres 724.798*
+sum 271a
+erec
+14:38 07-28-21 flags D800500 o3 0.000  1 lo o3 -0.200  1 lampi 0000 bencht 28.752 lampt 53.718 ozlampt 68.294 flowa 0.000 flowb 0.001 Pres 724.798 avgt 10 lo avgt 60 O3bkg 0.000 O3 coef 1.000 lo O3 coef 1.004 O3 range 5000.000 lo O3 range 200.000 int a 1E6D4 int b 176EA*
+sum 4757
+flagslrec layout 0D800500*
+sum 085c
+set lrec format 0 ok*
+sum 072f
+lrec
+14:38 07-28-21  flags D800500 o3 0.367 cellai 124629.000 cellbi 95993.000 bncht 28.703 lmpt 53.718 o3lt 68.294 flowa 0.000 flowb 0.001 pres 724.798*
+sum 271a
+lrec 100 5
+15:16 08-25-20  flags D800500 o3 -0.035 cellai 125937.000 cellbi 92183.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:17 08-25-20  flags D800500 o3 -0.331 cellai 125909.000 cellbi 92163.000 bncht 32.252 lmpt 53.929 o3lt 68.709 flowa 0.000 flowb 0.000 pres 722.091
+15:18 08-25-20  flags D800500 o3 -0.353 cellai 125909.000 cellbi 92164.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 722.091
+15:19 08-25-20  flags D800500 o3 -0.073 cellai 125898.000 cellbi 92156.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 722.091
+15:20 08-25-20  flags D800500 o3 0.101 cellai 125918.000 cellbi 92169.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 722.091*
+sum bd21
+list lrec
+field index variable
+ 1  1 o3
+ 2  5 cellai
+ 3  6 cellbi
+ 4 12 bncht
+ 5 13 lmpt
+ 6 14 o3lt
+ 7  9 flowa
+ 8 10 flowb
+ 9 11 pres*
+sum 24e5
+
+
+lrec
+14:41 07-28-21  flags D800500 o3 -0.240 cellai 124589.000 cellbi 95866.000 bncht 28.974 lmpt 53.718 o3lt 68.294 flowa 0.000 flowb 0.001 pres 724.798*
+sum 2745
+erec
+14:41 07-28-21 flags D800500 o3 0.000  1 lo o3 0.000  1 lampi 0000 bencht 29.048 lampt 53.718 ozlampt 68.294 flowa 0.000 flowb 0.000 Pres 724.798 avgt 10 lo avgt 60 O3bkg 0.000 O3 coef 1.000 lo O3 coef 1.004 O3 range 5000.000 lo O3 range 200.000 int a 1E69C int b 17658*
+sum 470b
+flagslrec layout 0D800500*
+sum 085c
+set lrec format 0 ok*
+sum 072f
+lrec
+14:41 07-28-21  flags D800500 o3 -0.240 cellai 124589.000 cellbi 95866.000 bncht 28.974 lmpt 53.718 o3lt 68.294 flowa 0.000 flowb 0.001 pres 724.798*
+sum 2745
+lrec 100 5
+15:19 08-25-20  flags D800500 o3 -0.073 cellai 125898.000 cellbi 92156.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 722.091
+15:20 08-25-20  flags D800500 o3 0.101 cellai 125918.000 cellbi 92169.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 722.091
+15:21 08-25-20  flags D800500 o3 -0.209 cellai 125912.000 cellbi 92166.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:22 08-25-20  flags D800500 o3 0.043 cellai 125913.000 cellbi 92166.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:23 08-25-20  flags D800500 o3 0.059 cellai 125918.000 cellbi 92171.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790*
+sum bcbb
+list lrec
+field index variable
+ 1  1 o3
+ 2  5 cellai
+ 3  6 cellbi
+ 4 12 bncht
+ 5 13 lmpt
+ 6 14 o3lt
+ 7  9 flowa
+ 8 10 flowb
+ 9 11 pres*
+sum 24e5
+
+
+lrec
+14:44 07-28-21  flags D800500 o3 0.226 cellai 124511.000 cellbi 95720.000 bncht 29.220 lmpt 53.718 o3lt 68.294 flowa 0.000 flowb 0.000 pres 724.798*
+sum 26f5
+erec
+14:44 07-28-21 flags D800500 o3 0.000  1 lo o3 -0.200  1 lampi 0000 bencht 29.294 lampt 53.718 ozlampt 68.294 flowa 0.000 flowb 0.000 Pres 724.798 avgt 10 lo avgt 60 O3bkg 0.000 O3 coef 1.000 lo O3 coef 1.004 O3 range 5000.000 lo O3 range 200.000 int a 1E657 int b 175CE*
+sum 474a
+flagslrec layout 0D800500*
+sum 085c
+set lrec format 0 ok*
+sum 072f
+lrec
+14:45 07-28-21  flags D800500 o3 -0.047 cellai 124510.000 cellbi 95695.000 bncht 29.294 lmpt 53.718 o3lt 68.294 flowa 0.000 flowb 0.000 pres 725.099*
+sum 2734
+lrec 100 5
+15:23 08-25-20  flags D800500 o3 0.059 cellai 125918.000 cellbi 92171.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:24 08-25-20  flags D800500 o3 -0.015 cellai 125909.000 cellbi 92165.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:25 08-25-20  flags D800500 o3 0.125 cellai 125906.000 cellbi 92163.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:26 08-25-20  flags D800500 o3 -0.274 cellai 125909.000 cellbi 92165.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 722.091
+15:27 08-25-20  flags D800500 o3 -0.270 cellai 125900.000 cellbi 92157.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 722.091*
+sum bce9
+list lrec
+field index variable
+ 1  1 o3
+ 2  5 cellai
+ 3  6 cellbi
+ 4 12 bncht
+ 5 13 lmpt
+ 6 14 o3lt
+ 7  9 flowa
+ 8 10 flowb
+ 9 11 pres*
+sum 24e5
+
+set format 00 ok*
+sum 0599
+
+o3 bkg  0.0 ppb*
+sum 0450
+
+o3 coef 1.004*
+sum 039c
+
+high o3 coef can't, wrong settings*
+sum 0c40
+
+low o3 coef can't, wrong settings*
+sum 0bf2
+
+lrec
+15:05 07-28-21  flags D800500 o3 0.305 cellai 124181.000 cellbi 95069.000 bncht 30.446 lmpt 53.754 o3lt 68.294 flowa 0.000 flowb 0.000 pres 724.798*
+sum 26fc
+
+erec
+15:05 07-28-21 flags D800500 o3 0.000  1 lo o3 0.300  1 lampi 0000 bencht 30.472 lampt 53.718 ozlampt 68.294 flowa 0.000 flowb 0.001 Pres 724.798 avgt 10 lo avgt 60 O3bkg 0.000 O3 coef 1.000 lo O3 coef 1.004 O3 range 5000.000 lo O3 range 200.000 int a 1E50C int b 17354*
+sum 46f8
+
+srec
+15:00 07-28-21  flags D800500 o3 -0.009*
+sum 0a73
+
+lr bad cmd*
+sum 03a3
+
+instr name 
+O3 Primary Standard
+O3 Primary Standard*
+sum 11fd
+
+flags 0D800500*
+sum 03f8
+
+lrec layout %s %s %lx %f %f %f %f %f %f %f %f %f
+t D L f f f f f f f f f
+flags o3 cellai cellbi bncht lmpt o3lt flowa flowb pres *
+sum 2737
+
+srec layout %s %s %lx %f
+t D L f
+flags o3 *
+sum 0ca6
+
+set gas unit ppb ok*
+sum 070d
+
+date 07-28-21*
+sum 0376
+
+set date yy-mm-dd bad cmd*
+sum 08dd
+
+set lrec format 0 ok*
+sum 072f
+
+lrec 100 5
+15:43 08-25-20  flags D800500 o3 0.060 cellai 125872.000 cellbi 92138.000 bncht 32.278 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:44 08-25-20  flags D800500 o3 -0.162 cellai 125878.000 cellbi 92146.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:45 08-25-20  flags D800500 o3 -0.222 cellai 125886.000 cellbi 92150.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:46 08-25-20  flags D800500 o3 0.021 cellai 125884.000 cellbi 92150.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:47 08-25-20  flags D800500 o3 0.018 cellai 125882.000 cellbi 92146.000 bncht 32.278 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790*
+sum bcdd
+
+list lrec
+field index variable
+ 1  1 o3
+ 2  5 cellai
+ 3  6 cellbi
+ 4 12 bncht
+ 5 13 lmpt
+ 6 14 o3lt
+ 7  9 flowa
+ 8 10 flowb
+ 9 11 pres*
+sum 24e5
+
+time 15:05:51*
+sum 039e
+
+set time hh:mm:ss ok*
+sum 0763
+
+set save params ok*
+sum 06e3
+
+set format 00 ok*
+sum 0599
+
+temp comp on*
+sum 04ac
+
+pres comp on*
+sum 04b0
+
+o3 bkg  0.0 ppb*
+sum 0450
+
+o3 coef 1.004*
+sum 039c
+
+lrec
+00:08 07-28-21  flags D800500 o3 0.162 cellai 124060.000 cellbi 94871.000 bncht 30.782 lmpt 53.754 o3lt 68.363 flowa 0.000 flowb 0.000 pres 724.798*
+sum 26f6
+
+erec
+00:08 07-28-21 flags D800500 o3 0.000  1 lo o3 0.200  1 lampi 0000 bencht 30.782 lampt 53.718 ozlampt 68.363 flowa 0.000 flowb 0.000 Pres 724.798 avgt 10 lo avgt 60 O3bkg 0.000 O3 coef 1.000 lo O3 coef 1.004 O3 range 5000.000 lo O3 range 200.000 int a 1E49F int b 17297*
+sum 4705
+
+srec
+15:00 07-28-21  flags D800500 o3 -0.009*
+sum 0a73
+
+lr00
+00:08 07-28-21  D800500 0.162 124060.000 94871.000 30.782 53.754 68.363 0.000 0.000 724.798*
+
+instr name 
+O3 Primary Standard
+O3 Primary Standard*
+sum 11fd
+
+flags 0D800500*
+sum 03f8
+
+lrec layout %s %s %lx %f %f %f %f %f %f %f %f %f
+t D L f f f f f f f f f
+flags o3 cellai cellbi bncht lmpt o3lt flowa flowb pres *
+sum 2737
+
+srec layout %s %s %lx %f
+t D L f
+flags o3 *
+sum 0ca6
+
+set gas unit ppb ok*
+sum 070d
+
+date 07-28-21*
+sum 0376
+
+set lrec format 0 ok*
+sum 072f
+
+lrec 100 5
+15:51 08-25-20  flags D800500 o3 0.017 cellai 125892.000 cellbi 92152.000 bncht 32.252 lmpt 53.929 o3lt 68.709 flowa 0.000 flowb 0.000 pres 721.790
+15:52 08-25-20  flags D800500 o3 -0.058 cellai 125897.000 cellbi 92155.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:53 08-25-20  flags D800500 o3 0.080 cellai 125884.000 cellbi 92148.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:54 08-25-20  flags D800500 o3 -0.036 cellai 125894.000 cellbi 92154.000 bncht 32.278 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:55 08-25-20  flags D800500 o3 0.005 cellai 125882.000 cellbi 92144.000 bncht 32.252 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790*
+sum bce4
+
+list lrec
+field index variable
+ 1  1 o3
+ 2  5 cellai
+ 3  6 cellbi
+ 4 12 bncht
+ 5 13 lmpt
+ 6 14 o3lt
+ 7  9 flowa
+ 8 10 flowb
+ 9 11 pres*
+sum 24e5
+
+time 00:08:36*
+sum 039e
+
+set save params ok*
+sum 06e3
+
+set format 00 ok*
+sum 0599
+
+temp comp on*
+sum 04ac
+
+pres comp on*
+sum 04b0
+
+o3 bkg  0.0 ppb*
+sum 0450
+
+o3 coef 1.004*
+sum 039c
+
+high o3 coef can't, wrong settings*
+sum 0c40
+
+low o3 coef can't, wrong settings*
+sum 0bf2
+
+lrec
+00:05 07-28-21  flags D800500 o3 0.261 cellai 123995.000 cellbi 94762.000 bncht 30.962 lmpt 53.754 o3lt 68.294 flowa 0.000 flowb 0.000 pres 724.798*
+sum 2705
+
+erec
+00:05 07-28-21 flags D800500 o3 0.000  1 lo o3 0.200  1 lampi 0000 bencht 30.962 lampt 53.754 ozlampt 68.294 flowa 0.000 flowb 0.000 Pres 724.798 avgt 10 lo avgt 60 O3bkg 0.000 O3 coef 1.000 lo O3 coef 1.004 O3 range 5000.000 lo O3 range 200.000 int a 1E44B int b 17218*
+sum 46f5
+
+srec
+15:00 07-28-21  flags D800500 o3 -0.009*
+sum 0a73
+
+lr00
+00:05 07-28-21  D800500 0.261 123995.000 94762.000 30.962 53.754 68.294 0.000 0.000 724.798*
+
+instr name 
+O3 Primary Standard
+O3 Primary Standard*
+sum 11fd
+
+flags 0D800500*
+sum 03f8
+
+lrec layout %s %s %lx %f %f %f %f %f %f %f %f %f
+t D L f f f f f f f f f
+flags o3 cellai cellbi bncht lmpt o3lt flowa flowb pres *
+sum 2737
+
+srec layout %s %s %lx %f
+t D L f
+flags o3 *
+sum 0ca6
+
+set gas unit ppb ok*
+sum 070d
+
+date 07-28-21*
+sum 0376
+
+set date yy-mm-dd bad cmd*
+sum 08dd
+
+set lrec format 0 ok*
+sum 072f
+
+lrec 100 5
+15:56 08-25-20  flags D800500 o3 -0.340 cellai 125891.000 cellbi 92151.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:58 08-25-20  flags D800500 o3 -0.042 cellai 125885.000 cellbi 92146.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+15:59 08-25-20  flags D800500 o3 0.089 cellai 125891.000 cellbi 92149.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+16:00 08-25-20  flags D800500 o3 0.235 cellai 125906.000 cellbi 92163.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+16:01 08-25-20  flags D800500 o3 0.202 cellai 125886.000 cellbi 92149.000 bncht 32.278 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790*
+sum bce2
+
+list lrec
+field index variable
+ 1  1 o3
+ 2  5 cellai
+ 3  6 cellbi
+ 4 12 bncht
+ 5 13 lmpt
+ 6 14 o3lt
+ 7  9 flowa
+ 8 10 flowb
+ 9 11 pres*
+sum 24e5
+
+time 00:06:07*
+sum 039a
+
+set time hh:mm:ss ok*
+sum 0763
+
+set time 17:30set save params ok*
+sum 0b23
+
+set format 01 ok*
+sum 059a
+
+temp comp on*
+sum 04ac
+
+pres comp on*
+sum 04b0
+
+o3 bkg  0.0 ppb*
+sum 0450
+
+o3 coef 1.004*
+sum 039c
+
+high o3 coef can't, wrong settings*
+sum 0c40
+
+low o3 coef can't, wrong settings*
+sum 0bf2
+
+lrec
+17:32 07-28-21  flags D800500 o3 0.077 cellai 123951.000 cellbi 94698.000 bncht 31.040 lmpt 53.754 o3lt 68.294 flowa 0.000 flowb 0.000 pres 724.798*
+sum 2706
+
+erec
+17:32 07-28-21 flags D800500 o3 0.000  1 lo o3 0.300  1 lampi 0000 bencht 31.066 lampt 53.754 ozlampt 68.294 flowa 0.000 flowb 0.001 Pres 724.497 avgt 10 lo avgt 60 O3bkg 0.000 O3 coef 1.000 lo O3 coef 1.004 O3 range 5000.000 lo O3 range 200.000 int a 1E425 int b 171DB*
+sum 4704
+
+srec
+15:00 07-28-21  flags D800500 o3 -0.009*
+sum 0a73
+
+lr00
+17:32 07-28-21  D800500 0.077 123951.000 94698.000 31.040 53.754 68.294 0.000 0.000 724.798*
+
+instr name 
+O3 Primary Standard
+O3 Primary Standard*
+sum 11fd
+
+flags 0D800500*
+sum 03f8
+
+lrec layout %s %s %lx %f %f %f %f %f %f %f %f %f
+t D L f f f f f f f f f
+flags o3 cellai cellbi bncht lmpt o3lt flowa flowb pres *
+sum 2737
+
+srec layout %s %s %lx %f
+t D L f
+flags o3 *
+sum 0ca6
+
+set gas unit ppb ok*
+sum 070d
+
+date 07-28-21*
+sum 0376
+
+set date 21-07-28 bad cmd*
+sum 077d
+
+set lrec format 0 ok*
+sum 072f
+
+lrec 100 5
+16:00 08-25-20  flags D800500 o3 0.235 cellai 125906.000 cellbi 92163.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+16:01 08-25-20  flags D800500 o3 0.202 cellai 125886.000 cellbi 92149.000 bncht 32.278 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+16:02 08-25-20  flags D800500 o3 -0.216 cellai 125893.000 cellbi 92152.000 bncht 32.252 lmpt 53.894 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+16:03 08-25-20  flags D800500 o3 0.099 cellai 125895.000 cellbi 92152.000 bncht 32.278 lmpt 53.929 o3lt 68.640 flowa 0.000 flowb 0.000 pres 721.790
+16:04 08-25-20  flags D800500 o3 0.209 cellai 125902.000 cellbi 92158.000 bncht 32.252 lmpt 53.929 o3lt 68.709 flowa 0.000 flowb 0.000 pres 721.790*
+sum bca9
+
+list lrec
+field index variable
+ 1  1 o3
+ 2  5 cellai
+ 3  6 cellbi
+ 4 12 bncht
+ 5 13 lmpt
+ 6 14 o3lt
+ 7  9 flowa
+ 8 10 flowb
+ 9 11 pres*
+sum 24e5
+
+time 17:33:18*
+sum 03a4
+
+set save params ok*
+sum 06e3
+
