@@ -11,7 +11,8 @@ import logging
 import re
 import zipfile
 
-import pysftp
+import paramiko
+# import pysftp
 import shutil
 import sockslib
 import time
@@ -70,10 +71,12 @@ class SFTPClient:
                                     filemode='a')
                 logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
 
+                paramiko.util.log_to_file(os.path.join(cls._logs, "paramiko.log"))
+
             # sftp settings
             cls._sftphost = config['sftp']['host']
             cls._sftpusr = config['sftp']['usr']
-            cls._sftpkey = config['sftp']['key']
+            cls._sftpkey = paramiko.RSAKey.from_private_key_file(os.path.expanduser(config['sftp']['key']))
 
             # configure client proxy if needed
             if config['sftp']['proxy']['socks5']:
@@ -92,17 +95,20 @@ class SFTPClient:
             print(err)
 
     @classmethod
-    def test_connection(cls) -> bool:
-        """Test connection to sftp server.
+    def is_alive(cls) -> bool:
+        """Test ssh connection to sftp server.
 
         Returns:
             bool: [description]
         """
         try:
-            with pysftp.Connection(cls._sftphost, username=cls._sftpusr, password=cls._sftpkey) as conn:
-                conn.put(None)
-                # sftp.close()
-                return True
+            with paramiko.SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)
+
+                with ssh.open_sftp() as sftp: 
+                    sftp.close()
+            return True
         except Exception as err:
             print(err)
             return False
@@ -134,7 +140,8 @@ class SFTPClient:
             onames.append(name)
 
         try:
-            pysftp.walktree(localpath, store_files_name, store_dir_name, store_other_file_types)
+            root, dnames, fnames = os.walk(localpath)
+            # pysftp.walktree(localpath, store_files_name, store_dir_name, store_other_file_types)
             # tidy up names
             # dnames = [re.sub(r'(/?\.?\\){1,2}', '/', s) for s in dnames]
             fnames = [re.sub(r'(/?\.?\\){1,2}', '/', s) for s in fnames]
@@ -194,13 +201,22 @@ class SFTPClient:
             print(err)
 
     @classmethod
-    def put(cls, localpath, remotepath, preserve_mtime=True) -> None:
+    def put(cls, localpath, remotepath) -> None:
+        """Send a file to a remotehost using SFTP and SSH.
+
+        Args:
+            localpath (str): full path to local file
+            remotepath (str): relative path to remotefile
+        """
         try:
             msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
-            with pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey) as conn:
-                res = conn.put(localpath=localpath, remotepath=remotepath, confirm=True, preserve_mtime=preserve_mtime)
+            with paramiko.SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)
+                with ssh.open_sftp() as sftp: 
+                    sftp.put(localpath=localpath, remotepath=remotepath, confirm=True)
+                    sftp.close()
                 print(msg)
-                print(res)
                 cls._logger.info(msg)
 
         except Exception as err:
@@ -209,70 +225,50 @@ class SFTPClient:
             print(err)
 
     @classmethod
-    def file_exists(cls, remotepath) -> bool:
-        try:
-#            msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
-            with pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey) as conn:
-                res = conn.isfile(remotepath=remotepath)
-            return res
-
-        except Exception as err:
-            print(err)
-
-    @classmethod
-    def put_r(cls, localpath, remotepath, preserve_mtime=True) -> None:
+    def setup_remote_folders(cls, localpath=None, remotepath=None) -> None:
         """
-        Recursively transfer (copy) all files from localpath to remotepath. Note: At present, parent elements of remote path must already exist.
+        Determine directory structure under localpath and replicate on remote host.
 
         :param str localpath:
         :param str remotepath:
-        :param bln preserve_mtime: see pysftp documentation
         :return: Nothing
         """
         try:
-            conn = pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey)
+            if localpath is None:
+                localpath = cls._staging
 
             # sanitize localpath
             localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
 
-            # make sure remote directory structure is complete
-            for root, dirs, files in os.walk(localpath):
-                root = re.sub(r'(/?\.?\\){1,2}', '/', root)
-                try:
-                    conn.mkdir(remotepath)
-                except OSError:
-                    pass
-                for _dir in dirs:
-                    _dir = re.sub(r'(/?\.?\\){1,2}', '/', _dir)
-                    _dir = re.sub("".join([localpath, "/"]), "", "/".join([root, _dir]))
-                    if remotepath:
-                        remoteitem = "/".join([remotepath, _dir])
-                    else:
-                        remoteitem = _dir
-                    try:
-                        conn.mkdir(remoteitem)
-                    except OSError:
-                        pass
+            if remotepath is None:
+                remotepath = '.'
+            
+            # sanitize remotepath
+            remotepath = re.sub(r'(/?\.?\\){1,2}', '/', remotepath)
 
-            # copy all local files to remote host
-            for root, dirs, files in os.walk(localpath):
-                root = re.sub(r'(/?\.?\\){1,2}', '/', root)
-                for localitem in files:
-                    localitem = re.sub(r'(/?\.?\\){1,2}', '/', os.path.join(root, localitem))
-                    remoteitem = "/".join([remotepath, re.sub("".join([localpath, "/"]), "", localitem)])
-                    msg = "%s .put_r %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)
-                    print(msg)
-                    conn.put(localpath=localitem, remotepath=remoteitem, confirm=True, preserve_mtime=preserve_mtime)
-                    cls._logger.info(msg)
-            conn.close()
+            print(".setup_remote_folders (source: %s, target: %s)" % (localpath, remotepath))
 
+            with paramiko.SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)
+                with ssh.open_sftp() as sftp:
+                    # determine local directory structure, establish same structure on remote host
+                    for dirpath, dirnames, filenames in os.walk(top=localpath):
+                        dirpath = dirpath.replace(localpath, remotepath)
+                        try:
+                            sftp.mkdir(dirpath, mode=16877)
+                        except OSError:
+                            pass
+                    sftp.close()
+        
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
             print(err)
 
+
     @classmethod
-    def xfer_r(cls, localpath=None, remotepath=None, preserve_mtime=True) -> None:
+    def xfer_r(cls, localpath=None, remotepath=None) -> None:
         """
         Recursively transfer (move) all files from localpath to remotepath. Note: At present, parent elements of remote path must already exist.
 
@@ -285,56 +281,34 @@ class SFTPClient:
             if localpath is None:
                 localpath = cls._staging
 
+            # sanitize localpath
+            localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
+
             if remotepath is None:
                 remotepath = '.'
 
             print(".xfer_r (source: %s, target: %s/%s/%s)" % (localpath, cls._sftphost, cls._sftpusr, remotepath))
-            conn = pysftp.Connection(host=cls._sftphost, username=cls._sftpusr, private_key=cls._sftpkey)
 
-            # sanitize localpath
-            localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
-
-            # make sure remote directory structure is complete
-            for root, dirs, files in os.walk(localpath):
-                root = re.sub(r'(/?\.?\\){1,2}', '/', root)
-                try:
-                    conn.mkdir(remotepath)
-                except OSError:
-                    pass
-                for _dir in dirs:
-                    _dir = re.sub(r'(/?\.?\\){1,2}', '/', _dir)
-                    _dir = re.sub("".join([localpath, "/"]), "", "/".join([root, _dir]))
-                    if remotepath:
-                        remoteitem = "/".join([remotepath, _dir])
-                    else:
-                        remoteitem = _dir
-                    try:
-                        conn.mkdir(remoteitem)
-                    except OSError:
-                        pass
-
-            # copy all local files to remote host
-            for root, dirs, files in os.walk(localpath):
-                root = re.sub(r'(/?\.?\\){1,2}', '/', root)
-                for localitem in files:
-                    localitem = re.sub(r'(/?\.?\\){1,2}', '/', os.path.join(root, localitem))
-                    remoteitem = "/".join([remotepath, re.sub("".join([localpath, "/"]), "", localitem)])
-                    conn.put(localpath=localitem, remotepath=remoteitem, confirm=True, preserve_mtime=preserve_mtime)
-                    if conn.isfile(remoteitem):
-                        msg = "%s %s > %s okay." % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)
-                        os.remove(localitem)
-                        print(msg)
-                    else:
-                        msg = "%s %s > %s failed." % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)
-                        print(colorama.Fore.RED + msg)
-                        cls._logger.info(msg)
-            conn.close()
+            with paramiko.SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)                
+                with ssh.open_sftp() as sftp:
+                    # walk local directory structure, put file to remote location
+                    for dirpath, dirnames, filenames in os.walk(top=localpath):
+                        for filename in filenames:
+                            localitem = os.path.join(dirpath, filename)
+                            remoteitem = os.path.join(dirpath.replace(localpath, remotepath), filename) 
+                            print("put %s > %s" % (localitem, remoteitem))
+                            sftp.put(localpath=localitem, remotepath=remoteitem, confirm=True)
+                    sftp.close()
 
         except Exception as err:
+            msg = "%s %s > %s failed." % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)
+            print(colorama.Fore.RED + msg)
             if cls._log:
+                cls._logger.info(msg)
                 cls._logger.error(err)
-            print(err)
-
+ 
 
 if __name__ == "__main__":
     pass

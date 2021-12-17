@@ -27,8 +27,10 @@ def main():
     if choice == '1':
         # test connection to sftp server
         remotepath = '.'
-        print("Test connection to %s" % remotepath)
-        sftp.test_connection()
+        if sftp.is_alive():
+            print("SFTP server is alive.")
+        else:
+            print("SFTP not reachable.")
 
     if choice == '2':
         # transfer folder with subfolder(s)
@@ -38,11 +40,11 @@ def main():
         sftp.xfer_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
     if choice == '3':
-        # transfer logs folder
-        localpath = os.path.expanduser(config['logs'])
-        remotepath = 'logs'
+        # transfer files in folder(s)
+        localpath = os.path.expanduser("~/Public/git/mkndaq/mkndaq/tests/data")
+        remotepath = './test'
         print("Transfering folder %s > %s" % (localpath, remotepath))
-        sftp.put_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
+        sftp.xfer_r(localpath=localpath, remotepath=remotepath, preserve_mtime=True)
 
     if choice == '4':
         # verify existence of file on remote server

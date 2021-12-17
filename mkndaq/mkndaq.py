@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Main driver for Windows 10. Initializes instruments and communication, then activates scheduled jobs for the main loop.
+
 This relies on https://schedule.readthedocs.io/en/stable/index.html.
 
 @author: joerg.klausen@meteoswiss.ch
@@ -24,17 +25,23 @@ from mkndaq.inst.aerosol import AEROSOL
 
 
 def run_threaded(job_func):
+    """Set up threading and start job.
+
+    Args:
+        job_func ([type]): [description]
+    """
     job_thread = threading.Thread(target=job_func)
     job_thread.start()
 
 def main():
-    #    global tei49i, g2401, tei49c, meteo
+    """Read config file, set up instruments, and launch data acquisition."""
     logs = None
     logger = None
     try:
         colorama.init(autoreset=True)
 
-        print("###  MKNDAQ (v0.4.4) started on %s" % time.strftime("%Y-%m-%d %H:%M"))
+        print("###  MKNDAQ (v0.4.5) started on %s" % time.strftime("%Y-%m-%d %H:%M"))
+ 
         # collect and interprete CLI arguments
         parser = argparse.ArgumentParser(
             description='Data acquisition and transfer for MKN Global GAW Station.',
@@ -67,10 +74,11 @@ def main():
         logging.getLogger('schedule').setLevel(level=logging.ERROR)
         logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
 
-        logger.info("=== mkndaq (v0.4.4) started ===")
+        logger.info("=== mkndaq (v0.4.5) started ===")
 
-        # initialize data transfer
+        # initialize data transfer, set up remote folders
         sftp = SFTPClient(config=cfg)
+        sftp.setup_remote_folders()
 
         # stage most recent config file
         print("%s Staging current config file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
@@ -111,6 +119,8 @@ def main():
                 schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.print_aerosol)
 
         except Exception as err:
+            if logs:
+                logger.error(err)
             print(err)
 
         # stage most recent log file and define schedule
