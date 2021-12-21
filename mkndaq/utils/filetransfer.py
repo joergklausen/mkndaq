@@ -247,7 +247,8 @@ class SFTPClient:
             # sanitize remotepath
             remotepath = re.sub(r'(/?\.?\\){1,2}', '/', remotepath)
 
-            print(".setup_remote_folders (source: %s, target: %s)" % (localpath, remotepath))
+            print("%s .setup_remote_folders (source: %s, target: %s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                         localpath, remotepath))
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -287,7 +288,8 @@ class SFTPClient:
             if remotepath is None:
                 remotepath = '.'
 
-            print(".xfer_r (source: %s, target: %s/%s/%s)" % (localpath, cls._sftphost, cls._sftpusr, remotepath))
+            print("%s .xfer_r (source: %s, target: %s/%s/%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                 localpath, cls._sftphost, cls._sftpusr, remotepath))
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -299,8 +301,16 @@ class SFTPClient:
                             localitem = os.path.join(dirpath, filename)
                             remoteitem = os.path.join(dirpath.replace(localpath, remotepath), filename)
                             remoteitem = re.sub(r'(\\){1,2}', '/', remoteitem)
+                            msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                                       localitem.replace(localpath, ''), remoteitem)
                             sftp.put(localpath=localitem, remotepath=remoteitem, confirm=True)
-                    sftp.close()
+                            print(msg)
+                            cls._logger.info(msg)
+
+                            # remove local file
+                            os.remove(localitem)
+
+                    # sftp.close()
 
         except Exception as err:
             msg = "%s %s > %s failed." % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)

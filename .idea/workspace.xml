@@ -398,7 +398,21 @@
       <option name="project" value="LOCAL" />
       <updated>1640077938609</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="v0.4.5">
+      <created>1640080471442</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1640080471442</updated>
+    </task>
+    <task id="LOCAL-00024" summary="v0.4.5">
+      <created>1640080523766</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1640080523766</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="Vcs.Log.History.Properties">
@@ -493,6 +507,11 @@
           <url>file://$PROJECT_DIR$/mkndaq/mkndaq.py</url>
           <line>83</line>
           <option name="timeStamp" value="258" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/mkndaq/utils/filetransfer.py</url>
+          <line>298</line>
+          <option name="timeStamp" value="264" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
