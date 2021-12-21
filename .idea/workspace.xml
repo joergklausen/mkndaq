@@ -9,12 +9,6 @@
   <component name="ChangeListManager">
     <list default="true" id="d82c4933-01b6-48c2-9551-4dc4b8784bad" name="Default Changelist" comment="v0.4.5">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mkndaq/tests/data/VMSW43.202109041720.001" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mkndaq/tests/data/VSRA02.202109041720.001" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mkndaq/tests/data/mkn_20210905T130007Z.tar.gz" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mkndaq/tests/data/sftptest" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mkndaq/tests/data/test_tei49c.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mkndaq/tests/test_sftp.py" beforeDir="false" afterPath="$PROJECT_DIR$/mkndaq/tests/test_sftp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mkndaq/utils/filetransfer.py" beforeDir="false" afterPath="$PROJECT_DIR$/mkndaq/utils/filetransfer.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -397,7 +391,14 @@
       <option name="project" value="LOCAL" />
       <updated>1640073747889</updated>
     </task>
-    <option name="localTasksCounter" value="22" />
+    <task id="LOCAL-00022" summary="v0.4.5">
+      <created>1640077938609</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1640077938609</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="Vcs.Log.History.Properties">
@@ -492,11 +493,6 @@
           <url>file://$PROJECT_DIR$/mkndaq/mkndaq.py</url>
           <line>83</line>
           <option name="timeStamp" value="258" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/mkndaq/tests/test_sftp.py</url>
-          <line>38</line>
-          <option name="timeStamp" value="263" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

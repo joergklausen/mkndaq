@@ -282,7 +282,7 @@ class SFTPClient:
                 localpath = cls._staging
 
             # sanitize localpath
-            localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
+            # localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
 
             if remotepath is None:
                 remotepath = '.'
