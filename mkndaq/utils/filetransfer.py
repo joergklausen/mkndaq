@@ -267,7 +267,6 @@ class SFTPClient:
                 cls._logger.error(err)
             print(err)
 
-
     @classmethod
     def xfer_r(cls, localpath=None, remotepath=None) -> None:
         """
@@ -299,7 +298,7 @@ class SFTPClient:
                         for filename in filenames:
                             localitem = os.path.join(dirpath, filename)
                             remoteitem = os.path.join(dirpath.replace(localpath, remotepath), filename)
-                            remoteitem = re.sub(r'(/?\.?\\){1,2}', '/', remoteitem)
+                            remoteitem = re.sub(r'(\\){1,2}', '/', remoteitem)
                             sftp.put(localpath=localitem, remotepath=remoteitem, confirm=True)
                     sftp.close()
 
