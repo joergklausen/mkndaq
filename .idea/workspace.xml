@@ -8,7 +8,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d82c4933-01b6-48c2-9551-4dc4b8784bad" name="Default Changelist" comment="v0.4.5">
-      <change beforePath="$PROJECT_DIR$/dist/mkndaq.exe" beforeDir="false" afterPath="$PROJECT_DIR$/dist/mkndaq.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkndaq/utils/filetransfer.py" beforeDir="false" afterPath="$PROJECT_DIR$/mkndaq/utils/filetransfer.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -376,7 +377,14 @@
       <option name="project" value="LOCAL" />
       <updated>1639741148033</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="v0.4.5">
+      <created>1639741473605</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1639741473605</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="Vcs.Log.History.Properties">
@@ -479,12 +487,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/mkndaq/utils/filetransfer.py</url>
-          <line>298</line>
-          <option name="timeStamp" value="251" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/mkndaq/utils/filetransfer.py</url>
-          <line>248</line>
+          <line>249</line>
           <option name="timeStamp" value="257" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">

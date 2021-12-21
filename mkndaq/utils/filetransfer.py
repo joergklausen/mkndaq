@@ -209,6 +209,7 @@ class SFTPClient:
             remotepath (str): relative path to remotefile
         """
         try:
+            remotepath = re.sub(r'(/?\.?\\){1,2}', '/', remotepath)
             msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -297,8 +298,8 @@ class SFTPClient:
                     for dirpath, dirnames, filenames in os.walk(top=localpath):
                         for filename in filenames:
                             localitem = os.path.join(dirpath, filename)
-                            remoteitem = os.path.join(dirpath.replace(localpath, remotepath), filename) 
-                            print("put %s > %s" % (localitem, remoteitem))
+                            remoteitem = os.path.join(dirpath.replace(localpath, remotepath), filename)
+                            remoteitem = re.sub(r'(/?\.?\\){1,2}', '/', remoteitem)
                             sftp.put(localpath=localitem, remotepath=remoteitem, confirm=True)
                     sftp.close()
 
