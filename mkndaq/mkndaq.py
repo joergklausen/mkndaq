@@ -39,8 +39,8 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-
-        print("###  MKNDAQ (v0.4.5) started on %s" % time.strftime("%Y-%m-%d %H:%M"))
+        version = 'v0.4.6'
+        print("###  MKNDAQ (%s) started on %s" % (version, time.strftime("%Y-%m-%d %H:%M")))
  
         # collect and interprete CLI arguments
         parser = argparse.ArgumentParser(
@@ -74,7 +74,7 @@ def main():
         logging.getLogger('schedule').setLevel(level=logging.ERROR)
         logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
 
-        logger.info("=== mkndaq (v0.4.5) started ===")
+        logger.info("=== mkndaq (%s) started ===" % version)
 
         # initialize data transfer, set up remote folders
         sftp = SFTPClient(config=cfg)
