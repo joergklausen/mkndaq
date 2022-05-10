@@ -9,6 +9,7 @@ Manage files. Currently, sftp transfer to MeteoSwiss is supported.
 import os
 import logging
 import re
+from xmlrpc.client import Boolean
 import zipfile
 
 import paramiko
@@ -24,8 +25,13 @@ class SFTPClient:
     SFTP based file handling, optionally using SOCKS5 proxy.
 
     Available methods include
+    - is_alive():
+    - localfiles():
+    - stage_current_log_file():
+    - stage_current_config_file():
+    - setup_remote_folders():
     - put_r(): recursively put files
-    - move_r(): recursively move files
+    - xfer_r(): recursively move files
     """
 
     _zip = None
@@ -226,6 +232,30 @@ class SFTPClient:
             print(err)
 
     @classmethod
+    def remote_item_exists(cls, remoteitem) -> Boolean:
+        """Check on remote server if an item exists. Assume this indicates successful transfer.
+
+        Args:
+            remoteitem (str): path to remote item
+
+        Returns:
+            Boolean: True if item exists, False otherwise.
+        """
+        try:
+            with paramiko.SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)
+                with ssh.open_sftp() as sftp:
+                    if sftp.stat(remoteitem).size > 0:
+                        return True
+                    else:
+                        return False
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
+
+    @classmethod
     def setup_remote_folders(cls, localpath=None, remotepath=None) -> None:
         """
         Determine directory structure under localpath and replicate on remote host.
@@ -307,10 +337,16 @@ class SFTPClient:
                             print(msg)
                             cls._logger.info(msg)
 
-                            # remove local file
-                            os.remove(localitem)
-
-                    # sftp.close()
+                            # remove local file if it exists on remote host.
+                            try:
+                                if sftp.stat(remoteitem).size > 0:
+                                    os.remove(localitem)
+                            except Exception as err:
+                                msg = "%s %s not found on remote host, will try again later." % (time.strftime('%Y-%m-%d %H:%M:%S'), remoteitem)
+                                print(colorama.Fore.RED + msg)
+                                if cls._log:
+                                    cls._logger.info(msg)
+                                    cls._logger.error(err)
 
         except Exception as err:
             msg = "%s %s > %s failed." % (time.strftime('%Y-%m-%d %H:%M:%S'), localitem, remoteitem)
