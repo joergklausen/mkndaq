@@ -23,7 +23,7 @@ In VS Code, open a terminal in your venv, then navigate to
 	
 Execute
 
-``pyinstaller --onefile --name mkndaq.exe ~/<path>/mkndaq/mkndaq/mkndaq.py``
+``pyinstaller --onefile --name mkndaq.exe mkndaq/mkndaq.py``
 	
 ### usage
 Execute in a command window as

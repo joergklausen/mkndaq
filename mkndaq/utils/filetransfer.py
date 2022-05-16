@@ -333,13 +333,16 @@ class SFTPClient:
                             remoteitem = re.sub(r'(\\){1,2}', '/', remoteitem)
                             msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'),
                                                        localitem.replace(localpath, ''), remoteitem)
-                            sftp.put(localpath=localitem, remotepath=remoteitem, confirm=True)
+                            res = sftp.put(localpath=localitem, remotepath=remoteitem, confirm=True)
                             print(msg)
                             cls._logger.info(msg)
 
                             # remove local file if it exists on remote host.
                             try:
-                                if sftp.stat(remoteitem).size > 0:
+                                localsize = os.stat(localitem).st_size
+                                remotesize = res.st_size
+                                print("localitem size: %s, remoteitem size: %s" % (localsize, remotesize))
+                                if remotesize == localsize:
                                     os.remove(localitem)
                             except Exception as err:
                                 msg = "%s %s not found on remote host, will try again later." % (time.strftime('%Y-%m-%d %H:%M:%S'), remoteitem)

@@ -6,11 +6,8 @@
         {
             "label": "build mkndaq",
             "type": "shell",
-            "command": "PS pyinstaller",
+            "command": "~/Public/git/venv/Scripts/pyinstaller.exe --onefile --name mkndaq.exe mkndaq/mkndaq.py",
             "args": [
-                "--onefile",
-                "--name mkndaq.exe",
-                "mkndaq/mkndaq.py"
             ],
             "group": {
                 "kind": "build",
@@ -20,7 +17,7 @@
                 "reveal": "always",
                 "panel": "new"
             },
-            "problemMatcher": "$msCompile"
+            "problemMatcher": ""
         }
     ]
 }
