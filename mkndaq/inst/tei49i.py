@@ -111,7 +111,7 @@ class TEI49I:
 
             # staging area for files to be transfered
             cls._staging = os.path.expanduser(config['staging']['path'])
-            cls._zip = config['staging']['zip']
+            cls._zip = config['staging']['zip']['tei49i']
 
             # # query instrument to see if communication is possible, set date and time
             # if not cls._simulate:

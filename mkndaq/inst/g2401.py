@@ -98,7 +98,7 @@ class G2401:
 
             # staging area for files to be transfered
             cls._staging = os.path.expanduser(config['staging']['path'])
-            cls._zip = config['staging']['zip']
+            cls._zip = config['staging']['zip']['g2401']
 
         except Exception as err:
             if cls._log:
