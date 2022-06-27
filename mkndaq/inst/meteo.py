@@ -75,7 +75,7 @@ class METEO:
 
             # staging area for files to be transfered
             cls._staging = os.path.expanduser(config['staging']['path'])
-            cls._zip = config['staging']['zip']['meteo']
+            cls._zip = config[name]['staging_zip']
 
         except Exception as err:
             if cls._log:
