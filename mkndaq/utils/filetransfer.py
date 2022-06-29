@@ -5,18 +5,18 @@ Manage files. Currently, sftp transfer to MeteoSwiss is supported.
 
 @author: joerg.klausen@meteoswiss.ch
 """
-
+#%%
 import os
 import logging
 import re
 from xmlrpc.client import Boolean
 import zipfile
 
-import paramiko
 # import pysftp
 import shutil
-import sockslib
 import time
+import sockslib
+import paramiko
 
 import colorama
 
@@ -67,7 +67,7 @@ class SFTPClient:
                 cls._log = True
                 cls._logs = os.path.expanduser(config['logs'])
                 os.makedirs(cls._logs, exist_ok=True)
-                cls._logfile = '%s.log' % time.strftime('%Y%m%d')
+                cls._logfile = f"{time.strftime('%Y%m%d')}.log"
                 cls._logfile = os.path.join(cls._logs, cls._logfile)
                 cls._logger = logging.getLogger(__name__)
                 logging.basicConfig(level=logging.DEBUG,
@@ -82,7 +82,8 @@ class SFTPClient:
             # sftp settings
             cls._sftphost = config['sftp']['host']
             cls._sftpusr = config['sftp']['usr']
-            cls._sftpkey = paramiko.RSAKey.from_private_key_file(os.path.expanduser(config['sftp']['key']))
+            cls._sftpkey = paramiko.RSAKey.from_private_key_file(\
+                os.path.expanduser(config['sftp']['key']))
 
             # configure client proxy if needed
             if config['sftp']['proxy']['socks5']:
@@ -112,7 +113,7 @@ class SFTPClient:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)
 
-                with ssh.open_sftp() as sftp: 
+                with ssh.open_sftp() as sftp:
                     sftp.close()
             return True
         except Exception as err:
@@ -136,14 +137,14 @@ class SFTPClient:
         if localpath is None:
             localpath = cls._staging
 
-        def store_files_name(name):
-            fnames.append(name)
+        # def store_files_name(name):
+        #     fnames.append(name)
 
-        def store_dir_name(name):
-            dnames.append(name)
+        # def store_dir_name(name):
+        #     dnames.append(name)
 
-        def store_other_file_types(name):
-            onames.append(name)
+        # def store_other_file_types(name):
+        #     onames.append(name)
 
         try:
             root, dnames, fnames = os.walk(localpath)
@@ -195,11 +196,13 @@ class SFTPClient:
             os.makedirs(cls._staging, exist_ok=True)
             if cls._zip:
                 # create zip file
-                archive = os.path.join(cls._staging, "".join([os.path.basename(config_file[:-4]), ".zip"]))
+                archive = os.path.join(cls._staging, "".join([os.path.basename(\
+                    config_file[:-4]), ".zip"]))
                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
                     fh.write(config_file, os.path.basename(config_file))
             else:
-                shutil.copyfile(config_file, os.path.join(cls._staging, os.path.basename(config_file)))
+                shutil.copyfile(config_file, os.path.join(\
+                    cls._staging, os.path.basename(config_file)))
 
         except Exception as err:
             if cls._log:
@@ -216,11 +219,11 @@ class SFTPClient:
         """
         try:
             remotepath = re.sub(r'(/?\.?\\){1,2}', '/', remotepath)
-            msg = "%s .put %s > %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), localpath, remotepath)
+            msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} .put {localpath} > {remotepath}"
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)
-                with ssh.open_sftp() as sftp: 
+                with ssh.open_sftp() as sftp:
                     sftp.put(localpath=localpath, remotepath=remotepath, confirm=True)
                     sftp.close()
                 print(msg)
@@ -273,12 +276,11 @@ class SFTPClient:
 
             if remotepath is None:
                 remotepath = '.'
-            
+
             # sanitize remotepath
             remotepath = re.sub(r'(/?\.?\\){1,2}', '/', remotepath)
 
-            print("%s .setup_remote_folders (source: %s, target: %s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
-                                                                         localpath, remotepath))
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .setup_remote_folders (source: {localpath}, target: {remotepath})")
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -292,7 +294,7 @@ class SFTPClient:
                         except OSError:
                             pass
                     sftp.close()
-        
+
         except Exception as err:
             if cls._log:
                 cls._logger.error(err)
@@ -318,12 +320,11 @@ class SFTPClient:
             if remotepath is None:
                 remotepath = '.'
 
-            print("%s .xfer_r (source: %s, target: %s/%s/%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'),
-                                                                 localpath, cls._sftphost, cls._sftpusr, remotepath))
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .xfer_r (source: {localpath}, target: {cls._sftphost}/{cls._sftpusr}/{remotepath})")
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)                
+                ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)
                 with ssh.open_sftp() as sftp:
                     # walk local directory structure, put file to remote location
                     for dirpath, dirnames, filenames in os.walk(top=localpath):
@@ -357,7 +358,7 @@ class SFTPClient:
             if cls._log:
                 cls._logger.info(msg)
                 cls._logger.error(err)
- 
+
 
 if __name__ == "__main__":
     pass

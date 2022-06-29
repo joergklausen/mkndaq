@@ -7,13 +7,13 @@ This relies on https://schedule.readthedocs.io/en/stable/index.html.
 
 @author: joerg.klausen@meteoswiss.ch
 """
-import colorama
 import os
+import argparse
 import logging
 import time
-import argparse
-import schedule
 import threading
+import schedule
+import colorama
 
 from mkndaq.utils.configparser import config
 from mkndaq.utils.filetransfer import SFTPClient
@@ -39,9 +39,9 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-        version = 'v0.4.6'
+        version = 'v0.4.7'
         print("###  MKNDAQ (%s) started on %s" % (version, time.strftime("%Y-%m-%d %H:%M")))
- 
+
         # collect and interprete CLI arguments
         parser = argparse.ArgumentParser(
             description='Data acquisition and transfer for MKN Global GAW Station.',

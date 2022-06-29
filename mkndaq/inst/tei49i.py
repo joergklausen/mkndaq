@@ -23,7 +23,7 @@ class TEI49I:
     """
 
     _datadir = None
-    _datafile = None
+    _datafile = ""
     _data_header = None
     _get_config = None
     _get_data = None
@@ -44,9 +44,9 @@ class TEI49I:
     def __init__(cls, name: str, config: dict, simulate=False) -> None:
         """
         Initialize instrument class.
-        
+
         :param name: name of instrument
-        :param config: dictionary of attributes defining the instrument, serial port and other information
+        :param config: dictionary of attributes defining instrument, serial port and more
             - config[name]['type']
             - config[name]['id']
             - config[name]['serial_number']
@@ -76,7 +76,7 @@ class TEI49I:
                 cls._log = True
                 logs = os.path.expanduser(config['logs'])
                 os.makedirs(logs, exist_ok=True)
-                logfile = '%s.log' % time.strftime('%Y%m%d')
+                logfile = f"{time.strftime('%Y%m%d')}.log"
                 cls._logger = logging.getLogger(__name__)
                 logging.basicConfig(level=logging.DEBUG,
                                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
@@ -111,7 +111,7 @@ class TEI49I:
 
             # staging area for files to be transfered
             cls._staging = os.path.expanduser(config['staging']['path'])
-            cls._zip = config['staging']['zip']['tei49i']
+            cls._zip = config[name]['staging_zip']
 
             # # query instrument to see if communication is possible, set date and time
             # if not cls._simulate:
@@ -156,7 +156,7 @@ class TEI49I:
                         _id = b''
 
                     # send data
-                    s.sendall(_id + ('%s\x0D' % cmd).encode())
+                    s.sendall(_id + (f"{cmd}\x0D").encode())
                     time.sleep(cls._socksleep)
 
                     # receive response
@@ -175,6 +175,10 @@ class TEI49I:
                 if "\n" in rcvd:
                     rcvd = rcvd.split("\n")[1]
 
+            # TODO: test with local instrument
+            # if rcvd is None:
+            #     rcvd = ""
+
             return rcvd
 
         except Exception as err:
@@ -188,16 +192,16 @@ class TEI49I:
         Read current configuration of instrument and optionally write to log.
 
         :return (err, cfg) configuration or errors, if any.
-        
+
         """
-        print("%s .get_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+        print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .get_config (name={cls._name})")
         cfg = []
         try:
             for cmd in cls._get_config:
                 cfg.append(cls.tcpip_comm(cmd))
 
             if cls._log:
-                cls._logger.info("Current configuration of '%s': %s" % (cls._name, cfg))
+                cls._logger.info(f"Current configuration of '{cls._name}': {cfg}")
 
             return cfg
 
@@ -283,13 +287,13 @@ class TEI49I:
                                              "".join([cls._name, "-",
                                                       datetimebin.dtbin(cls._reporting_interval), ".dat"]))
 
-                if not (os.path.exists(cls._datafile)):
+                if not os.path.exists(cls._datafile):
                     # if file doesn't exist, create and write header
-                    with open(cls._datafile, "at") as fh:
-                        fh.write("%s\n" % cls._data_header)
+                    with open(cls._datafile, "at", encoding='utf8') as fh:
+                        fh.write(f"{cls._data_header}\n")
                         fh.close()
-                with open(cls._datafile, "at") as fh:
-                    fh.write("%s %s\n" % (dtm, data))
+                with open(cls._datafile, "at", encoding='utf8') as fh:
+                    fh.write(f"{dtm} {data}\n")
                     fh.close()
 
                 # stage data for transfer
