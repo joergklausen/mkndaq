@@ -5,6 +5,7 @@ Define a class TEI49C facilitating communication with a Thermo TEI49c instrument
 @author: joerg.klausen@meteoswiss.ch
 """
 
+from datetime import datetime
 import colorama
 import logging
 import os
@@ -362,6 +363,72 @@ class TEI49C:
             data = "(simulated) %s Sorry, I can only simulate lrec. " % dtm
 
         return data
+
+    @classmethod
+    def get_all_lrec(cls, save=True) -> str:
+        """
+        Retrieve all long records from instrument and optionally write to file.
+
+        :param bln save: Should data be saved to file? default=True
+        :return str response as decoded string
+        """
+        try:
+            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+            print("%s .get_all_lrec (name=%s, save=%s)" % (dtm, cls._name, save))
+
+            if save:
+                # generate the datafile name
+                datafile = os.path.join(cls._datadir,
+                                        "".join([cls._name, "_buffer-",
+                                                datetime.now().strftime("%Y%m%d%H%M%S"), ".dat"]))
+
+            CAPACITY = 1792
+
+            if cls._serial.is_open:
+                cls._serial.close()
+
+            cls._serial.open()
+
+            # buffer = ""
+            index = CAPACITY
+            while index > 0:
+                cmd = f"lrec {index} 10"
+                data = cls.serial_comm(cmd)
+                print(data)
+                # buffer.join(data)
+
+                if save:
+                    if not (os.path.exists(datafile)):
+                        # if file doesn't exist, create and write header
+                        with open(datafile, "at") as fh:
+                            fh.write("%s\n" % cls._data_header)
+                            fh.close()
+                    with open(datafile, "at") as fh:
+                        # add data to file
+                        fh.write("%s %s\n" % (dtm, data))
+                        fh.close()
+
+                index = index - 10
+
+            cls._serial.close()
+
+            # stage data for transfer
+            root = os.path.join(cls._staging, os.path.basename(cls._datadir))
+            os.makedirs(root, exist_ok=True)
+            if cls._zip:
+                # create zip file
+                archive = os.path.join(root, "".join([os.path.basename(datafile[:-4]), ".zip"]))
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                    fh.write(cls._datafile, os.path.basename(datafile))
+            else:
+                shutil.copyfile(cls._datafile, os.path.join(root, os.path.basename(datafile)))
+
+            return 0
+
+        except Exception as err:
+            if cls._log:
+                cls._logger.error(err)
+            print(err)
 
 
 if __name__ == "__main__":
