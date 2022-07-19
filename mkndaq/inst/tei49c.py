@@ -5,14 +5,15 @@ Define a class TEI49C facilitating communication with a Thermo TEI49c instrument
 @author: joerg.klausen@meteoswiss.ch
 """
 
-from datetime import datetime
-import colorama
+# from datetime import datetime
 import logging
 import os
-import serial
 import shutil
 import time
 import zipfile
+import colorama
+import serial
+
 from mkndaq.utils import datetimebin
 
 
@@ -41,7 +42,7 @@ class TEI49C:
     def __init__(cls, name: str, config: dict, simulate=False) -> None:
         """
         Initialize instrument class.
-        
+
         :param name: name of instrument
         :param config: dictionary of attributes defining the instrument, serial port and other information
             - config[name]['type']
@@ -74,7 +75,7 @@ class TEI49C:
                 cls._log = True
                 logs = os.path.expanduser(config['logs'])
                 os.makedirs(logs, exist_ok=True)
-                logfile = '%s.log' % time.strftime('%Y%m%d')
+                logfile = f"{time.strftime('%Y%m%d')}.log"
                 cls._logger = logging.getLogger(__name__)
                 logging.basicConfig(level=logging.DEBUG,
                                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
@@ -156,7 +157,7 @@ class TEI49C:
         try:
             if cls._simulate:
                 _id = b''
-            cls._serial.write(_id + ('%s\x0D' % cmd).encode())
+            cls._serial.write(_id + (f"{cmd}\x0D").encode())
             time.sleep(0.5)
             while cls._serial.in_waiting > 0:
                 rcvd = rcvd + cls._serial.read(1024)
@@ -167,8 +168,8 @@ class TEI49C:
                 # - remove checksum after and including the '*'
                 rcvd = rcvd.split("*")[0]
                 # - remove echo before and including '\n'
-                if cmd.join("\n") in rcvd:
-                    rcvd = rcvd.split("\n")[1]
+                # if cmd.join("\n") in rcvd:
+                #     rcvd = rcvd.split("\n")[1]
                 # remove trailing '\r\n'
                 rcvd = rcvd.rstrip()
             return rcvd
@@ -184,9 +185,9 @@ class TEI49C:
         Read current configuration of instrument and optionally write to log.
 
         :return current configuration of instrument
-        
+
         """
-        print("%s .get_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+        print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .get_config (name={cls._name})")
         cfg = []
         try:
             cls._serial.open()
@@ -195,7 +196,7 @@ class TEI49C:
             cls._serial.close()
 
             if cls._log:
-                cls._logger.info("Current configuration of '%s': %s" % (cls._name, cfg))
+                cls._logger.info(f"Current configuration of '{cls._name}': {cfg}")
 
             return cfg
 
@@ -212,14 +213,14 @@ class TEI49C:
         :return:
         """
         try:
-            dte = cls.serial_comm("set date %s" % time.strftime('%m-%d-%y'))
-            msg = "Date of instrument %s set to: %s" % (cls._name, dte)
-            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            dte = cls.serial_comm(f"set date {time.strftime('%m-%d-%y')}")
+            msg = f"Date of instrument {cls._name} set to: {dte}"
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}")
             cls._logger.info(msg)
 
-            tme = cls.serial_comm("set time %s" % time.strftime('%H:%M:%S'))
-            msg = "Time of instrument %s set to: %s" % (cls._name, tme)
-            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            tme = cls.serial_comm(f"set time {time.strftime('%H:%M:%S')}")
+            msg = f"Time of instrument {cls._name} set to: {tme}"
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}")
             cls._logger.info(msg)
 
         except Exception as err:
@@ -234,7 +235,7 @@ class TEI49C:
 
         :return new configuration as returned from instrument
         """
-        print("%s .set_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+        print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .set_config (name={cls._name})")
         cfg = []
         try:
             cls._serial.open()
@@ -244,7 +245,7 @@ class TEI49C:
             time.sleep(1)
 
             if cls._log:
-                cls._logger.info("Configuration of '%s' set to: %s" % (cls._name, cfg))
+                cls._logger.info(f"Configuration of '{cls._name}' set to: {cfg}")
 
             return cfg
 
@@ -265,9 +266,9 @@ class TEI49C:
         try:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
             if cls._simulate:
-                print("%s .get_data (name=%s, save=%s, simulate=%s)" % (dtm, cls._name, save, cls._simulate))
+                print(f"{dtm} .get_data (name={cls._name}, save={save}, simulate={cls._simulate})")
             else:
-                print("%s .get_data (name=%s, save=%s)" % (dtm, cls._name, save))
+                print(f"{dtm} .get_data (name={cls._name}, save={save})")
 
             if cmd is None:
                 cmd = cls._get_data
@@ -288,14 +289,14 @@ class TEI49C:
                                              "".join([cls._name, "-",
                                                       datetimebin.dtbin(cls._reporting_interval), ".dat"]))
 
-                if not (os.path.exists(cls._datafile)):
+                if not os.path.exists(cls._datafile):
                     # if file doesn't exist, create and write header
-                    with open(cls._datafile, "at") as fh:
-                        fh.write("%s\n" % cls._data_header)
+                    with open(cls._datafile, "at", encoding='utf8') as fh:
+                        fh.write(f"{cls._data_header}\n")
                         fh.close()
-                with open(cls._datafile, "at") as fh:
+                with open(cls._datafile, "at", encoding='utf8') as fh:
                     # add data to file
-                    fh.write("%s %s\n" % (dtm, data))
+                    fh.write(f"{dtm} {data}\n")
                     fh.close()
 
                 # stage data for transfer
@@ -303,7 +304,7 @@ class TEI49C:
                 os.makedirs(root, exist_ok=True)
                 if cls._zip:
                     # create zip file
-                    archive = os.path.join(root, "".join([os.path.basename(cls._datafile[:-4]), ".zip"]))
+                    archive = os.path.join(root, "".join([os.path.basename(cls._datafile)[:-4], ".zip"]))
                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
                         fh.write(cls._datafile, os.path.basename(cls._datafile))
                 else:
@@ -336,8 +337,7 @@ class TEI49C:
             o3 = cls.serial_comm('O3').split()
             cls._serial.close()
 
-            print(colorama.Fore.GREEN + "%s [%s] %s %s %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
-                                                        cls._name, o3[0], str(float(o3[1])), o3[2]))
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{cls._name}] {o3[0]} {str(float(o3[1]))} {o3[2]}")
 
         except Exception as err:
             if cls._log:
@@ -357,72 +357,78 @@ class TEI49C:
         dtm = time.strftime("%H:%M %m-%d-%y", time.gmtime())
 
         if cmd == 'lrec':
-            data = "(simulated) %s  flags D800500 o3 0.394 cellai 123853.000 cellbi 94558.000 bncht 31.220 lmpt " \
-                   "53.754 o3lt 68.363 flowa 0.000 flowb 0.000 pres 724.798" % dtm
+            data = f"(simulated) {dtm}  flags D800500 o3 0.394 cellai 123853.000 cellbi 94558.000 bncht 31.220 lmpt " \
+                   "53.754 o3lt 68.363 flowa 0.000 flowb 0.000 pres 724.798"
         else:
-            data = "(simulated) %s Sorry, I can only simulate lrec. " % dtm
+            data = f"(simulated) {dtm} Sorry, I can only simulate lrec. "
 
         return data
 
     @classmethod
-    def get_all_lrec(cls, save=True) -> str:
+    def get_all_rec(cls, save=True) -> str:
         """
-        Retrieve all long records from instrument and optionally write to file.
+        Retrieve all long and short records from instrument and optionally write to file.
 
         :param bln save: Should data be saved to file? default=True
         :return str response as decoded string
         """
         try:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-            print("%s .get_all_lrec (name=%s, save=%s)" % (dtm, cls._name, save))
 
-            if save:
-                # generate the datafile name
-                datafile = os.path.join(cls._datadir,
-                                        "".join([cls._name, "_buffer-",
-                                                datetime.now().strftime("%Y%m%d%H%M%S"), ".dat"]))
+            # lrec and srec capacity of logger
+            CMD = ["lrec", "srec"]
+            CAPACITY = [1792, 4096]
 
-            CAPACITY = 1792
+            print("%s .get_all_rec (name=%s, save=%s)" % (dtm, cls._name, save))
 
+            # close potentially open port
             if cls._serial.is_open:
                 cls._serial.close()
 
+            # open serial port
             cls._serial.open()
 
-            # buffer = ""
-            index = CAPACITY
-            while index > 0:
-                cmd = f"lrec {index} 10"
-                data = cls.serial_comm(cmd)
-                print(data)
-                # buffer.join(data)
-
+            # retrieve data from instrument
+            for i in [0, 1]:
+                index = CAPACITY[i]
+                retrieve = 10
                 if save:
-                    if not (os.path.exists(datafile)):
-                        # if file doesn't exist, create and write header
-                        with open(datafile, "at") as fh:
-                            fh.write("%s\n" % cls._data_header)
-                            fh.close()
-                    with open(datafile, "at") as fh:
-                        # add data to file
-                        fh.write("%s %s\n" % (dtm, data))
-                        fh.close()
+                    # generate the datafile name
+                    datafile = os.path.join(cls._datadir,
+                                            "".join([cls._name, f"_all_{CMD[i]}-",
+                                                    time.strftime("%Y%m%d%H%M00"), ".dat"]))
 
-                index = index - 10
+                while index > 0:
+                    if index < 10:
+                        retrieve = index
+                    cmd = f"{CMD[i]} {index} {retrieve}"
+                    data = cls.serial_comm(cmd)
+
+                    if save:
+                        if not os.path.exists(datafile):
+                            # if file doesn't exist, create and write header
+                            with open(datafile, "at") as fh:
+                                fh.write(f"{cls._data_header}\n")
+                                fh.close()
+                        with open(datafile, "at") as fh:
+                            # add data to file
+                            fh.write(f"{data}\n")
+                            fh.close()
+
+                    index = index - 10
+
+                # stage data for transfer
+                root = os.path.join(cls._staging, os.path.basename(cls._datadir))
+                os.makedirs(root, exist_ok=True)
+                if cls._zip:
+                    # create zip file
+                    archive = os.path.join(root, "".join([os.path.basename(datafile[:-4]), ".zip"]))
+                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                        fh.write(cls._datafile, os.path.basename(datafile))
+                else:
+                    shutil.copyfile(cls._datafile, os.path.join(root, os.path.basename(datafile)))
 
             cls._serial.close()
-
-            # stage data for transfer
-            root = os.path.join(cls._staging, os.path.basename(cls._datadir))
-            os.makedirs(root, exist_ok=True)
-            if cls._zip:
-                # create zip file
-                archive = os.path.join(root, "".join([os.path.basename(datafile[:-4]), ".zip"]))
-                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                    fh.write(cls._datafile, os.path.basename(datafile))
-            else:
-                shutil.copyfile(cls._datafile, os.path.join(root, os.path.basename(datafile)))
-
             return 0
 
         except Exception as err:
