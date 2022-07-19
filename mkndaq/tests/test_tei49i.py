@@ -16,7 +16,7 @@ if __name__ == '__main__':
            'data': 'C:\\Users\\jkl/Documents/mkndaq/data',
            'staging': {'path': 'C:\\Users\\jkl/Documents/mkndaq/staging', 'zip': True},
            'tei49i': {'type': 'TEI49I', 'id': 49, 'serial_number': 'unknown',
-                      'socket': {'host': '192.168.0.20', 'port': 9880, 'timeout': 5, 'sleep': 0.5},
+                      'socket': {'host': '192.168.3.190', 'port': 9880, 'timeout': 5, 'sleep': 0.5},
                       'get_config': ['mode', 'gas unit', 'range', 'avg time', 'temp comp', 'pres comp', 'format',
                                      'lrec format', 'o3 coef', 'o3 bkg'],
                       'set_config': ['set mode remote', 'set gas unit ppb', 'set range 1', 'set avg time 3',
@@ -27,7 +27,9 @@ if __name__ == '__main__':
            }
     tei49i = TEI49I('tei49i', config=cfg, simulate=False)
     print(tei49i.get_config())
-    print(tei49i.set_config())
+    # print(tei49i.set_config())
+
+    tei49i.get_all_lrec()
 
     run = True
     while run:

@@ -173,6 +173,7 @@ class TEI49I:
                 # - remove checksum after and including the '*'
                 rcvd = rcvd.split("*")[0]
                 # - remove echo before and including '\n'
+                rcvd = rcvd.replace(f"{cmd}\n", "")
                 # if "\n" in rcvd:
                     # rcvd = rcvd.split("\n")[1]
 
@@ -327,7 +328,7 @@ class TEI49I:
 
             # retrieve numbers of lrec stroed in buffer
             no_of_lrec = cls.tcpip_comm("no of lrec")
-            no_of_lrec = re.findall(r"(\d+)", no_of_lrec)[0]
+            no_of_lrec = int(re.findall(r"(\d+)", no_of_lrec)[0])
 
             if save:
                 # generate the datafile name
@@ -342,13 +343,13 @@ class TEI49I:
             while index > 0:
                 if index < 10:
                     retrieve = index
-                cmd = f"lrec {index} {retrieve}"
-                data = cls.get_data(cmd)
+                cmd = f"lrec {str(index)} {str(retrieve)}"
+                print(cmd)
+                data = cls.tcpip_comm(cmd)
 
                 # remove all the extra info in the string returned
                 # 05:26 07-19-22 flags 0C100400 o3 30.781 hio3 0.000 cellai 50927 cellbi 51732 bncht 29.9 lmpt 53.1 o3lt 0.0 flowa 0.435 flowb 0.000 pres 493.7
                 data = data.replace("flags ", "")
-                data = data.replace("o3 ", "")
                 data = data.replace("hio3 ", "")
                 data = data.replace("cellai ", "")
                 data = data.replace("cellbi ", "")
@@ -358,27 +359,32 @@ class TEI49I:
                 data = data.replace("flowa ", "")
                 data = data.replace("flowb ", "")
                 data = data.replace("pres ", "")
+                data = data.replace("o3 ", "")
 
                 if save:
                     if not os.path.exists(cls._datafile):
                         # if file doesn't exist, create and write header
                         with open(cls._datafile, "at", encoding='utf8') as fh:
                             fh.write("time date flags o3 hio3 cellai cellbi bncht lmpt o3lt flowa flowb pres\n")
-                            fh.write(f"{data}\n")
                             fh.close()
 
-                    # stage data for transfer
-                    root = os.path.join(cls._staging, os.path.basename(cls._datadir))
-                    os.makedirs(root, exist_ok=True)
-                    if cls._zip:
-                        # create zip file
-                        archive = os.path.join(root, "".join([os.path.basename(cls._datafile[:-4]), ".zip"]))
-                        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                            fh.write(cls._datafile, os.path.basename(cls._datafile))
-                    else:
-                        shutil.copyfile(cls._datafile, os.path.join(root, os.path.basename(cls._datafile)))
+                    with open(cls._datafile, "at", encoding='utf8') as fh:
+                        fh.write(f"{data}\n")
+                        fh.close()
 
                 index = index - 10
+
+            if save:
+                # stage data for transfer
+                root = os.path.join(cls._staging, os.path.basename(cls._datadir))
+                os.makedirs(root, exist_ok=True)
+                if cls._zip:
+                    # create zip file
+                    archive = os.path.join(root, "".join([os.path.basename(cls._datafile[:-4]), ".zip"]))
+                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                        fh.write(cls._datafile, os.path.basename(cls._datafile))
+                else:
+                    shutil.copyfile(cls._datafile, os.path.join(root, os.path.basename(cls._datafile)))
 
             return data
 

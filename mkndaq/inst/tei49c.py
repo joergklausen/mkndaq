@@ -401,7 +401,8 @@ class TEI49C:
                 while index > 0:
                     if index < 10:
                         retrieve = index
-                    cmd = f"{CMD[i]} {index} {retrieve}"
+                    cmd = f"{CMD[i]} {str(index)} {str(retrieve)}"
+                    print(cmd)
                     data = cls.serial_comm(cmd)
 
                     if save:
