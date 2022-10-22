@@ -8,10 +8,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d82c4933-01b6-48c2-9551-4dc4b8784bad" name="Default Changelist" comment="v0.4.5">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/mkndaq.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/mkndaq.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mkndaq/inst/tei49c.py" beforeDir="false" afterPath="$PROJECT_DIR$/mkndaq/inst/tei49c.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mkndaq/inst/tei49i.py" beforeDir="false" afterPath="$PROJECT_DIR$/mkndaq/inst/tei49i.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mkndaq/tests/test_tei49i.py" beforeDir="false" afterPath="$PROJECT_DIR$/mkndaq/tests/test_tei49i.py" afterDir="false" />
     </list>
@@ -535,6 +532,11 @@
           <url>file://$PROJECT_DIR$/mkndaq/mkndaq.py</url>
           <line>83</line>
           <option name="timeStamp" value="258" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/mkndaq/inst/tei49i.py</url>
+          <line>112</line>
+          <option name="timeStamp" value="260" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

@@ -260,7 +260,7 @@ class TEI49I:
     @classmethod
     def get_data(cls, cmd=None, save=True) -> str:
         """
-        Retrieve long record from instrument and optionally write to log.
+        Send command retrieve response from instrument and optionally write to log.
 
         :param str cmd: command sent to instrument
         :param bln save: Should data be saved to file? default=True
@@ -324,7 +324,7 @@ class TEI49I:
         try:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
 
-            # retrieve numbers of lrec stroed in buffer
+            # retrieve numbers of lrec stored in buffer
             no_of_lrec = cls.tcpip_comm("no of lrec")
             no_of_lrec = int(re.findall(r"(\d+)", no_of_lrec)[0])
 
