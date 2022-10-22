@@ -51,20 +51,18 @@ class TEI49I:
             - config[name]['type']
             - config[name]['id']
             - config[name]['serial_number']
+            - config[name]['socket']['host']
+            - config[name]['socket']['port']
+            - config[name]['socket']['timeout']
+            - config[name]['socket']['sleep']
             - config[name]['get_config']
             - config[name]['set_config']
             - config[name]['get_data']
             - config[name]['data_header']
             - config['logs']
-            - config[name]['socket']['host']
-            - config[name]['socket']['port']
-            - config[name]['socket']['timeout']
-            - config[name]['socket']['sleep']
             - config[name]['sampling_interval']
-            - config['data']
-            - config[name]['logs']: default=True, write information to logfile
-            - config['staging']['path']
-            - config['staging']['zip']
+            - config['staging']['path'])
+            - config[name]['staging_zip']
         :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
         """
         colorama.init(autoreset=True)
