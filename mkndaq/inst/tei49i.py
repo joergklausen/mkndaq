@@ -65,7 +65,7 @@ class TEI49I:
         :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
         """
         colorama.init(autoreset=True)
-        print("# Initialize TEI49I")
+        print(f"# Initialize TEI49I (name: {name})")
 
         try:
             self._simulate = simulate

@@ -58,12 +58,12 @@ if __name__ == '__main__':
             cmd = input("Enter command or Q to quit: ")
             if instrument=="1" and cmd != "Q":
                 print(f"Addressing instrument {instrument}")
-                tei49i = TEI49I('tei49i', config=cfg, simulate=False)
+#                tei49i = TEI49I('tei49i', config=cfg, simulate=False)
                 print(tei49i.get_data(cmd, save=False))
             elif instrument=="2" and cmd != "Q":
                 print(f"Addressing instrument {instrument}")
-                tei49i = TEI49I('tei49i_2', config=cfg, simulate=False)
-                print(tei49i.get_data(cmd, save=False))
+#                tei49i_2 = TEI49I('tei49i_2', config=cfg, simulate=False)
+                print(tei49i_2.get_data(cmd, save=False))
             else:
                 run = False
         else:
