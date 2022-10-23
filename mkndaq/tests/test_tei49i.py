@@ -37,15 +37,19 @@ if __name__ == '__main__':
                       'sampling_interval': 1, 'logs': 'C:\\Users\\jkl/Documents/mkndaq/logs'},
            }
 
-    print("# Setup tei49i, get config")
+    print("# Setup tei49i")
     tei49i = TEI49I('tei49i', config=cfg, simulate=False)
-    print(tei49i.get_config())
-    #tei49i.get_all_lrec()
+    print(tei49i)
 
-    print("# Setup tei49i_2, get config")
+    print("# Setup tei49i_2")
     tei49i_2 = TEI49I('tei49i_2', config=cfg, simulate=False)
+    print(tei49i_2)
+
+    print("# Get tei49i config")
+    print(tei49i.get_config())
+
+    print("# Get tei49i_2 config")
     print(tei49i_2.get_config())
-   # tei49i_2.get_all_lrec()
 
     run = True
     while run:
@@ -70,12 +74,48 @@ if __name__ == '__main__':
     if cmd != "Q":
         print("# Setup tei49i and download all data")
         tei49i = TEI49I('tei49i', config=cfg, simulate=False)
-#        print(tei49i.get_config())
         tei49i.get_all_lrec()
 
         print("# Setup tei49i_2 and download all data")
         tei49i = TEI49I('tei49i_2', config=cfg, simulate=False)
-#        print(tei49i.get_config())
         tei49i.get_all_lrec()
     print('done')
+
+    # print("# Setup tei49i, get config")
+    # tei49i = TEI49I('tei49i', config=cfg, simulate=False)
+    # print(tei49i.get_config())
+
+    # print("# Setup tei49i_2, get config")
+    # tei49i_2 = TEI49I('tei49i_2', config=cfg, simulate=False)
+    # print(tei49i_2.get_config())
+
+    # run = True
+    # while run:
+    #     instrument = input("Enter 1 for TEI49i, 2 for TEI49i_2, or Q to quit:")
+    #     if instrument != "Q":
+    #         cmd = input("Enter command or Q to quit: ")
+    #         if instrument=="1" and cmd != "Q":
+    #             print(f"Addressing instrument {instrument}")
+    #             tei49i = TEI49I('tei49i', config=cfg, simulate=False)
+    #             print(tei49i.get_data(cmd, save=False))
+    #         elif instrument=="2" and cmd != "Q":
+    #             print(f"Addressing instrument {instrument}")
+    #             tei49i = TEI49I('tei49i_2', config=cfg, simulate=False)
+    #             print(tei49i.get_data(cmd, save=False))
+    #         else:
+    #             run = False
+    #     else:
+    #         run = False
+    # print('done')
+
+    # cmd = input("Enter any key to download all lrecs from both instruments or Q to quit: ")
+    # if cmd != "Q":
+    #     print("# Setup tei49i and download all data")
+    #     tei49i = TEI49I('tei49i', config=cfg, simulate=False)
+    #     tei49i.get_all_lrec()
+
+    #     print("# Setup tei49i_2 and download all data")
+    #     tei49i = TEI49I('tei49i_2', config=cfg, simulate=False)
+    #     tei49i.get_all_lrec()
+    # print('done')
 
