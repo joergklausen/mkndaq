@@ -58,11 +58,9 @@ if __name__ == '__main__':
             cmd = input("Enter command or Q to quit: ")
             if instrument=="1" and cmd != "Q":
                 print(f"Addressing instrument {instrument}")
-#                tei49i = TEI49I('tei49i', config=cfg, simulate=False)
                 print(tei49i.get_data(cmd, save=False))
             elif instrument=="2" and cmd != "Q":
                 print(f"Addressing instrument {instrument}")
-#                tei49i_2 = TEI49I('tei49i_2', config=cfg, simulate=False)
                 print(tei49i_2.get_data(cmd, save=False))
             else:
                 run = False
@@ -72,12 +70,10 @@ if __name__ == '__main__':
 
     cmd = input("Enter any key to download all lrecs from both instruments or Q to quit: ")
     if cmd != "Q":
-        print("# Setup tei49i and download all data")
-        tei49i = TEI49I('tei49i', config=cfg, simulate=False)
+        print("# Download all data from tei49i logger")
         tei49i.get_all_lrec()
 
-        print("# Setup tei49i_2 and download all data")
-        tei49i = TEI49I('tei49i_2', config=cfg, simulate=False)
+        print("# Download all data from tei49i_2 logger")
         tei49i.get_all_lrec()
     print('done')
 

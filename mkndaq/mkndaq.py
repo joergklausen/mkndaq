@@ -105,14 +105,14 @@ def main():
                 tei49i_2 = TEI49I(name='tei49i_2', config=cfg, simulate=simulate)
                 tei49i_2.get_config()
                 tei49i_2.set_config()
-                schedule.every(cfg['tei49i_2']['sampling_interval']).minutes.at(':10').do(tei49i_2.get_data)
+                schedule.every(cfg['tei49i_2']['sampling_interval']).minutes.at(':00').do(tei49i_2.get_data)
                 schedule.every().day.at('00:00').do(tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(tei49i_2.print_o3)
             if cfg.get('g2401', None):
                 g2401 = G2401('g2401', config=cfg)
                 g2401.store_and_stage_latest_file()
-                schedule.every(cfg['g2401']['reporting_interval']).minutes.at(':00').do(
-                    g2401.store_and_stage_files)
+                schedule.every(cfg['g2401']['staging_interval']).minutes.at(
+                    f":{cfg['g2401']['staging_minute']}").do(g2401.store_and_stage_files)
                 schedule.every(fetch).seconds.do(g2401.print_co2_ch4_co)
             if cfg.get('meteo', None):
                 meteo = METEO('meteo', config=cfg)
