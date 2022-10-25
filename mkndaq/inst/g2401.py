@@ -85,7 +85,7 @@ class G2401:
             os.makedirs(self._datadir, exist_ok=True)
 
             # source of data files
-            self._source = config[name]['source']
+#            self._source = config[name]['source']
 
             # interval to fetch and stage data files
             self._staging_interval = config[name]['staging_interval']
@@ -95,7 +95,10 @@ class G2401:
             self._data_storage_interval = config[name]['data_storage_interval']
 
             # netshare of user data files
-            self._netshare = os.path.expanduser(config[name]['netshare'])
+            #self._netshare = os.path.expanduser(config[name]['netshare'])
+            dbs = r"\\"
+            self._netshare = os.path.join(f"{dbs}{config[name]['socket']['host']}", config[name]['netshare'])
+            # print("netshare:", self._netshare)
 
             # staging area for files to be transfered
             self._staging = os.path.expanduser(config['staging']['path'])
@@ -168,9 +171,9 @@ class G2401:
             # copy and stage files available on netshare but not locally
             
             if self._data_storage_interval == 'hourly':
-                ftime = "/%Y/%m/%d"
+                ftime = "%Y/%m/%d"
             elif self._data_storage_interval == 'daily':
-                ftime = "/%Y/%m"
+                ftime = "%Y/%m"
             else:
                 raise ValueError(f"Configuration 'data_storage_interval' of {self._name} must be <hourly|daily>.")
 
@@ -178,10 +181,14 @@ class G2401:
                 relative_path = (datetime.datetime.today() - datetime.timedelta(days=delta)).strftime(ftime)
                 netshare_path = os.path.join(self._netshare, relative_path)
                 local_path = os.path.join(self._datadir, relative_path)
+                os.makedirs(local_path, exist_ok=True)
 
                 # files on netshare except the most recent one
-                netshare_files = os.listdir(netshare_path)[:(delta - 1)]
-                
+                if delta==0:
+                    netshare_files = os.listdir(netshare_path)[:-1]
+                else:
+                    netshare_files = os.listdir(netshare_path)
+
                 # local files
                 local_files = os.listdir(local_path)
 
@@ -191,19 +198,19 @@ class G2401:
                     # store data file on local disk
                     shutil.copyfile(os.path.join(netshare_path, file), os.path.join(local_path, file))            
 
-                # stage data for transfer
-                stage = os.path.join(self._staging, self._name)
-                os.makedirs(stage, exist_ok=True)
+                    # stage data for transfer
+                    stage = os.path.join(self._staging, self._name)
+                    os.makedirs(stage, exist_ok=True)
 
-                if self._zip:
-                    # create zip file
-                    archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
-                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                        fh.write(os.path.join(path, file), file)
-                else:
-                    shutil.copyfile(os.path.join(path, file), os.path.join(stage, file))
+                    if self._zip:
+                        # create zip file
+                        archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
+                        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                            fh.write(os.path.join(local_path, file), file)
+                    else:
+                        shutil.copyfile(os.path.join(local_path, file), os.path.join(stage, file))
 
-                print("{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name})")
+                    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={file})")
 
         except Exception as err:
             if self._log:
