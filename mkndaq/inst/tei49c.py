@@ -168,8 +168,8 @@ class TEI49C:
                 # - remove checksum after and including the '*'
                 rcvd = rcvd.split("*")[0]
                 # - remove echo before and including '\n'
-                # if cmd.join("\n") in rcvd:
-                #     rcvd = rcvd.split("\n")[1]
+                if cmd.join("\n") in rcvd:
+                    rcvd = rcvd.split("\n")[1]
                 # remove trailing '\r\n'
                 rcvd = rcvd.rstrip()
             return rcvd
