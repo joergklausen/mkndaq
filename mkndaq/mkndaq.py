@@ -39,7 +39,7 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-        version = 'v0.5.1'
+        version = 'v0.5.2'
         print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
 
         # collect and interprete CLI arguments

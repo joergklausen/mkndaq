@@ -214,12 +214,14 @@ class TEI49C:
         """
         try:
             dte = cls.serial_comm(f"set date {time.strftime('%m-%d-%y')}")
-            msg = f"Date of instrument {cls._name} set to: {dte}"
+            dte = cls.serial_comm("date")
+            msg = f"Date of instrument {cls._name} set and reported as: {dte}"
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}")
             cls._logger.info(msg)
 
-            tme = cls.serial_comm(f"set time {time.strftime('%H:%M:%S')}")
-            msg = f"Time of instrument {cls._name} set to: {tme}"
+            tme = cls.serial_comm(f"set time {time.strftime('%H:%M')}")
+            tme = cls.serial_comm("time")
+            msg = f"Time of instrument {cls._name} set and reported as: {tme}"
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}")
             cls._logger.info(msg)
 
@@ -239,6 +241,7 @@ class TEI49C:
         cfg = []
         try:
             cls._serial.open()
+            cls.set_datetime()
             for cmd in cls._set_config:
                 cfg.append(cls.serial_comm(cmd))
             cls._serial.close()
