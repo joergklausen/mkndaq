@@ -39,7 +39,7 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-        version = 'v0.5.2'
+        version = 'v0.5.4'
         print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
 
         # collect and interprete CLI arguments
@@ -89,22 +89,20 @@ def main():
         try:
             if cfg.get('tei49c', None):
                 tei49c = TEI49C(name='tei49c', config=cfg, simulate=simulate)
-                tei49c.get_config()
-                tei49c.set_config()
+                # tei49c.get_config()
+                # tei49c.set_config()
                 schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(tei49c.get_data)
                 schedule.every(6).hours.at(':00').do(tei49c.set_datetime)
                 schedule.every(fetch).seconds.do(tei49c.print_o3)
             if cfg.get('tei49i', None):
                 tei49i = TEI49I(name='tei49i', config=cfg, simulate=simulate)
-                tei49i.get_config()
-                tei49i.set_config()
                 schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(tei49i.get_data)
                 schedule.every().day.at('00:00').do(tei49i.set_datetime)
                 schedule.every(fetch).seconds.do(tei49i.print_o3)
             if cfg.get('tei49i_2', None):
                 tei49i_2 = TEI49I(name='tei49i_2', config=cfg, simulate=simulate)
-                tei49i_2.get_config()
-                tei49i_2.set_config()
+                # tei49i_2.get_config()
+                # tei49i_2.set_config()
                 schedule.every(cfg['tei49i_2']['sampling_interval']).minutes.at(':00').do(tei49i_2.get_data)
                 schedule.every().day.at('00:00').do(tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(tei49i_2.print_o3)

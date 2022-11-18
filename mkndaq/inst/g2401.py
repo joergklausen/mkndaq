@@ -154,13 +154,14 @@ class G2401:
     def print_co2_ch4_co(self) -> None:
         try:
             conc = self.tcpip_comm("_Meas_GetConc").split(';')[0:3]
-            print(colorama.Fore.GREEN + "%s [%s] CO2 %s ppm  CH4 %s ppm  CO %s ppm" % \
-                  (time.strftime("%Y-%m-%d %H:%M:%S"), self._name, *conc))
+            # print(colorama.Fore.GREEN + "%s [%s] CO2 %s ppm  CH4 %s ppm  CO %s ppm" % \
+            #       (time.strftime("%Y-%m-%d %H:%M:%S"), self._name, *conc))
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] CO2 {conc[0]} ppm  CH4 {conc[1]} ppm  CO {conc[1]} ppm")
 
         except Exception as err:
             if self._log:
                 self._logger.error(err)
-            print(err)
+            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] produced error {err}.")
 
 
     def store_and_stage_new_files(self):

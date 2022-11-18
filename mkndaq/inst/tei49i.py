@@ -23,11 +23,12 @@ class TEI49I:
     Instrument of type Thermo TEI 49I with methods, attributes for interaction.
     """
 
-    _datadir = None
+    __datadir = None
     __datafile = ""
+    __file_to_stage = None
     __data_header = None
     __get_config = None
-    _get_data = None
+    __get_data = None
     __id = None
     _log = None
     _logger = None
@@ -38,8 +39,8 @@ class TEI49I:
     __sockaddr = None
     __socksleep = None
     __socktout = None
-    _staging = None
-    _zip = False
+    __staging = None
+    __zip = False
 
     def __init__(self, name: str, config: dict, simulate=False) -> None:
         """
@@ -65,7 +66,7 @@ class TEI49I:
         :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
         """
         colorama.init(autoreset=True)
-        print(f"# Initialize TEI49I (name: {name})")
+        # print(f"# Initialize TEI49I (name: {name})")
 
         try:
             self._simulate = simulate
@@ -86,10 +87,10 @@ class TEI49I:
             self.__name = name
             self.__id = config[name]['id'] + 128
             self._type = config[name]['type']
-            self._serial_number = config[name]['serial_number']
+            self.__serial_number = config[name]['serial_number']
             self.__get_config = config[name]['get_config']
             self.__set_config = config[name]['set_config']
-            self._get_data = config[name]['get_data']
+            self.__get_data = config[name]['get_data']
             self.__data_header = config[name]['data_header']
 
             # configure tcp/ip
@@ -104,25 +105,16 @@ class TEI49I:
 
             # setup data directory
             datadir = os.path.expanduser(config['data'])
-            self._datadir = os.path.join(datadir, name)
-            os.makedirs(self._datadir, exist_ok=True)
+            self.__datadir = os.path.join(datadir, name)
+            os.makedirs(self.__datadir, exist_ok=True)
 
             # staging area for files to be transfered
-            self._staging = os.path.expanduser(config['staging']['path'])
-            self._zip = config[name]['staging_zip']
+            self.__staging = os.path.expanduser(config['staging']['path'])
+            self.__zip = config[name]['staging_zip']
 
-            # # query instrument to see if communication is possible, set date and time
-            # if not self._simulate:
-            #     dte = self.get_data('date', save=False)
-            #     if dte:
-            #         tme = self.get_data('time', save=False)
-            #         msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (self.__name, dte, tme)
-            #         self._logger.info(msg)
-            #         self.set_datetime()
-            #     else:
-            #         msg = "Instrument '%s' did not respond as expected." % self.__name
-            #         self._logger.error(msg)
-            #     print(colorama.Fore.RED + "%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            print(f"# Initialize TEI49I (name: {self.__name}  S/N: {self.__serial_number})")
+            self.get_config()
+            self.set_config()
 
         except Exception as err:
             if self._log:
@@ -143,7 +135,7 @@ class TEI49I:
         try:
             # open socket connection as a client
             if self._simulate:
-                rcvd = self.simulate_get_data(cmd).encode()
+                rcvd = self.simulate__get_data(cmd).encode()
             else:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
                     # connect to the server
@@ -273,16 +265,16 @@ class TEI49I:
                 print("%s .get_data (name=%s, save=%s)" % (dtm, self.__name, save))
 
             if cmd is None:
-                cmd = self._get_data
+                cmd = self.__get_data
 
             data = self.tcpip_comm(cmd)
 
             if self._simulate:
-                data = self.simulate_get_data(cmd)
+                data = self.simulate__get_data(cmd)
 
             if save:
                 # generate the datafile name
-                self.__datafile = os.path.join(self._datadir,
+                self.__datafile = os.path.join(self.__datadir,
                                              "".join([self.__name, "-",
                                                       datetimebin.dtbin(self._reporting_interval), ".dat"]))
 
@@ -296,15 +288,28 @@ class TEI49I:
                     fh.close()
 
                 # stage data for transfer
-                root = os.path.join(self._staging, os.path.basename(self._datadir))
-                os.makedirs(root, exist_ok=True)
-                if self._zip:
-                    # create zip file
-                    archive = os.path.join(root, "".join([os.path.basename(self.__datafile[:-4]), ".zip"]))
-                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                        fh.write(self.__datafile, os.path.basename(self.__datafile))
-                else:
-                    shutil.copyfile(self.__datafile, os.path.join(root, os.path.basename(self.__datafile)))
+                # root = os.path.join(self.__staging, os.path.basename(self.__datadir))
+                # os.makedirs(root, exist_ok=True)
+                # if self.__zip:
+                #     # create zip file
+                #     archive = os.path.join(root, "".join([os.path.basename(self.__datafile[:-4]), ".zip"]))
+                #     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                #         fh.write(self.__datafile, os.path.basename(self.__datafile))
+                # else:
+                #     shutil.copyfile(self.__datafile, os.path.join(root, os.path.basename(self.__datafile)))
+                if self.__file_to_stage is None:
+                    self.__file_to_stage = self.__datafile
+                elif self.__file_to_stage != self.__datafile:
+                    root = os.path.join(self.__staging, os.path.basename(self.__datadir))
+                    os.makedirs(root, exist_ok=True)
+                    if self.__zip:
+                        # create zip file
+                        archive = os.path.join(root, "".join([os.path.basename(self.__file_to_stage)[:-4], ".zip"]))
+                        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                            zf.write(self.__file_to_stage, os.path.basename(self.__file_to_stage))
+                    else:
+                        shutil.copyfile(self.__file_to_stage, os.path.join(root, os.path.basename(self.__file_to_stage)))
+                    self.__file_to_stage = self.__datafile
 
             return data
 
@@ -329,7 +334,7 @@ class TEI49I:
 
             if save:
                 # generate the datafile name
-                self.__datafile = os.path.join(self._datadir,
+                self.__datafile = os.path.join(self.__datadir,
                                             "".join([self.__name, "_all_lrec-",
                                                     time.strftime("%Y%m%d%H%M%S"), ".dat"]))
 
@@ -362,7 +367,7 @@ class TEI49I:
                     if not os.path.exists(self.__datafile):
                         # if file doesn't exist, create and write header
                         with open(self.__datafile, "at", encoding='utf8') as fh:
-                            fh.write("time date flags o3 hio3 cellai cellbi bncht lmpt o3lt flowa flowb pres\n")
+                            fh.write(f"{self.__data_header}\n")
                             fh.close()
 
                     with open(self.__datafile, "at", encoding='utf8') as fh:
@@ -373,9 +378,9 @@ class TEI49I:
 
             if save:
                 # stage data for transfer
-                root = os.path.join(self._staging, os.path.basename(self._datadir))
+                root = os.path.join(self.__staging, os.path.basename(self.__datadir))
                 os.makedirs(root, exist_ok=True)
-                if self._zip:
+                if self.__zip:
                     # create zip file
                     archive = os.path.join(root, "".join([os.path.basename(self.__datafile[:-4]), ".zip"]))
                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
@@ -411,10 +416,10 @@ class TEI49I:
         except Exception as err:
             if self._log:
                 self._logger.error(err)
-            print(err)
+            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
 
-    def simulate_get_data(self, cmd=None) -> str:
+    def simulate__get_data(self, cmd=None) -> str:
         """
 
         :param cmd:
