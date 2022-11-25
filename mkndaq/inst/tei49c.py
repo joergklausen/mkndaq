@@ -171,9 +171,11 @@ class TEI49C:
                 rcvd = rcvd.split("*")[0]
                 # - remove echo before and including '\n'
                 if cmd.join("\n") in rcvd:
-                    rcvd = rcvd.split("\n")[1]
+                    # rcvd = rcvd.split("\n")[1]
+                    rcvd = rcvd.replace(cmd, "")
                 # remove trailing '\r\n'
-                rcvd = rcvd.rstrip()
+                # rcvd = rcvd.rstrip()
+                rcvd = rcvd.strip()
             return rcvd
 
         except Exception as err:
@@ -181,46 +183,46 @@ class TEI49C:
                 self._logger.error(err)
             print(err)
 
-    def test_serial_comm(self, cmd: str, tidy=True, sleep=0.1, debug=False) -> str:
-        """
-        Send a command and retrieve the response. Assumes an open connection.
+    # def test_serial_comm(self, cmd: str, tidy=True, sleep=0.1, debug=False) -> str:
+    #     """
+    #     Send a command and retrieve the response. Assumes an open connection.
 
-        :param cmd: command sent to instrument
-        :param tidy: remove echo and checksum after '*'
-        :return: response of instrument, decoded
-        """
-        __id = bytes([self.__id])
-        rcvd = b''
-        try:
-            self.__serial.open()
+    #     :param cmd: command sent to instrument
+    #     :param tidy: remove echo and checksum after '*'
+    #     :return: response of instrument, decoded
+    #     """
+    #     __id = bytes([self.__id])
+    #     rcvd = b''
+    #     try:
+    #         self.__serial.open()
 
-            self.__serial.write(__id + (f"{cmd}\x0D").encode())
-            time.sleep(5 * sleep)
-            while self.__serial.in_waiting > 0:
-                rcvd = rcvd + self.__serial.read(1024)
-                time.sleep(sleep)
+    #         self.__serial.write(__id + (f"{cmd}\x0D").encode())
+    #         time.sleep(5 * sleep)
+    #         while self.__serial.in_waiting > 0:
+    #             rcvd = rcvd + self.__serial.read(1024)
+    #             time.sleep(sleep)
 
-            rcvd = rcvd.decode()
-            if debug:
-                print(f"Response before tidying (between ##): #{rcvd}#")
-            if tidy:
-                # - remove checksum after and including the '*'
-                rcvd = rcvd.split("*")[0]
-                # - remove echo before and including '\n'
-                if cmd.join("\n") in rcvd:
-                    rcvd = rcvd.split("\n")[1]
-                # remove trailing '\r\n'
-                rcvd = rcvd.rstrip()
-                if debug:
-                    print(f"Response before tidying (between ##): #{rcvd}#")
+    #         rcvd = rcvd.decode()
+    #         if debug:
+    #             print(f"Response before tidying (between ##): #{rcvd}#")
+    #         if tidy:
+    #             # - remove checksum after and including the '*'
+    #             rcvd = rcvd.split("*")[0]
+    #             # - remove echo before and including '\n'
+    #             if cmd.join("\n") in rcvd:
+    #                 rcvd = rcvd.split("\n")[1]
+    #             # remove trailing '\r\n'
+    #             rcvd = rcvd.rstrip()
+    #             if debug:
+    #                 print(f"Response before tidying (between ##): #{rcvd}#")
 
-            self.__serial.close()
-            return rcvd
+    #         self.__serial.close()
+    #         return rcvd
 
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
 
     def get_config(self) -> list:
         """
@@ -477,9 +479,9 @@ class TEI49C:
                     # create zip file
                     archive = os.path.join(root, "".join([os.path.basename(datafile[:-4]), ".zip"]))
                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                        fh.write(self.__datafile, os.path.basename(datafile))
+                        fh.write(datafile, os.path.basename(datafile))
                 else:
-                    shutil.copyfile(self.__datafile, os.path.join(root, os.path.basename(datafile)))
+                    shutil.copyfile(datafile, os.path.join(root, os.path.basename(datafile)))
 
             return 0
 
