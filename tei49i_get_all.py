@@ -16,8 +16,17 @@ def main():
 
         if cfg.get('tei49i', None):
             tei49i = TEI49I(name='tei49i', config=cfg)
-            tei49i.get_all_lrec()
+            tei49i.get_all_rec()
             print('done.')
+
+        if cfg.get('tei49i_2', None):
+            tei49i = TEI49I(name='tei49i_2', config=cfg)
+            tei49i.get_all_rec()
+            print('done.')
+
     except Exception as err:
         print(err)
-        
+
+
+if __name__ == "__main__":
+    main()        

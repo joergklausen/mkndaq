@@ -59,8 +59,9 @@ class TEI49C:
             - config[port]['stopbits']
             - config[port]['timeout']
             - config[name]['sampling_interval']
+            - config['reporting_interval']
             - config['data']
-            - config[name]['logs']: default=True, write information to logfile
+            - config['logs']: default=True, write information to logfile
             - config['staging']['path']
             - config['staging']['zip']
         :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
@@ -70,7 +71,7 @@ class TEI49C:
         try:
             self._simulate = simulate
             # setup logging
-            if config['logs']:
+            if 'logs' in config.keys():
                 self._log = True
                 logs = os.path.expanduser(config['logs'])
                 os.makedirs(logs, exist_ok=True)
@@ -110,7 +111,7 @@ class TEI49C:
 
             # setup data directory
             datadir = os.path.expanduser(config['data'])
-            self.__datadir = os.path.join(datadir, name)
+            self.__datadir = os.path.join(datadir, self.__name)
             os.makedirs(self.__datadir, exist_ok=True)
 
             # staging area for files to be transfered
@@ -180,6 +181,47 @@ class TEI49C:
                 self._logger.error(err)
             print(err)
 
+    def test_serial_comm(self, cmd: str, tidy=True, sleep=0.1, debug=False) -> str:
+        """
+        Send a command and retrieve the response. Assumes an open connection.
+
+        :param cmd: command sent to instrument
+        :param tidy: remove echo and checksum after '*'
+        :return: response of instrument, decoded
+        """
+        __id = bytes([self.__id])
+        rcvd = b''
+        try:
+            self.__serial.open()
+
+            self.__serial.write(__id + (f"{cmd}\x0D").encode())
+            time.sleep(5 * sleep)
+            while self.__serial.in_waiting > 0:
+                rcvd = rcvd + self.__serial.read(1024)
+                time.sleep(sleep)
+
+            rcvd = rcvd.decode()
+            if debug:
+                print(f"Response before tidying (between ##): #{rcvd}#")
+            if tidy:
+                # - remove checksum after and including the '*'
+                rcvd = rcvd.split("*")[0]
+                # - remove echo before and including '\n'
+                if cmd.join("\n") in rcvd:
+                    rcvd = rcvd.split("\n")[1]
+                # remove trailing '\r\n'
+                rcvd = rcvd.rstrip()
+                if debug:
+                    print(f"Response before tidying (between ##): #{rcvd}#")
+
+            self.__serial.close()
+            return rcvd
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
     def get_config(self) -> list:
         """
         Read current configuration of instrument and optionally write to log.
@@ -216,13 +258,15 @@ class TEI49C:
             dte = self.serial_comm("date")
             msg = f"Date of instrument {self.__name} set and reported as: {dte}"
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}")
-            self._logger.info(msg)
+            if self._log:
+                self._logger.info(msg)
 
             tme = self.serial_comm(f"set time {time.strftime('%H:%M')}")
             tme = self.serial_comm("time")
             msg = f"Time of instrument {self.__name} set and reported as: {tme}"
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}")
-            self._logger.info(msg)
+            if self._log:
+                self._logger.info(msg)
 
         except Exception as err:
             if self._log:
@@ -355,7 +399,7 @@ class TEI49C:
                 self._logger.error(err)
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
-    def simulate__get_data(self, cmd=None) -> str:
+    def simulate_get_data(self, cmd=None) -> str:
         """
 
         :param cmd:
@@ -386,16 +430,13 @@ class TEI49C:
 
             # lrec and srec capacity of logger
             CMD = ["lrec", "srec"]
-            CAPACITY = [1792, 4096]
+            CAPACITY = [1790, 4096]
 
             print("%s .get_all_rec (name=%s, save=%s)" % (dtm, self.__name, save))
 
             # close potentially open port
             if self.__serial.is_open:
                 self.__serial.close()
-
-            # open serial port
-            self.__serial.open()
 
             # retrieve data from instrument
             for i in [0, 1]:
@@ -412,7 +453,9 @@ class TEI49C:
                         retrieve = index
                     cmd = f"{CMD[i]} {str(index)} {str(retrieve)}"
                     print(cmd)
+                    self.__serial.open()
                     data = self.serial_comm(cmd)
+                    self.__serial.close()
 
                     if save:
                         if not os.path.exists(datafile):
@@ -438,7 +481,6 @@ class TEI49C:
                 else:
                     shutil.copyfile(self.__datafile, os.path.join(root, os.path.basename(datafile)))
 
-            self.__serial.close()
             return 0
 
         except Exception as err:
