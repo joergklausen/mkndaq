@@ -22,6 +22,7 @@ from mkndaq.inst.tei49i import TEI49I
 from mkndaq.inst.g2401 import G2401
 from mkndaq.inst.meteo import METEO
 from mkndaq.inst.aerosol import AEROSOL
+from mkndaq.inst.ae33 import AE33
 
 
 def run_threaded(job_func):
@@ -39,7 +40,7 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-        version = 'v0.5.4'
+        version = 'v0.6.0'
         print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
 
         # collect and interprete CLI arguments
@@ -125,6 +126,11 @@ def main():
                 aerosol.store_and_stage_files()
                 schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.store_and_stage_files)
                 schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.print_aerosol)
+            # if cfg.get('ae33', None):
+            #     ae33 = AE33(name='ae33', config=cfg)
+            #     schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
+            #     schedule.every().day.at('00:00').do(ae33.set_datetime)
+            #     schedule.every(fetch).seconds.do(ae33.print_ae33)
 
         except Exception as err:
             if logs:
