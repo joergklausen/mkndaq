@@ -141,9 +141,10 @@ class AE33:
 
                 # receive response
                 while True:
-                    data = s.recv(1024)
-                    rcvd = rcvd + data
-                    if chr(13).encode() in data:
+                    try:
+                        data = s.recv(1024)
+                        rcvd = rcvd + data
+                    except:
                         break
 
             # decode response, tidy
@@ -205,8 +206,9 @@ class AE33:
         """
         try:
             cmd = f"$AE33:{time.strftime('T%Y%m%d%H%M%S')}"
+            # cmd = "HELLO"
             dtm = self.tcpip_comm(cmd)
-            msg = f"DateTime of instrument {self._name} set to: {cmd}"
+            msg = f"DateTime of instrument {self.__name} set to: {cmd}"
             print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
             self._logger.info(msg)
 
@@ -320,7 +322,7 @@ class AE33:
     #         print(err)
 
 
-    def get_new_data(self, save=True) -> str:
+    def get_new_data(self, sep="|", save=True) -> str:
         """
         Retrieve all records from table data that have not been read and optionally write to log.
 
@@ -360,7 +362,7 @@ class AE33:
                 #         fh.close()
 
                 with open(self.__datafile, "at", encoding='utf8') as fh:
-                    fh.write(f"{dtm} {data}\n")
+                    fh.write(f"{dtm}{sep}{data}\n")
                     fh.close()
 
                 # stage data for transfer
@@ -418,17 +420,58 @@ class AE33:
             maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
             cmd=f"FETCH Data {maxid}"                    
             data = self.tcpip_comm(cmd, tidy=True)
-
-            # TODO: format data for printout
-
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+            data = data.split(sep="|")
+            
+            tape_adv_remaining = self.tape_advances_remaining()
+            msg = f"Tape advances remaining: {tape_adv_remaining}"
+            if int(tape_adv_remaining) < 10:
+                msg += " ATTENTION: Get ready to change change!"
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] BC: {data[44]} ng/m3 UVPM: {data[29]} ng/m3 ({msg})")
 
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
+    def tape_advances_remaining(self) -> str:
+        try:
+            cmd = "$AE33:A"
+            num = self.tcpip_comm(cmd, tidy=True)
 
+            return num
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
+
+    def get_latest_ATN_info(self) -> str:
+        """Get latest ATN info from log file, based on tape advance info"""
+        try:
+            # minid = int(self.tcpip_comm(cmd="MINID Log", tidy=True))
+            maxid = int(self.tcpip_comm(cmd="MAXID Log", tidy=True))
+            if int(maxid) > 49:
+                minid = str(int(maxid) - 50)
+            else:
+                minid = "1"
+            log = self.tcpip_comm(cmd=f"FETCH Log {minid} {maxid}", tidy=False)
+            log = log.replace("AE33>", "")
+
+            log = log.splitlines()
+            i = [i for i in range(len(log)) if "Tape Advance number" in log[i]][-1]
+            j = [i for i in range(len(log)) if "ATN1zero" in log[i]][-1]
+            k = log[i].find("Tape Advance number:")
+            tape_advance_number = int(log[i][k+20:k+25])
+
+            pattern_1 = r"(.*Tape Advance number:.*)" # to capture line containing words
+            atn_pattern = r"(ATN\dzero\(\d\):\s+\d+.\d+)"
+
+            return tape_advance_number, log[i:j]
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
 # Header:
 # Date(yyyy/MM/dd); Time(hh:mm:ss); Timebase; RefCh1; Sen1Ch1; Sen2Ch1; RefCh2; 
@@ -485,3 +528,7 @@ class AE33:
 # 0 2 0 21.1
 # means that the “Comet temperature probe” (instrument code 2) is connected to COM2 and 
 # nothing is connected to COM1 and COM3. The temperature is 21.1 C.
+
+# %%
+if __name__ == "__main__":
+    pass

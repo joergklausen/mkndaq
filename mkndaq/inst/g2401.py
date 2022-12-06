@@ -132,9 +132,20 @@ class G2401:
 
                 # receive response
                 while True:
-                    data = s.recv(1024)
-                    rcvd = rcvd + data
-                    if chr(13).encode() in data:
+                    # data = s.recv(1024)
+                    # rcvd = rcvd + data
+                    # if chr(13).encode() in data:
+                    #     break
+                    # data = s.recv(1024)
+
+                    # if not data:
+                    #     break
+                    # else:
+                    #     rcvd = rcvd + data
+                    try:
+                        data = s.recv(1024)
+                        rcvd = rcvd + data
+                    except:
                         break
 
             # decode response, tidy
@@ -178,41 +189,47 @@ class G2401:
             else:
                 raise ValueError(f"Configuration 'data_storage_interval' of {self._name} must be <hourly|daily>.")
 
-            for delta in (0, 1):
-                relative_path = (datetime.datetime.today() - datetime.timedelta(days=delta)).strftime(ftime)
-                netshare_path = os.path.join(self._netshare, relative_path)
-                local_path = os.path.join(self._datadir, relative_path)
-                os.makedirs(local_path, exist_ok=True)
+            try:
+                if os.path.exists(self._netshare):
+                    for delta in (0, 1):
+                        relative_path = (datetime.datetime.today() - datetime.timedelta(days=delta)).strftime(ftime)
+                        netshare_path = os.path.join(self._netshare, relative_path)
+                        local_path = os.path.join(self._datadir, relative_path)
+                        os.makedirs(local_path, exist_ok=True)
 
-                # files on netshare except the most recent one
-                if delta==0:
-                    netshare_files = os.listdir(netshare_path)[:-1]
-                else:
-                    netshare_files = os.listdir(netshare_path)
+                        # files on netshare except the most recent one
+                        if delta==0:
+                            netshare_files = os.listdir(netshare_path)[:-1]
+                        else:
+                            netshare_files = os.listdir(netshare_path)
 
-                # local files
-                local_files = os.listdir(local_path)
+                        # local files
+                        local_files = os.listdir(local_path)
 
-                files_to_copy = set(netshare_files) - set(local_files)
+                        files_to_copy = set(netshare_files) - set(local_files)
 
-                for file in files_to_copy:
-                    # store data file on local disk
-                    shutil.copyfile(os.path.join(netshare_path, file), os.path.join(local_path, file))            
+                        for file in files_to_copy:
+                            # store data file on local disk
+                            shutil.copyfile(os.path.join(netshare_path, file), os.path.join(local_path, file))            
 
-                    # stage data for transfer
-                    stage = os.path.join(self._staging, self._name)
-                    os.makedirs(stage, exist_ok=True)
+                            # stage data for transfer
+                            stage = os.path.join(self._staging, self._name)
+                            os.makedirs(stage, exist_ok=True)
 
-                    if self._zip:
-                        # create zip file
-                        archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
-                        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                            fh.write(os.path.join(local_path, file), file)
-                    else:
-                        shutil.copyfile(os.path.join(local_path, file), os.path.join(stage, file))
+                            if self._zip:
+                                # create zip file
+                                archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
+                                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                                    fh.write(os.path.join(local_path, file), file)
+                            else:
+                                shutil.copyfile(os.path.join(local_path, file), os.path.join(stage, file))
 
-                    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={file})")
+                            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={file})")
+            except:
+                print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)")
 
+                return
+                
         except Exception as err:
             if self._log:
                 self._logger.error(err)
