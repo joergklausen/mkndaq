@@ -322,6 +322,8 @@ class SFTPClient:
 
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .xfer_r (source: {localpath}, target: {cls._sftphost}/{cls._sftpusr}/{remotepath})")
 
+            localitem = None
+            remoteitem = None
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(hostname=cls._sftphost, username=cls._sftpusr, pkey=cls._sftpkey)

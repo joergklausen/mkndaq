@@ -40,7 +40,7 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-        version = 'v0.6.0'
+        version = 'v0.6.1'
         print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
 
         # collect and interprete CLI arguments
@@ -129,6 +129,7 @@ def main():
             # if cfg.get('ae33', None):
             #     ae33 = AE33(name='ae33', config=cfg)
             #     schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
+            #     schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
             #     schedule.every().day.at('00:00').do(ae33.set_datetime)
             #     schedule.every(fetch).seconds.do(ae33.print_ae33)
 
