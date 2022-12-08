@@ -26,7 +26,10 @@ class AE33:
     __datadir = None
     __data_begin_read_id = None
     __datafile = None
-    __file_to_stage = None
+    __datafile_to_stage = None
+    __log_begin_read_id = None
+    __logfile = None
+    __logfile_to_stage = None
     __get_config = None
     # __id = None
     _log = None
@@ -86,7 +89,7 @@ class AE33:
             self._type = config[name]['type']
             self.__serial_number = config[name]['serial_number']
             self.__get_config = config[name]['get_config']
-            self.__set_config = config[name]['set_config']
+            # self.__set_config = config[name]['set_config']
             self.__set_datetime = config[name]['set_datetime']
 
             # configure tcp/ip
@@ -150,7 +153,8 @@ class AE33:
             # decode response, tidy
             rcvd = rcvd.decode()
             if tidy:
-                rcvd = rcvd.replace("\n", "").replace("\r", "").replace("AE33>", "")
+                # rcvd = rcvd.replace("\n", "").replace("\r", "").replace("AE33>", "")
+                rcvd = rcvd.replace("AE33>", "")
 
             return rcvd
 
@@ -242,92 +246,12 @@ class AE33:
             print(err)
 
 
-    # def set_config(self) -> list:
-    #     """
-    #     Set configuration of instrument and optionally write to log.
-
-    #     :return (err, cfg) configuration set or errors, if any.
-    #     """
-    #     print("%s .set_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self.__name))
-    #     cfg = []
-    #     try:
-    #         for cmd in self.__set_config:
-    #             cfg.append(self.tcpip_comm(cmd))
-    #         time.sleep(1)
-
-    #         if self._log:
-    #             self._logger.info("Configuration of '%s' set to: %s" % (self.__name, cfg))
-
-    #         return cfg
-
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
-
-
-    # def get_latest_data(self, save=True) -> str:
-    #     """
-    #     Retrieve last record from Data table from instrument and optionally save.
-
-    #     :param str cmd: command sent to instrument
-    #     :param bln save: Should data be saved to file? default=True
-    #     :return str response as decoded string
-    #     """
-    #     try:
-    #         dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-    #         print(f"{dtm} .get_latest_data (name={self.__name}, save={save})")
-
-    #         # read the last record from the Data table
-    #         maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
-    #         cmd=f"FETCH Data {maxid}"                    
-    #         data = self.tcpip_comm(cmd, tidy=True)
-
-    #         if save:
-    #             # generate the datafile name
-    #             self.__datafile = os.path.join(self.__datadir,
-    #                                            "".join([self.__name, "-",
-    #                                                    datetimebin.dtbin(self.__reporting_interval), ".dat"]))
-
-    #             # if not os.path.exists(self.__datafile):
-    #             #     # if file doesn't exist, create and write header
-    #             #     with open(self.__datafile, "at", encoding='utf8') as fh:
-    #             #         fh.write(f"{self.__data_header}\n")
-    #             #         fh.close()
-
-    #             with open(self.__datafile, "at", encoding='utf8') as fh:
-    #                 fh.write(f"{dtm} {data}\n")
-    #                 fh.close()
-
-    #             # stage data for transfer
-    #             if self.__file_to_stage is None:
-    #                 self.__file_to_stage = self.__datafile
-    #             elif self.__file_to_stage != self.__datafile:
-    #                 root = os.path.join(self.__staging, os.path.basename(self.__datadir))
-    #                 os.makedirs(root, exist_ok=True)
-    #                 if self.__zip:
-    #                     # create zip file
-    #                     archive = os.path.join(root, "".join([os.path.basename(self.__file_to_stage)[:-4], ".zip"]))
-    #                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    #                         zf.write(self.__file_to_stage, os.path.basename(self.__file_to_stage))
-    #                 else:
-    #                     shutil.copyfile(self.__file_to_stage, os.path.join(root, os.path.basename(self.__file_to_stage)))
-    #                 self.__file_to_stage = self.__datafile
-
-    #         return data
-
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
-
-
     def get_new_data(self, sep="|", save=True) -> str:
         """
         Retrieve all records from table data that have not been read and optionally write to log.
 
-        :param str cmd: command sent to instrument
-        :param bln save: Should data be saved to file? default=True
+        :param str sep: item separator. Defaults to True.
+        :param bln save: Should data be saved to file? Default=True
         :return str response as decoded string
         """
         try:
@@ -335,14 +259,15 @@ class AE33:
             print(f"{dtm} .get_new_data (name={self.__name}, save={save})")
 
             # get the maximum id in the Data table
+            minid = int(self.tcpip_comm(cmd="MINID Data", tidy=True))
             maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
 
             # get data_begin_read_id
             if self.__data_begin_read_id:
                 data_begin_read_id = self.__data_begin_read_id
             else:
-                data_begin_read_id = maxid
-            # read the last record from the Data table
+                data_begin_read_id = minid
+            # read the latest records from the Data table
             cmd=f"FETCH Data {data_begin_read_id} {maxid}"                    
             data = self.tcpip_comm(cmd, tidy=True)
 
@@ -355,18 +280,12 @@ class AE33:
                                                "".join([self.__name, "-",
                                                        datetimebin.dtbin(self.__reporting_interval), ".dat"]))
 
-                # if not os.path.exists(self.__datafile):
-                #     # if file doesn't exist, create and write header
-                #     with open(self.__datafile, "at", encoding='utf8') as fh:
-                #         fh.write(f"{self.__data_header}\n")
-                #         fh.close()
-
                 with open(self.__datafile, "at", encoding='utf8') as fh:
                     fh.write(f"{dtm}{sep}{data}\n")
                     fh.close()
 
                 # stage data for transfer
-                self.stage_file()
+                self.stage_data_file()
 
             return data
 
@@ -376,7 +295,7 @@ class AE33:
             print(err)
 
 
-    def stage_file(self) -> None:
+    def stage_data_file(self) -> None:
         """Stage a file if it is no longer written to. This is determined by checking if the path 
            of the file to be staged is different the path of the current (data)file.
 
@@ -393,19 +312,19 @@ class AE33:
             if self.__datadir is None:
                 raise ValueError("__datadir cannot be None.")
 
-            if self.__file_to_stage is None:
-                self.__file_to_stage = self.__datafile
-            elif self.__file_to_stage != self.__datafile:
+            if self.__datafile_to_stage is None:
+                self.__datafile_to_stage = self.__datafile
+            elif self.__datafile_to_stage != self.__datafile:
                 root = os.path.join(self.__staging, os.path.basename(self.__datadir))
                 os.makedirs(root, exist_ok=True)
                 if self.__zip:
                     # create zip file
-                    archive = os.path.join(root, "".join([os.path.basename(self.__file_to_stage)[:-4], ".zip"]))
+                    archive = os.path.join(root, "".join([os.path.basename(self.__datafile_to_stage)[:-4], ".zip"]))
                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                        zf.write(self.__file_to_stage, os.path.basename(self.__file_to_stage))
+                        zf.write(self.__datafile_to_stage, os.path.basename(self.__datafile_to_stage))
                 else:
-                    shutil.copyfile(self.__file_to_stage, os.path.join(root, os.path.basename(self.__file_to_stage)))
-                self.__file_to_stage = self.__datafile
+                    shutil.copyfile(self.__datafile_to_stage, os.path.join(root, os.path.basename(self.__datafile_to_stage)))
+                self.__datafile_to_stage = self.__datafile
 
         except Exception as err:
             if self._log:
@@ -433,6 +352,7 @@ class AE33:
                 self._logger.error(err)
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
+
     def tape_advances_remaining(self) -> str:
         try:
             cmd = "$AE33:A"
@@ -445,33 +365,131 @@ class AE33:
                 self._logger.error(err)
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
-    def get_latest_ATN_info(self) -> str:
-        """Get latest ATN info from log file, based on tape advance info"""
+    def get_new_log_entries(self, sep="|", save=True) -> str:
+        """
+        Retrieve all records from table data that have not been read and optionally write to log.
+
+        :param str sep: item separator. Defaults to True.
+        :param bln save: Should data be saved to file? Default=True
+        :return str response as decoded string
+        """
         try:
-            # minid = int(self.tcpip_comm(cmd="MINID Log", tidy=True))
+            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+            print(f"{dtm} .get_new_log_entries (name={self.__name}, save={save})")
+
+            # get the maximum id in the Log table
+            minid = int(self.tcpip_comm(cmd="MINID Log", tidy=True))
             maxid = int(self.tcpip_comm(cmd="MAXID Log", tidy=True))
-            if int(maxid) > 49:
-                minid = str(int(maxid) - 50)
+
+            # get data_begin_read_id
+            if self.__log_begin_read_id:
+                log_begin_read_id = self.__log_begin_read_id
             else:
-                minid = "1"
-            log = self.tcpip_comm(cmd=f"FETCH Log {minid} {maxid}", tidy=False)
-            log = log.replace("AE33>", "")
+                log_begin_read_id = minid
+            # read the last record from the Log table
+            cmd=f"FETCH Log {log_begin_read_id} {maxid}"                    
+            log = self.tcpip_comm(cmd, tidy=True)
 
-            log = log.splitlines()
-            i = [i for i in range(len(log)) if "Tape Advance number" in log[i]][-1]
-            j = [i for i in range(len(log)) if "ATN1zero" in log[i]][-1]
-            k = log[i].find("Tape Advance number:")
-            tape_advance_number = int(log[i][k+20:k+25])
+            # set log_begin_read_id for the next call
+            self.__log_begin_read_id = maxid + 1
 
-            pattern_1 = r"(.*Tape Advance number:.*)" # to capture line containing words
-            atn_pattern = r"(ATN\dzero\(\d\):\s+\d+.\d+)"
+            if save:
+                # generate the datafile name
+                self.__logfile = os.path.join(self.__datadir,
+                                               "".join([self.__name, "-",
+                                                       datetimebin.dtbin(self.__reporting_interval), ".dat"]))
 
-            return tape_advance_number, log[i:j]
+                with open(self.__logfile, "at", encoding='utf8') as fh:
+                    fh.write(f"{dtm}{sep}{log}\n")
+                    fh.close()
+
+                # stage data for transfer
+                self.stage_log_file()
+
+            return log
 
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
+
+
+    def stage_log_file(self) -> None:
+        """Stage a file if it is no longer written to. This is determined by checking if the path 
+           of the file to be staged is different the path of the current (data)file.
+
+        Raises:
+            ValueError: _description_
+            ValueError: _description_
+            ValueError: _description_
+        """
+        try:
+            if self.__logfile is None:
+                raise ValueError("__datafile cannot be None.")
+            if self.__staging is None:
+                raise ValueError("__staging cannot be None.")
+            if self.__datadir is None:
+                raise ValueError("__datadir cannot be None.")
+
+            if self.__logfile_to_stage is None:
+                self.__logfile_to_stage = self.__datafile
+            elif self.__logfile_to_stage != self.__datafile:
+                root = os.path.join(self.__staging, os.path.basename(self.__datadir))
+                os.makedirs(root, exist_ok=True)
+                if self.__zip:
+                    # create zip file
+                    archive = os.path.join(root, "".join([os.path.basename(self.__logfile_to_stage)[:-4], ".zip"]))
+                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                        zf.write(self.__logfile_to_stage, os.path.basename(self.__logfile_to_stage))
+                else:
+                    shutil.copyfile(self.__logfile_to_stage, os.path.join(root, os.path.basename(self.__logfile_to_stage)))
+                self.__logfile_to_stage = self.__datafile
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    # def get_latest_ATN_info(self, save=True) -> str:
+    #     """Get latest ATN info from log file, based on tape advance info"""
+    #     try:
+    #         # minid = int(self.tcpip_comm(cmd="MINID Log", tidy=True))
+    #         maxid = int(self.tcpip_comm(cmd="MAXID Log", tidy=True))
+    #         if int(maxid) > 49:
+    #             minid = str(int(maxid) - 50)
+    #         else:
+    #             minid = "1"
+    #         log = self.tcpip_comm(cmd=f"FETCH Log {minid} {maxid}", tidy=False)
+    #         log = log.replace("AE33>", "")
+
+    #         log = log.splitlines()
+    #         i = [i for i in range(len(log)) if "Tape Advance number" in log[i]][-1]
+    #         j = [i for i in range(len(log)) if "ATN1zero" in log[i]][-1]
+    #         k = log[i].find("Tape Advance number:")
+    #         tape_advance_number = int(log[i][k+20:k+25])
+
+    #         # pattern_1 = r"(.*Tape Advance number:.*)" # to capture line containing words
+    #         # atn_pattern = r"(ATN\dzero\(\d\):\s+\d+.\d+)"
+
+    #         if save:
+    #             # generate the datafile name
+    #             self.__datafile = os.path.join(self.__datadir,
+    #                                            "".join([self.__name, "-",
+    #                                                    datetimebin.dtbin(self.__reporting_interval), ".log"]))
+
+    #             with open(self.__datafile, "at", encoding='utf8') as fh:
+    #                 fh.write(f"{dtm}{sep}{data}\n")
+    #                 fh.close()
+
+    #             # stage data for transfer
+    #             self.stage_file()
+    #         return tape_advance_number, log[i:j]
+
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
 # Header:
 # Date(yyyy/MM/dd); Time(hh:mm:ss); Timebase; RefCh1; Sen1Ch1; Sen2Ch1; RefCh2; 

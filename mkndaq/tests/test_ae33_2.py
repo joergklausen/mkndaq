@@ -14,7 +14,7 @@ cfg = {"logs": "c:/users/jkl/Documents/mkndaq/logs",
         "ae33": {"type": "AE33",
                  "id": 169,
                  "serial_number": "AE33-S10-01394",
-                 "socket": {"host": "192.168.0.50",
+                 "socket": {"host": "192.168.3.137",
                             "port": 8002,
                             "timeout": 0.5,
                             "sleep": 0.5},
@@ -27,8 +27,9 @@ cfg = {"logs": "c:/users/jkl/Documents/mkndaq/logs",
             }
        }
 
-# %%
 ae33 = AE33(name='ae33', config=cfg)
+
+# %%
 remaining = ae33.tape_advances_remaining()
 print(f"Tape remaining: {remaining}")
 
@@ -36,21 +37,19 @@ print(f"Tape remaining: {remaining}")
 # logmin = ae33.tcpip_comm(cmd="MINID Log", tidy=False)
 # logmax = ae33.tcpip_comm(cmd="MAXID Log", tidy=False)
 # log = ae33.tcpip_comm(cmd=f"FETCH Log {logmin} {logmax}", tidy=False)
-cmd, log = ae33.fetch_from_table(name="Log", first="1")
+# cmd, log = ae33.fetch_from_table(name="Log", first="1")
+# print(log)
+# with open("log.log", "w") as fh:
+#     fh.write(log)
+
+# %%
+log = ae33.get_new_log_entries()
 print(log)
-with open("log.log", "w") as fh:
-    fh.write(log)
 
 # %%
-num, log = ae33.get_latest_ATN_info()
-print(num, log)
-# with open("log2.log", "w") as fh:
-    # fh.write(log)
-
-# %%
-fetch = 20
+fetch = 30
 schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
-schedule.every().day.at('00:00').do(ae33.set_datetime)
+schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
 schedule.every(fetch).seconds.do(ae33.print_ae33)
 
 print("# Begin data acquisition and file transfer")
