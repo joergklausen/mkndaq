@@ -158,6 +158,7 @@ class AE33:
                 # rcvd = rcvd.replace("\n", "").replace("\r", "").replace("AE33>", "")
                 rcvd = rcvd.replace("AE33>", "")
                 rcvd = rcvd.replace("\r\n", "\n")
+                rcvd = rcvd.replace("\n\n", "\n")
             return rcvd
 
         except Exception as err:
