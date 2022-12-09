@@ -34,13 +34,8 @@ remaining = ae33.tape_advances_remaining()
 print(f"Tape remaining: {remaining}")
 
 # %%
-# logmin = ae33.tcpip_comm(cmd="MINID Log", tidy=False)
-# logmax = ae33.tcpip_comm(cmd="MAXID Log", tidy=False)
-# log = ae33.tcpip_comm(cmd=f"FETCH Log {logmin} {logmax}", tidy=False)
-# cmd, log = ae33.fetch_from_table(name="Log", first="1")
-# print(log)
-# with open("log.log", "w") as fh:
-#     fh.write(log)
+data = ae33.get_new_data()
+print(data)
 
 # %%
 log = ae33.get_new_log_entries()
