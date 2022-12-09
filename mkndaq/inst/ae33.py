@@ -27,11 +27,11 @@ class AE33:
     __data_begin_read_id = None
     __datafile = None
     __datafile_to_stage = None
+    __get_config = None
+    __logdir = None
     __log_begin_read_id = None
     __logfile = None
     __logfile_to_stage = None
-    __get_config = None
-    # __id = None
     _log = None
     _logger = None
     __name = None
@@ -102,10 +102,12 @@ class AE33:
             self._sampling_interval = config[name]['sampling_interval']
             self.__reporting_interval = config['reporting_interval']
 
-            # setup data directory
+            # setup data and log directory
             datadir = os.path.expanduser(config['data'])
-            self.__datadir = os.path.join(datadir, name)
+            self.__datadir = os.path.join(datadir, name, "data")
             os.makedirs(self.__datadir, exist_ok=True)
+            self.__logdir = os.path.join(datadir, name, "logs")
+            os.makedirs(self.__logdir, exist_ok=True)
 
             # staging area for files to be transfered
             self.__staging = os.path.expanduser(config['staging']['path'])
@@ -155,7 +157,7 @@ class AE33:
             if tidy:
                 # rcvd = rcvd.replace("\n", "").replace("\r", "").replace("AE33>", "")
                 rcvd = rcvd.replace("AE33>", "")
-
+                rcvd = rcvd.replace("\r\n", "\r")
             return rcvd
 
         except Exception as err:
@@ -258,34 +260,36 @@ class AE33:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
             print(f"{dtm} .get_new_data (name={self.__name}, save={save})")
 
-            # get the maximum id in the Data table
-            minid = int(self.tcpip_comm(cmd="MINID Data", tidy=True))
-            maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
-
             # get data_begin_read_id
             if self.__data_begin_read_id:
                 data_begin_read_id = self.__data_begin_read_id
             else:
+                # if we don't know where to start, we start at the beginning
+                minid = int(self.tcpip_comm(cmd="MINID Data", tidy=True))
                 data_begin_read_id = minid
+
             # read the latest records from the Data table
-            cmd=f"FETCH Data {data_begin_read_id} {maxid}"                    
-            data = self.tcpip_comm(cmd, tidy=True)
+            data = None
+            maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
+            if data_begin_read_id < maxid:
+                cmd=f"FETCH Data {data_begin_read_id} {maxid}"                    
+                data = self.tcpip_comm(cmd, tidy=True)
 
-            # set data_begin_read_id
-            self.__data_begin_read_id = maxid + 1
+                # set data_begin_read_id
+                self.__data_begin_read_id = maxid + 1
 
-            if save:
-                # generate the datafile name
-                self.__datafile = os.path.join(self.__datadir,
-                                               "".join([self.__name, "-",
-                                                       datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+                if save:
+                    # generate the datafile name
+                    self.__datafile = os.path.join(self.__datadir,
+                                                "".join([self.__name, "-",
+                                                        datetimebin.dtbin(self.__reporting_interval), ".dat"]))
 
-                with open(self.__datafile, "at", encoding='utf8') as fh:
-                    fh.write(f"{dtm}{sep}{data}\n")
-                    fh.close()
+                    with open(self.__datafile, "at", encoding='utf8') as fh:
+                        fh.write(f"{dtm}{sep}{data}\n")
+                        fh.close()
 
-                # stage data for transfer
-                self.stage_data_file()
+                    # stage data for transfer
+                    self.stage_data_file()
 
             return data
 
@@ -315,7 +319,7 @@ class AE33:
             if self.__datafile_to_stage is None:
                 self.__datafile_to_stage = self.__datafile
             elif self.__datafile_to_stage != self.__datafile:
-                root = os.path.join(self.__staging, os.path.basename(self.__datadir))
+                root = os.path.join(self.__staging, self.__name, os.path.basename(self.__datadir))
                 os.makedirs(root, exist_ok=True)
                 if self.__zip:
                     # create zip file
@@ -377,34 +381,36 @@ class AE33:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
             print(f"{dtm} .get_new_log_entries (name={self.__name}, save={save})")
 
-            # get the maximum id in the Log table
-            minid = int(self.tcpip_comm(cmd="MINID Log", tidy=True))
-            maxid = int(self.tcpip_comm(cmd="MAXID Log", tidy=True))
-
             # get data_begin_read_id
             if self.__log_begin_read_id:
                 log_begin_read_id = self.__log_begin_read_id
             else:
+                # if we don't know where to start, we start at the beginning
+                minid = int(self.tcpip_comm(cmd="MINID Log", tidy=True))
                 log_begin_read_id = minid
             # read the last record from the Log table
-            cmd=f"FETCH Log {log_begin_read_id} {maxid}"                    
-            log = self.tcpip_comm(cmd, tidy=True)
+            # get the maximum id in the Log table
+            log = None
+            maxid = int(self.tcpip_comm(cmd="MAXID Log", tidy=True))
+            if log_begin_read_id < maxid:
+                cmd=f"FETCH Log {log_begin_read_id} {maxid}"                    
+                log = self.tcpip_comm(cmd, tidy=True)
 
-            # set log_begin_read_id for the next call
-            self.__log_begin_read_id = maxid + 1
+                # set log_begin_read_id for the next call
+                self.__log_begin_read_id = maxid + 1
 
-            if save:
-                # generate the datafile name
-                self.__logfile = os.path.join(self.__datadir,
-                                               "".join([self.__name, "-",
-                                                       datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+                if save:
+                    # generate the datafile name
+                    self.__logfile = os.path.join(self.__logdir,
+                                                "".join([self.__name, "-",
+                                                        datetimebin.dtbin(self.__reporting_interval), ".log"]))
 
-                with open(self.__logfile, "at", encoding='utf8') as fh:
-                    fh.write(f"{dtm}{sep}{log}\n")
-                    fh.close()
+                    with open(self.__logfile, "at", encoding='utf8') as fh:
+                        fh.write(f"{dtm}{sep}{log}\n")
+                        fh.close()
 
-                # stage data for transfer
-                self.stage_log_file()
+                    # stage data for transfer
+                    self.stage_log_file()
 
             return log
 
@@ -425,16 +431,16 @@ class AE33:
         """
         try:
             if self.__logfile is None:
-                raise ValueError("__datafile cannot be None.")
+                raise ValueError("__logfile cannot be None.")
             if self.__staging is None:
                 raise ValueError("__staging cannot be None.")
-            if self.__datadir is None:
-                raise ValueError("__datadir cannot be None.")
+            if self.__logdir is None:
+                raise ValueError("__logdir cannot be None.")
 
             if self.__logfile_to_stage is None:
-                self.__logfile_to_stage = self.__datafile
-            elif self.__logfile_to_stage != self.__datafile:
-                root = os.path.join(self.__staging, os.path.basename(self.__datadir))
+                self.__logfile_to_stage = self.__logfile
+            elif self.__logfile_to_stage != self.__logfile:
+                root = os.path.join(self.__staging, self.__name, os.path.basename(self.__logdir))
                 os.makedirs(root, exist_ok=True)
                 if self.__zip:
                     # create zip file
@@ -443,7 +449,7 @@ class AE33:
                         zf.write(self.__logfile_to_stage, os.path.basename(self.__logfile_to_stage))
                 else:
                     shutil.copyfile(self.__logfile_to_stage, os.path.join(root, os.path.basename(self.__logfile_to_stage)))
-                self.__logfile_to_stage = self.__datafile
+                self.__logfile_to_stage = self.__logfile
 
         except Exception as err:
             if self._log:
