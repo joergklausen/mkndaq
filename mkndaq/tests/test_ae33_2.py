@@ -38,6 +38,9 @@ data = ae33.get_new_data()
 print(data)
 
 # %%
+ae33.print_ae33()
+
+# %%
 log = ae33.get_new_log_entries()
 print(log)
 

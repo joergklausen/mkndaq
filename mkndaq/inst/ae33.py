@@ -157,7 +157,7 @@ class AE33:
             if tidy:
                 # rcvd = rcvd.replace("\n", "").replace("\r", "").replace("AE33>", "")
                 rcvd = rcvd.replace("AE33>", "")
-                rcvd = rcvd.replace("\r\n", "\r")
+                rcvd = rcvd.replace("\r\n", "\n")
             return rcvd
 
         except Exception as err:
@@ -360,9 +360,9 @@ class AE33:
     def tape_advances_remaining(self) -> str:
         try:
             cmd = "$AE33:A"
-            num = self.tcpip_comm(cmd, tidy=True)
-
-            return num
+            res = self.tcpip_comm(cmd, tidy=True)
+            res = res.replace("\n", "")
+            return res
 
         except Exception as err:
             if self._log:

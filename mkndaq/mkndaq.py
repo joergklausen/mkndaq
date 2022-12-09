@@ -40,7 +40,7 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-        version = 'v0.6.2'
+        version = 'v0.6.3'
         print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
 
         # collect and interprete CLI arguments
@@ -86,12 +86,10 @@ def main():
         sftp.stage_current_config_file(config_file)
 
         # initialize instruments, get and set configurations and define schedules
-        # NB: In case, more instruments should be handled, the relevant calls need to be included here below.
+        # NB: In case more instruments should be handled, the relevant calls need to be included here below.
         try:
             if cfg.get('tei49c', None):
                 tei49c = TEI49C(name='tei49c', config=cfg, simulate=simulate)
-                # tei49c.get_config()
-                # tei49c.set_config()
                 schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(tei49c.get_data)
                 schedule.every(6).hours.at(':00').do(tei49c.set_datetime)
                 schedule.every(fetch).seconds.do(tei49c.print_o3)
@@ -102,8 +100,6 @@ def main():
                 schedule.every(fetch).seconds.do(tei49i.print_o3)
             if cfg.get('tei49i_2', None):
                 tei49i_2 = TEI49I(name='tei49i_2', config=cfg, simulate=simulate)
-                # tei49i_2.get_config()
-                # tei49i_2.set_config()
                 schedule.every(cfg['tei49i_2']['sampling_interval']).minutes.at(':00').do(tei49i_2.get_data)
                 schedule.every().day.at('00:00').do(tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(tei49i_2.print_o3)
