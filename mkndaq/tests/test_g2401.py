@@ -6,7 +6,8 @@ Tests for TCP/IP communication with Picarro G2401
 @author: joerg.klausen@meteoswiss.ch
 """
 # %%
-os.chdir("c:/users/jkl/Public/git/mkndaq")
+import os
+#os.chdir("c:/users/jkl/Public/git/mkndaq")
 from mkndaq.inst.g2401 import G2401
 
 cfg = {'file': 'mkndaq.cfg', 'version': '1.0.0-20210802', 'home': 'c:/users/mkn', 'reporting_interval': 10,
@@ -17,7 +18,7 @@ cfg = {'file': 'mkndaq.cfg', 'version': '1.0.0-20210802', 'home': 'c:/users/mkn'
                     'staging_zip': True,
                 'socket': {'host': '192.168.4.102', 'port': 51020, 'timeout': 5, 'sleep': 0.5},
                 'get_data': ['_Meas_GetBufferFirst', '_Instr_getStatus'],
-                'netshare': 'DataLog_User_Sync',
+                'netshare': 'X:',
                 'data_storage_interval': 'hourly',
                 'staging_interval': 60,
                 'staging_minute': 10,
