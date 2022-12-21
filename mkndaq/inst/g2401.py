@@ -7,6 +7,7 @@ Define a class G2401 facilitating communication with a Picarro G2401 instrument.
 
 import os
 import socket
+import datetime
 import time
 import logging
 import shutil
@@ -26,7 +27,7 @@ class G2401:
     _socksleep = None
     _sockaddr = None
     _socktout = None
-    _data_storage = None
+    _data_storage_interval = None
     _log = None
     _zip = None
     _staging = None
@@ -34,12 +35,12 @@ class G2401:
     _datadir = None
     _name = None
     _logger = None
-    _get_data = None
+    # _get_data = None
     _socket_port = None
     _socket_host = None
 
-    @classmethod
-    def __init__(cls, name: str, config: dict) -> None:
+
+    def __init__(self, name: str, config: dict) -> None:
         """
         Constructor
 
@@ -51,7 +52,7 @@ class G2401:
             dictionary of attributes defining the instrument and port
         """
         colorama.init(autoreset=True)
-        print("# Initialize G2401")
+        print(f"# Initialize G2401 (name: {name})")
 
         try:
             # setup logging
@@ -59,7 +60,7 @@ class G2401:
             os.makedirs(logdir, exist_ok=True)
             logfile = '%s.log' % time.strftime('%Y%m%d')
             logfile = os.path.join(logdir, logfile)
-            cls._logger = logging.getLogger(__name__)
+            self._logger = logging.getLogger(__name__)
             logging.basicConfig(level=logging.DEBUG,
                                 format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                 datefmt='%y-%m-%d %H:%M:%S',
@@ -67,46 +68,49 @@ class G2401:
                                 filemode='a')
 
             # configure tcp/ip
-            cls._sockaddr = (config[name]['socket']['host'],
+            self._sockaddr = (config[name]['socket']['host'],
                              config[name]['socket']['port'])
-            cls._socktout = config[name]['socket']['timeout']
-            cls._socksleep = config[name]['socket']['sleep']
+            self._socktout = config[name]['socket']['timeout']
+            self._socksleep = config[name]['socket']['sleep']
 
             # read instrument control properties for later use
-            cls._name = name
-            cls._type = config[name]['type']
-            cls._serial_number = config[name]['serial_number']
-            cls._get_data = config[name]['get_data']
+            self._name = name
+            self._type = config[name]['type']
+            self._serial_number = config[name]['serial_number']
+            # self._get_data = config[name]['get_data']
 
             # setup data directory
             datadir = os.path.expanduser(config['data'])
-            cls._datadir = os.path.join(datadir, name)
-            os.makedirs(cls._datadir, exist_ok=True)
+            self._datadir = os.path.join(datadir, name)
+            os.makedirs(self._datadir, exist_ok=True)
 
             # source of data files
-            cls._source = config[name]['source']
+#            self._source = config[name]['source']
 
             # interval to fetch and stage data files
-            cls._staging_interval = config[name]['staging_interval']
+            self._staging_interval = config[name]['staging_interval']
 
             # reporting/storage
-            cls._reporting_interval = config[name]['reporting_interval']
-            cls._data_storage = config[name]['data_storage']
+            # self._reporting_interval = config[name]['reporting_interval']
+            self._data_storage_interval = config[name]['data_storage_interval']
 
             # netshare of user data files
-            cls._netshare = os.path.expanduser(config[name]['netshare'])
+            #self._netshare = os.path.expanduser(config[name]['netshare'])
+            dbs = r"\\"
+            self._netshare = os.path.join(f"{dbs}{config[name]['socket']['host']}", config[name]['netshare'])
+            # print("netshare:", self._netshare)
 
             # staging area for files to be transfered
-            cls._staging = os.path.expanduser(config['staging']['path'])
-            cls._zip = config['staging']['zip']
+            self._staging = os.path.expanduser(config['staging']['path'])
+            self._zip = config[name]['staging_zip']
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def tcpip_comm(cls, cmd: str, tidy=True) -> str:
+
+    def tcpip_comm(self, cmd: str, tidy=True) -> str:
         """
         Send a command and retrieve the response. Assumes an open connection.
 
@@ -119,18 +123,29 @@ class G2401:
             # open socket connection as a client
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
                 # connect to the server
-                s.settimeout(cls._socktout)
-                s.connect(cls._sockaddr)
+                s.settimeout(self._socktout)
+                s.connect(self._sockaddr)
 
                 # send data
                 s.sendall((cmd + chr(13) + chr(10)).encode())
-                time.sleep(cls._socksleep)
+                time.sleep(self._socksleep)
 
                 # receive response
                 while True:
-                    data = s.recv(1024)
-                    rcvd = rcvd + data
-                    if chr(13).encode() in data:
+                    # data = s.recv(1024)
+                    # rcvd = rcvd + data
+                    # if chr(13).encode() in data:
+                    #     break
+                    # data = s.recv(1024)
+
+                    # if not data:
+                    #     break
+                    # else:
+                    #     rcvd = rcvd + data
+                    try:
+                        data = s.recv(1024)
+                        rcvd = rcvd + data
+                    except:
                         break
 
             # decode response, tidy
@@ -142,30 +157,105 @@ class G2401:
             return rcvd
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def store_and_stage_latest_file(cls):
+
+    def print_co2_ch4_co(self) -> None:
+        try:
+            conc = self.tcpip_comm("_Meas_GetConc").split(';')[0:3]
+            # print(colorama.Fore.GREEN + "%s [%s] CO2 %s ppm  CH4 %s ppm  CO %s ppm" % \
+            #       (time.strftime("%Y-%m-%d %H:%M:%S"), self._name, *conc))
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] CO2 {conc[0]} ppm  CH4 {conc[1]} ppm  CO {conc[1]} ppm")
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] produced error {err}.")
+
+
+    def store_and_stage_new_files(self):
+        try:
+            # list data files available on netshare
+            # retrieve a list of all files on netshare for sync_period, except the latest file (which is presumably still written too)
+            # retrieve a list of all files on local disk for sync_period
+            # copy and stage files available on netshare but not locally
+            
+            if self._data_storage_interval == 'hourly':
+                ftime = "%Y/%m/%d"
+            elif self._data_storage_interval == 'daily':
+                ftime = "%Y/%m"
+            else:
+                raise ValueError(f"Configuration 'data_storage_interval' of {self._name} must be <hourly|daily>.")
+
+            try:
+                if os.path.exists(self._netshare):
+                    for delta in (0, 1):
+                        relative_path = (datetime.datetime.today() - datetime.timedelta(days=delta)).strftime(ftime)
+                        netshare_path = os.path.join(self._netshare, relative_path)
+                        local_path = os.path.join(self._datadir, relative_path)
+                        os.makedirs(local_path, exist_ok=True)
+
+                        # files on netshare except the most recent one
+                        if delta==0:
+                            netshare_files = os.listdir(netshare_path)[:-1]
+                        else:
+                            netshare_files = os.listdir(netshare_path)
+
+                        # local files
+                        local_files = os.listdir(local_path)
+
+                        files_to_copy = set(netshare_files) - set(local_files)
+
+                        for file in files_to_copy:
+                            # store data file on local disk
+                            shutil.copyfile(os.path.join(netshare_path, file), os.path.join(local_path, file))            
+
+                            # stage data for transfer
+                            stage = os.path.join(self._staging, self._name)
+                            os.makedirs(stage, exist_ok=True)
+
+                            if self._zip:
+                                # create zip file
+                                archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
+                                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                                    fh.write(os.path.join(local_path, file), file)
+                            else:
+                                shutil.copyfile(os.path.join(local_path, file), os.path.join(stage, file))
+
+                            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={file})")
+            except:
+                print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)")
+
+                return
+                
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+    # Methods below not currently in use
+
+    def store_and_stage_latest_file(self):
         try:
             # get data file from netshare
-            if cls._data_storage == 'hourly':
-                path = os.path.join(cls._netshare, time.strftime("/%Y/%m/%d"))
-            elif cls._data_storage == 'daily':
-                path = os.path.join(cls._netshare, time.strftime("/%Y/%m"))
+            if self._data_storage_interval == 'hourly':
+                path = os.path.join(self._netshare, time.strftime("/%Y/%m/%d"))
+            elif self._data_storage_interval == 'daily':
+                path = os.path.join(self._netshare, time.strftime("/%Y/%m"))
             else:
-                raise ValueError("Configuration 'data_storage' of %s must be <hourly|daily>." % cls._name)
+                raise ValueError(f"Configuration 'data_storage_interval' of {self._name} must be <hourly|daily>.")
             file = max(os.listdir(path))
 
-            # store data file
-            shutil.copyfile(os.path.join(path, file), os.path.join(cls._datadir, file))
+            # store data file on local disk
+            shutil.copyfile(os.path.join(path, file), os.path.join(self._datadir, file))
 
             # stage data for transfer
-            stage = os.path.join(cls._staging, cls._name)
+            stage = os.path.join(self._staging, self._name)
             os.makedirs(stage, exist_ok=True)
 
-            if cls._zip:
+            if self._zip:
                 # create zip file
                 archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
@@ -173,105 +263,94 @@ class G2401:
             else:
                 shutil.copyfile(os.path.join(path, file), os.path.join(stage, file))
 
-            print("%s .store_and_stage_latest_file (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+            print("%s .store_and_stage_latest_file (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def store_and_stage_files(cls):
+
+    def store_and_stage_files(self):
         """
         Fetch data files from local source and move to datadir. Zip files and place in staging area.
 
         :return: None
         """
         try:
-            print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+            print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
 
             # get data file from local source
-            files = os.listdir(cls._source)
+            files = os.listdir(self._source)
 
             if files:
                 # staging location for transfer
-                stage = os.path.join(cls._staging, cls._name)
+                stage = os.path.join(self._staging, self._name)
                 os.makedirs(stage, exist_ok=True)
 
                 # store and stage data files
                 for file in files:
                     # stage file
-                    if cls._zip:
+                    if self._zip:
                         # create zip file
                         archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
                         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                            fh.write(os.path.join(cls._source, file), file)
+                            fh.write(os.path.join(self._source, file), file)
                     else:
-                        shutil.copyfile(os.path.join(cls._source, file), os.path.join(stage, file))
+                        shutil.copyfile(os.path.join(self._source, file), os.path.join(stage, file))
 
                     # move to data storage location
-                    shutil.move(os.path.join(cls._source, file), os.path.join(cls._datadir, file))
+                    shutil.move(os.path.join(self._source, file), os.path.join(self._datadir, file))
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def get_meas_getconc(cls) -> str:
+
+    def get_meas_getconc(self) -> str:
         """
         Retrieve instantaneous data from instrument
 
         :return:
         """
         try:
-            return cls.tcpip_comm('_Meas_GetConc')
+            return self.tcpip_comm('_Meas_GetConc')
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def get_co2_ch4_co(cls) -> list:
+
+    def get_co2_ch4_co(self) -> list:
         """
         Get instantaneous cleaned response to '_Meas_GetConc' from instrument.
 
         :return: list: concentration values from instrument
         """
         try:
-            return cls.tcpip_comm("_Meas_GetConc").split(';')[0:3]
+            return self.tcpip_comm("_Meas_GetConc").split(';')[0:3]
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def print_co2_ch4_co(cls) -> None:
-        try:
-            conc = cls.tcpip_comm("_Meas_GetConc").split(';')[0:3]
-            print(colorama.Fore.GREEN + "%s [%s] CO2 %s ppm  CH4 %s ppm  CO %s ppm" % \
-                  (time.strftime("%Y-%m-%d %H:%M:%S"), cls._name, *conc))
 
-        except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
-            print(err)
+    # def read_user_file(self, file, log=False):
+    #     """
+    #     Read user file to Pandas data.frame
 
-    def read_user_file(self, file, log=False):
-        """
-        Read user file to Pandas data.frame
+    #     Parameters
+    #     ----------
+    #     file : str
+    #         Full path to file
+    #     log : str, optional
+    #         DESCRIPTION. The default is False.
 
-        Parameters
-        ----------
-        file : str
-            Full path to file
-        log : str, optional
-            DESCRIPTION. The default is False.
-
-        Returns
-        -------
-        Pandas data.frame
+    #     Returns
+    #     -------
+    #     Pandas data.frame
         
-        """
+    #     """
