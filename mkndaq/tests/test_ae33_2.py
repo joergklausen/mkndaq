@@ -1,15 +1,15 @@
 # %%
 import os
-os.chdir("c:/users/jkl/Public/git/mkndaq")
+os.chdir("c:/users/mkn/Documents/git/mkndaq")
 from mkndaq.inst.ae33 import AE33
 import schedule
 import time
 
-cfg = {"logs": "c:/users/jkl/Documents/mkndaq/logs",
-        "data": "c:/users/jkl/Documents/mkndaq/data",
+cfg = {"logs": "c:/users/mkn/Documents/git/mkndaq/logs",
+        "data": "c:/users/mkn/Documents/git/mkndaq/data",
         "reporting_interval": 10,
         "staging": {
-            "path": "c:/users/jkl/Documents/mkndaq/staging",
+            "path": "c:/users/mkn/Documents/git/mkndaq/staging",
         },
         "ae33": {"type": "AE33",
                  "id": 169,
