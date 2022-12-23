@@ -286,7 +286,8 @@ class AE33:
                                                         datetimebin.dtbin(self.__reporting_interval), ".dat"]))
 
                     with open(self.__datafile, "at", encoding='utf8') as fh:
-                        fh.write(f"{dtm}{sep}{data}\n")
+                        # fh.write(f"{dtm}{sep}{data}\n")
+                        fh.write(data)
                         fh.close()
 
                     # stage data for transfer
