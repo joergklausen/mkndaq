@@ -281,10 +281,14 @@ class AE33:
 
                 if save:
                     # generate the datafile name
-                    self.__datafile = os.path.join(self.__datadir,
+                    # self.__datafile = os.path.join(self.__datadir,
+                    #                             "".join([self.__name, "-",
+                    #                                     datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+                    self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
                                                 "".join([self.__name, "-",
                                                         datetimebin.dtbin(self.__reporting_interval), ".dat"]))
 
+                    os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
                     with open(self.__datafile, "at", encoding='utf8') as fh:
                         # fh.write(f"{dtm}{sep}{data}\n")
                         fh.write(data)
@@ -403,10 +407,14 @@ class AE33:
 
                 if save:
                     # generate the datafile name
-                    self.__logfile = os.path.join(self.__logdir,
+                    # self.__logfile = os.path.join(self.__logdir,
+                    #                             "".join([self.__name, "-",
+                    #                                     datetimebin.dtbin(self.__reporting_interval), ".log"]))
+                    self.__logfile = os.path.join(self.__logdir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
                                                 "".join([self.__name, "-",
                                                         datetimebin.dtbin(self.__reporting_interval), ".log"]))
 
+                    os.makedirs(os.path.dirname(self.__logfile), exist_ok=True)
                     with open(self.__logfile, "at", encoding='utf8') as fh:
                         fh.write(f"{dtm}{sep}{log}\n")
                         fh.close()
