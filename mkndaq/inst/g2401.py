@@ -226,6 +226,12 @@ class G2401:
                                 shutil.copyfile(os.path.join(local_path, file), os.path.join(stage, file))
 
                             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={file})")
+                else:
+                    msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)"
+                    if self._log:
+                        self._logger.error(msg)
+                    print(colorama.Fore.RED + msg)
+
             except:
                 print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)")
 
