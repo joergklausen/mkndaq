@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Define a class AE33 facilitating communication with a Magee Scientific AE33 instrument.
 
@@ -16,7 +15,6 @@ import zipfile
 import colorama
 
 from mkndaq.utils import datetimebin
-
 
 class AE33:
     """
@@ -261,21 +259,30 @@ class AE33:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
             print(f"{dtm} .get_new_data (name={self.__name}, save={save})")
 
+            # read the latest records from the Data table
+            data = ""
+            maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
             # get data_begin_read_id
             if self.__data_begin_read_id:
                 data_begin_read_id = self.__data_begin_read_id
             else:
                 # if we don't know where to start, we start at the beginning
                 minid = int(self.tcpip_comm(cmd="MINID Data", tidy=True))
+                # limit the number of records to download to 10080 (7 days)
+                if maxid - minid > 10080:
+                    minid = maxid - 10080
                 data_begin_read_id = minid
 
-            # read the latest records from the Data table
-            data = None
-            maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
             if data_begin_read_id < maxid:
-                cmd=f"FETCH Data {data_begin_read_id} {maxid}"                    
-                data = self.tcpip_comm(cmd, tidy=True)
-
+                chunk_size = 1000
+                while data_begin_read_id < maxid:
+                    if (maxid - data_begin_read_id) > chunk_size:
+                        cmd=f"FETCH Data {data_begin_read_id} {data_begin_read_id + chunk_size}"
+                    else:
+                        cmd=f"FETCH Data {data_begin_read_id} {maxid}"
+                    print(f"                    {cmd}")
+                    data = self.tcpip_comm(cmd, tidy=True)
+                    data_begin_read_id += chunk_size + 1
                 # set data_begin_read_id
                 self.__data_begin_read_id = maxid + 1
 
@@ -307,7 +314,7 @@ class AE33:
 
     def stage_data_file(self) -> None:
         """Stage a file if it is no longer written to. This is determined by checking if the path 
-           of the file to be staged is different the path of the current (data)file.
+           of the file to be staged is different from the path of the current (data)file.
 
         Raises:
             ValueError: _description_
@@ -321,7 +328,6 @@ class AE33:
                 raise ValueError("__staging cannot be None.")
             if self.__datadir is None:
                 raise ValueError("__datadir cannot be None.")
-
             if self.__datafile_to_stage is None:
                 self.__datafile_to_stage = self.__datafile
             elif self.__datafile_to_stage != self.__datafile:

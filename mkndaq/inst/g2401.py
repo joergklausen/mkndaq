@@ -195,7 +195,7 @@ class G2401:
                         relative_path = (datetime.datetime.today() - datetime.timedelta(days=delta)).strftime(ftime)
                         netshare_path = os.path.join(self._netshare, relative_path)
                         # local_path = os.path.join(self._datadir, relative_path)
-                        local_path = os.path.join(self._datadir, time.strftime("Y"), time.strftime("%m"), time.strftime("%d"), relative_path)
+                        local_path = os.path.join(self._datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"), relative_path)
                         os.makedirs(local_path, exist_ok=True)
 
                         # files on netshare except the most recent one
