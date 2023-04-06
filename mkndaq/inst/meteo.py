@@ -113,7 +113,8 @@ class METEO:
                         shutil.copyfile(os.path.join(cls._source, file), os.path.join(stage, file))
 
                     # move to data storage location
-                    shutil.move(os.path.join(cls._source, file), os.path.join(cls._datadir, file))
+                    # shutil.move(os.path.join(cls._source, file), os.path.join(cls._datadir, file))
+                    shutil.move(os.path.join(cls._source, file), os.path.join(cls._datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"), file))
 
         except Exception as err:
             if cls._log:

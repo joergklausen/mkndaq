@@ -194,7 +194,8 @@ class G2401:
                     for delta in (0, 1):
                         relative_path = (datetime.datetime.today() - datetime.timedelta(days=delta)).strftime(ftime)
                         netshare_path = os.path.join(self._netshare, relative_path)
-                        local_path = os.path.join(self._datadir, relative_path)
+                        # local_path = os.path.join(self._datadir, relative_path)
+                        local_path = os.path.join(self._datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"), relative_path)
                         os.makedirs(local_path, exist_ok=True)
 
                         # files on netshare except the most recent one
@@ -225,6 +226,12 @@ class G2401:
                                 shutil.copyfile(os.path.join(local_path, file), os.path.join(stage, file))
 
                             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={file})")
+                else:
+                    msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)"
+                    if self._log:
+                        self._logger.error(msg)
+                    print(colorama.Fore.RED + msg)
+
             except:
                 print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)")
 

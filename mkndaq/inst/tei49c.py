@@ -331,10 +331,14 @@ class TEI49C:
 
             if save:
                 # generate the datafile name
-                self.__datafile = os.path.join(self.__datadir,
+                # self.__datafile = os.path.join(self.__datadir,
+                #                              "".join([self.__name, "-",
+                #                                       datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+                self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
                                              "".join([self.__name, "-",
                                                       datetimebin.dtbin(self.__reporting_interval), ".dat"]))
 
+                os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
                 if not os.path.exists(self.__datafile):
                     # if file doesn't exist, create and write header
                     with open(self.__datafile, "at", encoding='utf8') as fh:
