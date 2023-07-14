@@ -244,7 +244,10 @@ class TEI49I:
         cfg = []
         try:
             for cmd in self.__get_config:
-                cfg.append(self.tcpip_comm(cmd))
+                if self._serial_com:
+                    cfg.append(self.serial_comm(cmd))
+                else:
+                    cfg.append(self.tcpip_comm(cmd))
 
             if self._log:
                 self._logger.info(f"Current configuration of '{self.__name}': {cfg}")
@@ -264,14 +267,22 @@ class TEI49I:
         :return:
         """
         try:
-            dte = self.tcpip_comm("set date %s" % time.strftime('%m-%d-%y'))
-            msg = "Date of instrument %s set to: %s" % (self._name, dte)
-            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            cmd = f"set date {time.strftime('%m-%d-%y')}"
+            if self._serial_com:
+                dte = self.serial_comm(cmd)
+            else:
+                dte = self.tcpip_comm(cmd)
+            msg = f"Date of instrument {self._name} set to: {dte}"
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}")
             self._logger.info(msg)
 
-            tme = self.tcpip_comm("set time %s" % time.strftime('%H:%M:%S'))
-            msg = "Time of instrument %s set to: %s" % (self.__name, tme)
-            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            cmd = f"set time {time.strftime('%H:%M:%S')}"
+            if self._serial_com:
+                tme = self.serial_comm(cmd)
+            else:
+                tme = self.tcpip_comm(cmd)
+            msg = f"Time of instrument {self.__name} set to: {tme}"
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}")
             self._logger.info(msg)
 
         except Exception as err:
@@ -290,11 +301,14 @@ class TEI49I:
         cfg = []
         try:
             for cmd in self.__set_config:
-                cfg.append(self.tcpip_comm(cmd))
-            time.sleep(1)
+                if self._serial_com:
+                    cfg.append(self.serial_comm(cmd))
+                else:
+                    cfg.append(self.tcpip_comm(cmd))
+                time.sleep(1)
 
             if self._log:
-                self._logger.info("Configuration of '%s' set to: %s" % (self.__name, cfg))
+                self._logger.info(f"Configuration of '{self.__name}' set to: {cfg}")
 
             return cfg
 
@@ -322,7 +336,10 @@ class TEI49I:
             if cmd is None:
                 cmd = self.__get_data
 
-            data = self.tcpip_comm(cmd)
+            if self._serial_com:
+                data = self.serial_comm(cmd)
+            else:
+                data = self.tcpip_comm(cmd)
 
             if self._simulate:
                 data = self.simulate__get_data(cmd)
@@ -389,7 +406,11 @@ class TEI49I:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
 
             # retrieve numbers of lrec stored in buffer
-            no_of_lrec = self.tcpip_comm("no of lrec")
+            cmd = "no of lrec"
+            if self._serial_com:
+                no_of_lrec = self.serial_comm(cmd)
+            else:
+                no_of_lrec = self.tcpip_comm(cmd)
             no_of_lrec = int(re.findall(r"(\d+)", no_of_lrec)[0])
 
             if save:
@@ -407,7 +428,10 @@ class TEI49I:
                     retrieve = index
                 cmd = f"lrec {str(index)} {str(retrieve)}"
                 print(cmd)
-                data = self.tcpip_comm(cmd)
+                if self._serial_com:
+                    data = self.serial_comm(cmd)
+                else:
+                    data = self.tcpip_comm(cmd)
 
                 # remove all the extra info in the string returned
                 # 05:26 07-19-22 flags 0C100400 o3 30.781 hio3 0.000 cellai 50927 cellbi 51732 bncht 29.9 lmpt 53.1 o3lt 0.0 flowa 0.435 flowb 0.000 pres 493.7
@@ -458,7 +482,10 @@ class TEI49I:
 
     def get_o3(self) -> str:
         try:
-            return self.tcpip_comm('o3')
+            if self._serial_com:
+                return self.serial_comm('o3')
+            else:
+                return self.tcpip_comm('o3')
 
         except Exception as err:
             if self._log:
@@ -468,7 +495,10 @@ class TEI49I:
 
     def print_o3(self) -> None:
         try:
-            o3 = self.tcpip_comm('O3').split()
+            if self._serial_com:
+                o3 = self.serial_comm('O3').split()
+            else:
+                o3 = self.tcpip_comm('O3').split()
             print(colorama.Fore.GREEN + "%s [%s] %s %s %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
                                                         self.__name,
                                                         o3[0], str(float(o3[1])), o3[2]))
