@@ -26,9 +26,10 @@ Execute
 
 ``pyinstaller --onefile --name mkndaq.exe ./mkndaq/mkndaq.py``
 
-or
+or (with logging)
 
-``pyinstaller --onefile --name mkndaq.exe ./mkndaq/mkndaq.py [--log-level=DEBUG]``
+``pyinstaller --onefile --name --log-level=DEBUG mkndaq.exe ./mkndaq/mkndaq.py``
+``pyinstaller --onefile --name --log-level=DEBUG tei49x.exe ./tei49x.py``
 
 ### usage
 Execute in a command window as

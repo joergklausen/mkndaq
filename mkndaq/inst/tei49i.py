@@ -10,6 +10,7 @@ import os
 import shutil
 import socket
 import re
+import serial
 import time
 import zipfile
 
@@ -34,6 +35,7 @@ class TEI49I:
     _logger = None
     __name = None
     _reporting_interval = None
+    _serial_com = None
     __set_config = None
     _simulate = None
     __sockaddr = None
@@ -42,7 +44,7 @@ class TEI49I:
     __staging = None
     __zip = False
 
-    def __init__(self, name: str, config: dict, simulate=False) -> None:
+    def __init__(self, name: str, config: dict, serial_com=False, simulate=False) -> None:
         """
         Initialize instrument class.
 
@@ -51,6 +53,7 @@ class TEI49I:
             - config[name]['type']
             - config[name]['id']
             - config[name]['serial_number']
+            - config[name]['serial']['port']
             - config[name]['socket']['host']
             - config[name]['socket']['port']
             - config[name]['socket']['timeout']
@@ -63,6 +66,7 @@ class TEI49I:
             - config[name]['sampling_interval']
             - config['staging']['path'])
             - config[name]['staging_zip']
+        :param serial: default=False, Use serial (RS232) communication.
         :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
         """
         colorama.init(autoreset=True)
@@ -70,6 +74,7 @@ class TEI49I:
 
         try:
             self._simulate = simulate
+            self._serial_com = serial_com
             # setup logging
             if config['logs']:
                 self._log = True
@@ -93,11 +98,23 @@ class TEI49I:
             self.__get_data = config[name]['get_data']
             self.__data_header = config[name]['data_header']
 
-            # configure tcp/ip
-            self.__sockaddr = (config[name]['socket']['host'],
-                             config[name]['socket']['port'])
-            self.__socktout = config[name]['socket']['timeout']
-            self.__socksleep = config[name]['socket']['sleep']
+            if self._serial_com:
+                # configure serial port
+                port = config[name]['port']
+                self.__serial = serial.Serial(port=port,
+                                            baudrate=config[port]['baudrate'],
+                                            bytesize=config[port]['bytesize'],
+                                            parity=config[port]['parity'],
+                                            stopbits=config[port]['stopbits'],
+                                            timeout=config[port]['timeout'])
+                if self.__serial.is_open:
+                    self.__serial.close()
+            else:
+                # configure tcp/ip
+                self.__sockaddr = (config[name]['socket']['host'],
+                                config[name]['socket']['port'])
+                self.__socktout = config[name]['socket']['timeout']
+                self.__socksleep = config[name]['socket']['sleep']
 
             # sampling, aggregation, reporting/storage
             self._sampling_interval = config[name]['sampling_interval']
@@ -170,6 +187,44 @@ class TEI49I:
             # if rcvd is None:
             #     rcvd = ""
 
+            return rcvd
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def serial_comm(self, cmd: str, tidy=True) -> str:
+        """
+        Send a command and retrieve the response. Assumes an open connection.
+
+        :param cmd: command sent to instrument
+        :param tidy: remove echo and checksum after '*'
+        :return: response of instrument, decoded
+        """
+        __id = bytes([self.__id])
+        rcvd = b''
+        try:
+            if self._simulate:
+                __id = b''
+            self.__serial.write(__id + (f"{cmd}\x0D").encode())
+            time.sleep(0.5)
+            while self.__serial.in_waiting > 0:
+                rcvd = rcvd + self.__serial.read(1024)
+                time.sleep(0.1)
+
+            rcvd = rcvd.decode()
+            if tidy:
+                # - remove checksum after and including the '*'
+                rcvd = rcvd.split("*")[0]
+                # - remove echo before and including '\n'
+                if cmd.join("\n") in rcvd:
+                    # rcvd = rcvd.split("\n")[1]
+                    rcvd = rcvd.replace(cmd, "")
+                # remove trailing '\r\n'
+                # rcvd = rcvd.rstrip()
+                rcvd = rcvd.strip()
             return rcvd
 
         except Exception as err:
