@@ -107,8 +107,10 @@ class TEI49I:
                                             parity=config[port]['parity'],
                                             stopbits=config[port]['stopbits'],
                                             timeout=config[port]['timeout'])
+                # print(port)
                 if self.__serial.is_open:
                     self.__serial.close()
+                print(f"Serial port {port} successfully opened and closed.")
             else:
                 # configure tcp/ip
                 self.__sockaddr = (config[name]['socket']['host'],
@@ -320,7 +322,7 @@ class TEI49I:
 
     def get_data(self, cmd=None, save=True) -> str:
         """
-        Send command retrieve response from instrument and optionally write to log.
+        Send command, retrieve response from instrument and optionally write to log.
 
         :param str cmd: command sent to instrument
         :param bln save: Should data be saved to file? default=True
