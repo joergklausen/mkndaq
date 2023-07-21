@@ -32,20 +32,20 @@ def rsync(source: str, target: str, buckets: str = [None, "hourly", "daily"], da
                     dcmp = dircmp(src, tgt)
                     for file in dcmp.left_only:
                         if (now - os.path.getmtime(os.path.join(src, file))) > age:
-                            # shutil.copy(fh, os.path.join(tgt, file))
+                            shutil.copy(fh, os.path.join(tgt, file))
                             files_received.append(os.path.join(tgt, file))
                 else:
-                    raise ValueError(f"'source' does not exist.")
+                    print(f"'{src}' does not exist.")
         else:
             if os.path.exists(source):
                 os.makedirs(target, exist_ok=True)
                 dcmp = dircmp(source, target)
                 for file in dcmp.left_only:
                     if (now - os.path.getmtime(os.path.join(source, file))) > age:
-                        # shutil.copy(fh, os.path.join(target, file))
+                        shutil.copy(fh, os.path.join(target, file))
                         files_received.append(os.path.join(target, file))
             else:
-                raise ValueError(f"'source' does not exist.")
+                print(f"'{source}' does not exist.")
 
         return files_received
 
