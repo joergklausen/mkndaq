@@ -11,6 +11,7 @@ import datetime
 import time
 import logging
 import shutil
+from utils.filesync import rsync
 import zipfile
 
 import colorama
@@ -28,6 +29,7 @@ class G2401:
     _sockaddr = None
     _socktout = None
     _data_storage_interval = None
+    _days_to_sync = None
     _log = None
     _zip = None
     _staging = None
@@ -98,7 +100,9 @@ class G2401:
             #self._netshare = os.path.expanduser(config[name]['netshare'])
             dbs = r"\\"
             self._netshare = os.path.join(f"{dbs}{config[name]['socket']['host']}", config[name]['netshare'])
-            # print("netshare:", self._netshare)
+
+            # days up to present for which files should be synched to data directory
+            self._days_to_sync = config[name]['days_to_sync']
 
             # staging area for files to be transfered
             self._staging = os.path.expanduser(config['staging']['path'])
@@ -191,41 +195,59 @@ class G2401:
 
             try:
                 if os.path.exists(self._netshare):
-                    for delta in (0, 1):
-                        relative_path = (datetime.datetime.today() - datetime.timedelta(days=delta)).strftime(ftime)
-                        netshare_path = os.path.join(self._netshare, relative_path)
-                        # local_path = os.path.join(self._datadir, relative_path)
-                        local_path = os.path.join(self._datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"), relative_path)
-                        os.makedirs(local_path, exist_ok=True)
+            #         for delta in (0, 1):
+            #             relative_path = (datetime.datetime.today() - datetime.timedelta(days=delta)).strftime(ftime)
+            #             netshare_path = os.path.join(self._netshare, relative_path)
+            #             # local_path = os.path.join(self._datadir, relative_path)
+            #             local_path = os.path.join(self._datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"), relative_path)
+            #             os.makedirs(local_path, exist_ok=True)
 
-                        # files on netshare except the most recent one
-                        if delta==0:
-                            netshare_files = os.listdir(netshare_path)[:-1]
-                        else:
-                            netshare_files = os.listdir(netshare_path)
+            #             # files on netshare except the most recent one
+            #             if delta==0:
+            #                 netshare_files = os.listdir(netshare_path)[:-1]
+            #             else:
+            #                 netshare_files = os.listdir(netshare_path)
 
-                        # local files
-                        local_files = os.listdir(local_path)
+            #             # local files
+            #             local_files = os.listdir(local_path)
 
-                        files_to_copy = set(netshare_files) - set(local_files)
+            #             files_to_copy = set(netshare_files) - set(local_files)
 
-                        for file in files_to_copy:
-                            # store data file on local disk
-                            shutil.copyfile(os.path.join(netshare_path, file), os.path.join(local_path, file))            
+                        # for file in files_to_copy:
+            #                 # store data file on local disk
+            #                 shutil.copyfile(os.path.join(netshare_path, file), os.path.join(local_path, file))            
 
+                            # # stage data for transfer
+                            # stage = os.path.join(self._staging, self._name)
+                            # os.makedirs(stage, exist_ok=True)
+
+                            # if self._zip:
+                            #     # create zip file
+                            #     archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
+                            #     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                            #         fh.write(os.path.join(local_path, file), file)
+                            # else:
+                            #     shutil.copyfile(os.path.join(local_path, file), os.path.join(stage, file))
+
+                        files_received = rsync(source=self._netshare, 
+                                              target=self._datadir, 
+                                              buckets=self._data_storage_interval, 
+                                              days=self._days_to_sync)
+                        for file in files_received:    
                             # stage data for transfer
                             stage = os.path.join(self._staging, self._name)
                             os.makedirs(stage, exist_ok=True)
 
                             if self._zip:
                                 # create zip file
-                                archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
+                                archive = os.path.join(stage, "".join([os.path.basename(file)[:-4], ".zip"]))
                                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                                    fh.write(os.path.join(local_path, file), file)
+                                    fh.write(file, os.path.basename(file))
                             else:
-                                shutil.copyfile(os.path.join(local_path, file), os.path.join(stage, file))
+                                shutil.copyfile(file, os.path.join(stage, os.path.basename(file)))
 
-                            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={file})")
+                            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={os.path.basename(file)})")
+
                 else:
                     msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)"
                     if self._log:
@@ -236,7 +258,7 @@ class G2401:
                 print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)")
 
                 return
-                
+
         except Exception as err:
             if self._log:
                 self._logger.error(err)
