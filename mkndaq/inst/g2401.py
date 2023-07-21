@@ -11,7 +11,7 @@ import datetime
 import time
 import logging
 import shutil
-from utils.filesync import rsync
+from mkndaq.utils.filesync import rsync
 import zipfile
 
 import colorama
