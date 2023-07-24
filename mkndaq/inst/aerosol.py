@@ -134,45 +134,34 @@ class AEROSOL:
         :return: None
         """
         try:
-            if self._data_storage_interval == 'hourly':
-                ftime = "%Y/%m/%d"
-            elif self._data_storage_interval == 'daily':
-                ftime = "%Y/%m"
-            elif self._data_storage_interval is None:
-                ftime = None
+            if os.path.exists(self._netshare):
+                # copy 'new' files from source to target
+                files_received = rsync(source=self._netshare, 
+                                        target=self._datadir, 
+                                        buckets=self._data_storage_interval, 
+                                        days=self._days_to_sync)
+
+                # stage data for transfer
+                for file in files_received:    
+                    stage = os.path.join(self._staging, self._name)
+                    os.makedirs(stage, exist_ok=True)
+
+                    if self._zip:
+                        # create zip file
+                        archive = os.path.join(stage, "".join([os.path.basename(file)[:-4], ".zip"]))
+                        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                            fh.write(file, os.path.basename(file))
+                    else:
+                        shutil.copyfile(os.path.join(self._datadir, file), os.path.join(stage, os.path.basename(file)))
+
+                    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={os.path.basename(file)})")
             else:
-                raise ValueError(f"Configuration 'data_storage_interval' of {self._name} must be <None|hourly|daily>.")
+                msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)"
+                if self._log:
+                    self._logger.error(msg)
+                print(colorama.Fore.RED + msg)
 
-            try:
-                if os.path.exists(self._netshare):
-                    files_received = rsync(source=self._netshare, 
-                                            target=self._datadir, 
-                                            buckets=self._data_storage_interval, 
-                                            days=self._days_to_sync)
-                    for file in files_received:    
-                        # stage data for transfer
-                        stage = os.path.join(self._staging, self._name)
-                        os.makedirs(stage, exist_ok=True)
-
-                        if self._zip:
-                            # create zip file
-                            archive = os.path.join(stage, "".join([os.path.basename(file)[:-4], ".zip"]))
-                            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                                fh.write(file, os.path.basename(file))
-                        else:
-                            shutil.copyfile(os.path.join(self._netshare, file), os.path.join(stage, os.path.basename(file)))
-
-                        print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={os.path.basename(file)})")
-                else:
-                    msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)"
-                    if self._log:
-                        self._logger.error(msg)
-                    print(colorama.Fore.RED + msg)
-
-            except:
-                print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)")
-
-                return
+            return
 
         except Exception as err:
             if self._log:

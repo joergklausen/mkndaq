@@ -10,6 +10,21 @@ import colorama
 
 # %%
 def rsync(source: str, target: str, buckets: str = [None, "hourly", "daily"], days: int = 1, age: int = 3600) -> list:
+    """Determine files under 'source' that are not present under 'target' and copy them over.
+
+    Args:
+        source (str): full path to top level directory of source
+        target (str): full path to top level directory of target
+        buckets (str, optional): Are files organized in sub-folders by month (daily) or by month and day (hourly) or not at all (None)? Defaults to [None, "hourly", "daily"].
+        days (int, optional): Number of days to look back. Defaults to 1.
+        age (int, optional): Minimum number of seconds for which a file has not been modified. Defaults to 3600.
+
+    Raises:
+        ValueError: raised if buckets are not correctly specified.
+
+    Returns:
+        list: list of files copied with full file path of target.
+    """
     try:
         sep = os.path.sep
         if buckets=="hourly":
