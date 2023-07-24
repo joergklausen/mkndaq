@@ -160,7 +160,7 @@ class AEROSOL:
                             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
                                 fh.write(file, os.path.basename(file))
                         else:
-                            shutil.copyfile(file, os.path.join(stage, os.path.basename(file)))
+                            shutil.copyfile(os.path.join(self._netshare, file), os.path.join(stage, os.path.basename(file)))
 
                         print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={os.path.basename(file)})")
                 else:
