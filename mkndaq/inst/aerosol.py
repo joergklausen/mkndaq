@@ -78,6 +78,8 @@ class AEROSOL:
             # reporting/storage
             # self._reporting_interval = config[name]['reporting_interval']
             self._data_storage_interval = config[name]['data_storage_interval']
+            if self._data_storage_interval == "None":
+                self._data_storage_interval = None
 
             # days up to present for which files should be synched to data directory
             self._days_to_sync = config[name]['days_to_sync']
@@ -127,6 +129,7 @@ class AEROSOL:
     def store_and_stage_new_files(self):
         """
         Fetch data files from local source and move to datadir. Zip files and place in staging area.
+        New files on the PSI machine are not automatically organized in subfolders!
 
         :return: None
         """
@@ -135,8 +138,10 @@ class AEROSOL:
                 ftime = "%Y/%m/%d"
             elif self._data_storage_interval == 'daily':
                 ftime = "%Y/%m"
+            elif self._data_storage_interval is None:
+                ftime = None
             else:
-                raise ValueError(f"Configuration 'data_storage_interval' of {self._name} must be <hourly|daily>.")
+                raise ValueError(f"Configuration 'data_storage_interval' of {self._name} must be <None|hourly|daily>.")
 
             try:
                 if os.path.exists(self._netshare):
