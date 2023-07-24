@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='gaw-mkn-daq',
-    version='0.6.8',
+    version='0.6.9',
     packages=['mkndaq', 'mkndaq.inst', 'mkndaq.tests', 'mkndaq.utils', 'sockslib'],
     url='',
     license='MIT',

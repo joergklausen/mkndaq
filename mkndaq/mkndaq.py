@@ -40,7 +40,7 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-        version = 'v0.6.8'
+        version = 'v0.6.9'
         print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
 
         # collect and interprete CLI arguments
@@ -119,8 +119,8 @@ def main():
                 schedule.every(cfg['meteo']['staging_interval']).minutes.do(meteo.print_meteo)
             if cfg.get('aerosol', None):
                 aerosol = AEROSOL('aerosol', config=cfg)
-                aerosol.store_and_stage_files()
-                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.store_and_stage_files)
+                aerosol.store_and_stage_new_files()
+                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.store_and_stage_new_files)
                 schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.print_aerosol)
             if cfg.get('ae33', None):
                 ae33 = AE33(name='ae33', config=cfg)
