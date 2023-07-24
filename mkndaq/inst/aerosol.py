@@ -72,8 +72,8 @@ class AEROSOL:
             os.makedirs(self._datadir, exist_ok=True)
 
             # source of data files
-            self._netshare = config[name]['netshare']
-            # self._source = config[name]['source']
+            dbs = r"\\"
+            self._netshare = os.path.join(f"{dbs}{config[name]['socket']['host']}", config[name]['netshare'])
 
             # reporting/storage
             # self._reporting_interval = config[name]['reporting_interval']
