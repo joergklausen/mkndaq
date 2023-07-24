@@ -33,9 +33,10 @@ def rsync(source: str, target: str, buckets: str = [None, "hourly", "daily"], da
                     os.makedirs(tgt, exist_ok=True)
                     dcmp = dircmp(src, tgt)
                     for file in dcmp.left_only:
-                        if (now - os.path.getmtime(os.path.join(src, file))) > age:
-                            shutil.copy(os.path.join(src, file), os.path.join(tgt, file))
-                            files_received.append(os.path.join(tgt, file))
+                        if os.path.isfile(os.path.join(src, file)):
+                            if (now - os.path.getmtime(os.path.join(src, file))) > age:
+                                shutil.copy(os.path.join(src, file), os.path.join(tgt, file))
+                                files_received.append(os.path.join(tgt, file))
                 else:
                     print(f"'{src}' does not exist.")
         else:
@@ -43,9 +44,10 @@ def rsync(source: str, target: str, buckets: str = [None, "hourly", "daily"], da
                 os.makedirs(target, exist_ok=True)
                 dcmp = dircmp(source, target)
                 for file in dcmp.left_only:
-                    if (now - os.path.getmtime(os.path.join(source, file))) > age:
-                        shutil.copy(os.path.join(source, file), os.path.join(target, file))
-                        files_received.append(os.path.join(target, file))
+                    if os.path.isfile(os.path.join(source, file)):
+                        if (now - os.path.getmtime(os.path.join(source, file))) > age:
+                            shutil.copy(os.path.join(source, file), os.path.join(target, file))
+                            files_received.append(os.path.join(target, file))
             else:
                 print(f"'{source}' does not exist.")
 
