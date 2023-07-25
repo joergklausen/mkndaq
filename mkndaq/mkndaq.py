@@ -105,7 +105,7 @@ def main():
                 schedule.every(fetch+5).seconds.do(tei49i_2.print_o3)
             if cfg.get('g2401', None):
                 g2401 = G2401('g2401', config=cfg)
-                g2401.store_and_stage_new_files()
+                g2401.store_and_stage_files()
                 # g2401.store_and_stage_latest_file()
                 # schedule.every(cfg['g2401']['staging_interval']).minutes.at(
                 #     f":{cfg['g2401']['staging_minute']}").do(g2401.store_and_stage_files)
@@ -118,7 +118,7 @@ def main():
                 schedule.every(cfg['meteo']['staging_interval']).minutes.do(meteo.print_meteo)
             if cfg.get('aerosol', None):
                 aerosol = AEROSOL('aerosol', config=cfg)
-                aerosol.store_and_stage_new_files()
+                aerosol.store_and_stage_files()
                 schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.store_and_stage_files)
                 schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.print_aerosol)
             if cfg.get('ae33', None):

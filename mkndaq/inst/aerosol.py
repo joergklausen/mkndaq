@@ -27,7 +27,7 @@ class AEROSOL:
     _log = None
     _staging = None
     _datadir = None
-    _data_storage_interval = None
+    _buckets = None
     _days_to_sync = None
     _name = None
     _logger = None
@@ -77,9 +77,9 @@ class AEROSOL:
 
             # reporting/storage
             # self._reporting_interval = config[name]['reporting_interval']
-            self._data_storage_interval = config[name]['data_storage_interval']
-            if self._data_storage_interval == "None":
-                self._data_storage_interval = None
+            self._buckets = config[name]['buckets']
+            if self._buckets == "None":
+                self._buckets = None
 
             # days up to present for which files should be synched to data directory
             self._days_to_sync = config[name]['days_to_sync']
@@ -138,7 +138,7 @@ class AEROSOL:
                 # copy 'new' files from source to target
                 files_received = rsync(source=self._netshare, 
                                         target=self._datadir, 
-                                        buckets=self._data_storage_interval, 
+                                        buckets=self._buckets, 
                                         days=self._days_to_sync)
 
                 # stage data for transfer

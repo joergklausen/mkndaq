@@ -7,7 +7,6 @@ Define a class G2401 facilitating communication with a Picarro G2401 instrument.
 
 import os
 import socket
-import datetime
 import time
 import logging
 import shutil
@@ -25,7 +24,7 @@ class G2401:
     """
 
     _datadir = None
-    _data_storage_interval = None
+    _buckets = None
     _days_to_sync = None
     _log = None
     _logger = None
@@ -35,12 +34,8 @@ class G2401:
     _socksleep = None
     _sockaddr = None
     _socktout = None
-    # _socket_port = None
-    # _socket_host = None
     _staging = None
     _zip = None
-    # _get_data = None
-
 
     def __init__(self, name: str, config: dict) -> None:
         """
@@ -86,18 +81,10 @@ class G2401:
             self._datadir = os.path.join(datadir, name)
             os.makedirs(self._datadir, exist_ok=True)
 
-            # source of data files
-#            self._source = config[name]['source']
-
-            # interval to fetch and stage data files
-            # self._staging_interval = config[name]['staging_interval']
-
             # reporting/storage
-            # self._reporting_interval = config[name]['reporting_interval']
-            self._data_storage_interval = config[name]['data_storage_interval']
+            self._buckets = config[name]['buckets']
 
             # netshare of user data files
-            #self._netshare = os.path.expanduser(config[name]['netshare'])
             dbs = r"\\"
             self._netshare = os.path.join(f"{dbs}{config[name]['socket']['host']}", config[name]['netshare'])
 
@@ -136,16 +123,6 @@ class G2401:
 
                 # receive response
                 while True:
-                    # data = s.recv(1024)
-                    # rcvd = rcvd + data
-                    # if chr(13).encode() in data:
-                    #     break
-                    # data = s.recv(1024)
-
-                    # if not data:
-                    #     break
-                    # else:
-                    #     rcvd = rcvd + data
                     try:
                         data = s.recv(1024)
                         rcvd = rcvd + data
@@ -169,8 +146,6 @@ class G2401:
     def print_co2_ch4_co(self) -> None:
         try:
             conc = self.tcpip_comm("_Meas_GetConc").split(';')[0:3]
-            # print(colorama.Fore.GREEN + "%s [%s] CO2 %s ppm  CH4 %s ppm  CO %s ppm" % \
-            #       (time.strftime("%Y-%m-%d %H:%M:%S"), self._name, *conc))
             print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] CO2 {conc[0]} ppm  CH4 {conc[1]} ppm  CO {conc[1]} ppm")
 
         except Exception as err:
@@ -183,7 +158,7 @@ class G2401:
         """Copy files from source (netshare folder) to target (datadir) and stage them in the staging area for transfer.
 
         Raises:
-            ValueError: raised if data_storage_interval is not correctly specified. Based on this, the subfolder structure is assumed.
+            ValueError: raised if buckets is not correctly specified. Based on this, the subfolder structure is assumed.
         """
         sep = os.path.sep
         try:            
@@ -191,7 +166,7 @@ class G2401:
                 # copy 'new' files from source to target
                 files_received = rsync(source=self._netshare, 
                                         target=self._datadir, 
-                                        buckets=self._data_storage_interval, 
+                                        buckets=self._buckets, 
                                         days=self._days_to_sync)
                 
                 # stage data for transfer
@@ -207,7 +182,7 @@ class G2401:
                     else:
                         shutil.copyfile(os.path.join(self._datadir, file), os.path.join(stage, os.path.basename(file)))
 
-                    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={os.path.basename(file)})")
+                    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_files (name={self._name}, file={os.path.basename(file)})")
 
             else:
                 msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)"
@@ -221,78 +196,6 @@ class G2401:
             if self._log:
                 self._logger.error(err)
             print(err)
-
-    # Methods below not currently in use
-
-    # def store_and_stage_latest_file(self):
-    #     try:
-    #         # get data file from netshare
-    #         if self._data_storage_interval == 'hourly':
-    #             path = os.path.join(self._netshare, time.strftime("/%Y/%m/%d"))
-    #         elif self._data_storage_interval == 'daily':
-    #             path = os.path.join(self._netshare, time.strftime("/%Y/%m"))
-    #         else:
-    #             raise ValueError(f"Configuration 'data_storage_interval' of {self._name} must be <hourly|daily>.")
-    #         file = max(os.listdir(path))
-
-    #         # store data file on local disk
-    #         shutil.copyfile(os.path.join(path, file), os.path.join(self._datadir, file))
-
-    #         # stage data for transfer
-    #         stage = os.path.join(self._staging, self._name)
-    #         os.makedirs(stage, exist_ok=True)
-
-    #         if self._zip:
-    #             # create zip file
-    #             archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
-    #             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-    #                 fh.write(os.path.join(path, file), file)
-    #         else:
-    #             shutil.copyfile(os.path.join(path, file), os.path.join(stage, file))
-
-    #         print("%s .store_and_stage_latest_file (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
-
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
-
-
-    # def store_and_stage_files(self):
-    #     """
-    #     Fetch data files from local source and move to datadir. Zip files and place in staging area.
-
-    #     :return: None
-    #     """
-    #     try:
-    #         print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
-
-    #         # get data file from local source
-    #         files = os.listdir(self._source)
-
-    #         if files:
-    #             # staging location for transfer
-    #             stage = os.path.join(self._staging, self._name)
-    #             os.makedirs(stage, exist_ok=True)
-
-    #             # store and stage data files
-    #             for file in files:
-    #                 # stage file
-    #                 if self._zip:
-    #                     # create zip file
-    #                     archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
-    #                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-    #                         fh.write(os.path.join(self._source, file), file)
-    #                 else:
-    #                     shutil.copyfile(os.path.join(self._source, file), os.path.join(stage, file))
-
-    #                 # move to data storage location
-    #                 shutil.move(os.path.join(self._source, file), os.path.join(self._datadir, file))
-
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
 
 
     def get_meas_getconc(self) -> str:
