@@ -109,7 +109,7 @@ def main():
                 # g2401.store_and_stage_latest_file()
                 # schedule.every(cfg['g2401']['staging_interval']).minutes.at(
                 #     f":{cfg['g2401']['staging_minute']}").do(g2401.store_and_stage_files)
-                schedule.every(cfg['g2401']['staging_interval']).minutes.do(g2401.store_and_stage_new_files)
+                schedule.every(cfg['g2401']['staging_interval']).minutes.do(g2401.store_and_stage_files)
                 schedule.every(fetch).seconds.do(g2401.print_co2_ch4_co)
             if cfg.get('meteo', None):
                 meteo = METEO('meteo', config=cfg)
@@ -119,7 +119,7 @@ def main():
             if cfg.get('aerosol', None):
                 aerosol = AEROSOL('aerosol', config=cfg)
                 aerosol.store_and_stage_new_files()
-                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.store_and_stage_new_files)
+                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.store_and_stage_files)
                 schedule.every(cfg['aerosol']['staging_interval']).minutes.do(aerosol.print_aerosol)
             if cfg.get('ae33', None):
                 ae33 = AE33(name='ae33', config=cfg)

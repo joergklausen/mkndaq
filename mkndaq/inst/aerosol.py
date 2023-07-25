@@ -126,7 +126,7 @@ class AEROSOL:
 
 
     @classmethod
-    def store_and_stage_new_files(self):
+    def store_and_stage_files(self):
         """
         Fetch data files from local source and move to datadir. Zip files and place in staging area.
         New files on the PSI machine are not automatically organized in subfolders!

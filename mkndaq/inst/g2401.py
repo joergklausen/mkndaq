@@ -179,7 +179,7 @@ class G2401:
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] produced error {err}.")
 
 
-    def store_and_stage_new_files(self):
+    def store_and_stage_files(self):
         """Copy files from source (netshare folder) to target (datadir) and stage them in the staging area for transfer.
 
         Raises:

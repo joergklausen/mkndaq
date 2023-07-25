@@ -9,38 +9,44 @@ import colorama
 
 
 # %%
-def rsync(source: str, target: str, buckets: str = [None, "hourly", "daily"], days: int = 1, age: int = 3600) -> list:
+def rsync(source: str, target: str, buckets: str = [None, "daily", "monthly"], days: int = 1, delay: int=3600) -> list:
     """Determine files under 'source' that are not present under 'target' and copy them over.
 
     Args:
         source (str): full path to top level directory of source
         target (str): full path to top level directory of target
-        buckets (str, optional): Are files organized in sub-folders by month (daily) or by month and day (hourly) or not at all (None)? Defaults to [None, "hourly", "daily"].
+        buckets (str, optional): Are files organized in sub-folders by yyyy, mm, dd (daily) or by yyyy, mm (monthly) or not at all (None)? Defaults to [None, "daily", "monthly"].
         days (int, optional): Number of days to look back. Defaults to 1.
-        age (int, optional): Minimum number of seconds for which a file has not been modified. Defaults to 3600.
+        delay (int, optional): Period (seconds) during which the file must not have been modified. Determines which files are copied. Defaults to 3600.
 
     Raises:
         ValueError: raised if buckets are not correctly specified.
 
     Returns:
-        list: list of files copied with full file path of target.
+        list: list of files with full file copied to target.
     """
     try:
         sep = os.path.sep
-        if buckets=="hourly":
+        if buckets=="daily":
             fmt = f"%Y{sep}%m{sep}%d"
-        elif buckets=="daily":
+            if delay is None:
+                delay = 3600
+        elif buckets=="monthly":
             fmt = f"%Y{sep}%m"
+            if delay is None:
+                delay = 86400
         elif buckets is None:
             fmt = None
+            if delay is None:
+                delay = 3600
         else:
             raise ValueError(f"'buckets' must be <None|hourly|daily>.")
 
-        files_received = []
+        files_copied = []
         now = time.time()
 
         if fmt:
-            for day in range(days, 0, -1):
+            for day in range(0, days):
                 dte = (datetime.datetime.now() - datetime.timedelta(days=day)).strftime(fmt)
                 src = os.path.join(source, dte)
                 if os.path.exists(src):
@@ -49,9 +55,12 @@ def rsync(source: str, target: str, buckets: str = [None, "hourly", "daily"], da
                     dcmp = dircmp(src, tgt)
                     for file in dcmp.left_only:
                         if os.path.isfile(os.path.join(src, file)):
-                            if (now - os.path.getmtime(os.path.join(src, file))) > age:
+                            # print(now)
+                            # print(os.path.getmtime(os.path.join(src, file)))
+                            # print(now - os.path.getmtime(os.path.join(src, file)))
+                            if (now - os.path.getmtime(os.path.join(src, file))) > delay:
                                 shutil.copy(os.path.join(src, file), os.path.join(tgt, file))
-                                files_received.append(os.path.join(tgt, file))
+                                files_copied.append(os.path.join(tgt, file))
                 else:
                     print(f"'{src}' does not exist.")
         else:
@@ -60,13 +69,13 @@ def rsync(source: str, target: str, buckets: str = [None, "hourly", "daily"], da
                 dcmp = dircmp(source, target)
                 for file in dcmp.left_only:
                     if os.path.isfile(os.path.join(source, file)):
-                        if (now - os.path.getmtime(os.path.join(source, file))) > age:
+                        if (now - os.path.getmtime(os.path.join(source, file))) > delay:
                             shutil.copy(os.path.join(source, file), os.path.join(target, file))
-                            files_received.append(os.path.join(target, file))
+                            files_copied.append(os.path.join(target, file))
             else:
                 print(f"'{source}' does not exist.")
 
-        return files_received
+        return files_copied
 
     except Exception as err:
         print(err)

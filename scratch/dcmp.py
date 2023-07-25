@@ -2,8 +2,14 @@
 # %%
 import os
 from filecmp import dircmp
+from mkndaq.utils.filesync import rsync
 import time
 
+# %% test for organized folders
+source = "C:\\Users\\localadmin\\Documents\\git\\mkndaq\\scratch\\source"
+target = "C:\\Users\\localadmin\\Documents\\git\\mkndaq\\scratch\\target"
+buckets = "daily"
+files = rsync(source=source, target=target, buckets=buckets)
 
 # %%
 # test for aerosol
