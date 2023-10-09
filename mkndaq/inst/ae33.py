@@ -268,9 +268,9 @@ class AE33:
             else:
                 # if we don't know where to start, we start at the beginning
                 minid = int(self.tcpip_comm(cmd="MINID Data", tidy=True))
-                # limit the number of records to download to 10080 (7 days)
-                if maxid - minid > 10080:
-                    minid = maxid - 10080
+                # limit the number of records to download to 1440 (1 day)
+                if maxid - minid > 1440:
+                    minid = maxid - 1440
                 data_begin_read_id = minid
 
             if data_begin_read_id < maxid:
