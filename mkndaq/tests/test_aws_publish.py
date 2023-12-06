@@ -20,14 +20,14 @@ from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 cfg = {
     # 'home': 'c:/users/jkl', 
     'aws': {
-        'certPath': '~/Desktop/mkn/AWS_IoT/connect_device_package/kenya-mkn-minix.cert.pem',
-        'privateKeyPath': '~/Desktop/mkn/AWS_IoT/connect_device_package/kenya-mkn-minix.private.key',
+        'certPath': '~/.ssh/awsiot/kenya-mkn-minix.cert.pem',
+        'privateKeyPath': '~/.ssh/awsiot/kenya-mkn-minix.private.key',
         # 'public': '~/Desktop/mkn/AWS_IoT/connect_device_package/kenya-mkn-minix.public/key',
-        'rootCAPath': '~/Desktop/mkn/AWS_IoT/connect_device_package/root-CA.crt',
+        'rootCAPath': '~/.ssh/awsiot//root-CA.crt',
         'clientId': '0666-5077-6666',
         'host': 'a3peke9ywai7kv-ats.iot.eu-central-1.amazonaws.com',
         'port': 8883,
-        'topic': 'kenya/mkn/minix',
+        'topic': 'sdk/test/Python',
         'mode': 'both',
         },
 }
@@ -42,6 +42,7 @@ def customCallback(client, userdata, message):
 
 def mqtt_message():
     msg = "Hi there. It's %s and I am alive." % time.asctime()
+    msg = "It's %s." % time.asctime()
     return msg
 
 # %%

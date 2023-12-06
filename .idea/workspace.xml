@@ -8,11 +8,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d82c4933-01b6-48c2-9551-4dc4b8784bad" name="Default Changelist" comment="v0.4.5">
-      <change afterPath="$PROJECT_DIR$/.vscode/tasks.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/mkndaq.exe" beforeDir="false" afterPath="$PROJECT_DIR$/dist/mkndaq.exe" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mkndaq/utils/filetransfer.py" beforeDir="false" afterPath="$PROJECT_DIR$/mkndaq/utils/filetransfer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkndaq/tests/test_aws_publish.py" beforeDir="false" afterPath="$PROJECT_DIR$/mkndaq/tests/test_aws_publish.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,7 +47,7 @@
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../venv/Scripts/pyinstaller.exe" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../wmdr4oai" />
     <property name="settings.editor.selected.configurable" value="preferences.externalTools" />
     <property name="two.files.diff.last.used.file" value="$PROJECT_DIR$/dist/mkndaq.cfg" />
   </component>
@@ -220,13 +216,13 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.tcp_echo_server" />
-      <item itemvalue="Python.test_tei49c" />
-      <item itemvalue="Python.ip_scanner" />
-      <item itemvalue="Python.test_sftp" />
-      <item itemvalue="Python.test_mqtt" />
       <item itemvalue="Python.__main__" />
+      <item itemvalue="Python.ip_scanner" />
       <item itemvalue="Python.mkndaq" />
+      <item itemvalue="Python.tcp_echo_server" />
+      <item itemvalue="Python.test_mqtt" />
+      <item itemvalue="Python.test_sftp" />
+      <item itemvalue="Python.test_tei49c" />
     </list>
     <recent_temporary>
       <list>
