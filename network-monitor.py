@@ -1,15 +1,17 @@
+# %%
 import subprocess
 import time
 from datetime import datetime, timedelta
 import os
 import shutil
+from zipfile import ZipFile
 
 def run_wireshark_session(interface, log_file_path, duration_minutes):
     # Generate a timestamp for the log file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Construct the log file path
-    log_file_path = os.oath.join(log_file_path, f"wireshark_log_{timestamp}.pcap")
+    log_file_path = os.path.join(log_file_path, f"wireshark_log_{timestamp}.pcap")
 
     # Construct the Wireshark command
     wireshark_command = [
@@ -32,12 +34,13 @@ def zip_and_move_log(log_file_path, destination_folder):
     zip_file_path = os.path.join(destination_folder, f"wireshark_log_{timestamp}.zip")
 
     # Zip the log file
-    with shutil.ZipFile(zip_file_path, 'w') as zip_file:
+    with ZipFile(zip_file_path, 'w') as zip_file:
         zip_file.write(log_file_path, os.path.basename(log_file_path))
 
     # Remove the original log file
     os.remove(log_file_path)
 
+# %%
 if __name__ == "__main__":
     # Replace 'your_interface' with the actual interface name of your GSM modem
     interface_name = "5"
