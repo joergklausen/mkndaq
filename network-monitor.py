@@ -26,12 +26,11 @@ def run_wireshark_session(interface, log_file_path, duration_minutes):
 
     return log_file_path
 
+# %%
 def zip_and_move_log(log_file_path, destination_folder):
-    # Generate a timestamp for the zip file
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
+    
     # Construct the zip file path
-    zip_file_path = os.path.join(destination_folder, f"wireshark_log_{timestamp}.zip")
+    zip_file_path = os.path.join(destination_folder, os.path.basename(log_file_path).replace(".pcap", ".zip"))
 
     # Zip the log file
     with ZipFile(zip_file_path, 'w') as zip_file:
