@@ -26,9 +26,10 @@ def run_wireshark_session(interface, log_file_path, duration_minutes):
 
     return log_file_path
 
-# %%
 def zip_and_move_log(log_file_path, destination_folder):
-    
+    # Generate a timestamp for the zip file
+    # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     # Construct the zip file path
     zip_file_path = os.path.join(destination_folder, os.path.basename(log_file_path).replace(".pcap", ".zip"))
 
@@ -48,13 +49,13 @@ if __name__ == "__main__":
     log_file_path = "C:/Users/mkn/Documents/mkndaq/logs"
     
     # Specify the destination folder for the zip files
-    destination_folder = "c:/users/mkn/mkndaq/staging/logs"
+    destination_folder = "c:/users/mkn/Documents/mkndaq/staging/logs"
 
     # session duration
     duration_minutes = 10
 
     # Set the total duration to run the script (in seconds)
-    total_duration = 12 * 60 * 60  # 12 hours
+    total_duration = 6 * 60 * 60  # 6 hours
 
     # Record the start time
     start_time = datetime.now()
@@ -72,3 +73,5 @@ if __name__ == "__main__":
 
         # Sleep for a short duration before checking the time again
         time.sleep(60)
+
+# %%
