@@ -50,6 +50,7 @@ class NE300:
         :param config: dictionary of attributes defining instrument, serial port and more
             - config[name]['type']
             - config[name]['serial_number']
+            - config[name]['serial_id']
             - config[name]['socket']['host']
             - config[name]['socket']['port']
             - config[name]['socket']['timeout']
@@ -83,9 +84,9 @@ class NE300:
 
             # read instrument control properties for later use
             self.__name = name
-            # self.__id = config[name]['id']
             self._type = config[name]['type']
             self.__serial_number = config[name]['serial_number']
+            self.__serial_id = config[name]['serial_id']
             self.__get_config = config[name]['get_config']
             # self.__set_config = config[name]['set_config']
             self.__set_datetime = config[name]['set_datetime']
@@ -111,10 +112,10 @@ class NE300:
             self.__staging = os.path.expanduser(config['staging']['path'])
             self.__zip = config[name]['staging_zip']
 
-            print(f"# Initialize AE33 (name: {self.__name}  S/N: {self.__serial_number})")
-            self.get_config()
-            if self.__set_datetime:
-                self.set_datetime()
+            print(f"# Initialize NE300 (name: {self.__name}  S/N: {self.__serial_number})")
+            # self.get_config()
+            # if self.__set_datetime:
+                # self.set_datetime()
 
         except Exception as err:
             if self._log:
@@ -132,14 +133,25 @@ class NE300:
         """
         rcvd = b''
         try:
+            # send data using ACOEM protocol
+            # chr(2) = STX
+            # chr(3) = ETX
+            stx = chr(2).encode()
+            cmd = r'1'.encode()
+            etx = chr(3).encode()
+            msb = r'0'.encode()
+            lsb = r'0'.encode()
+            chksum = stx^self.__serial_id^cmd^etx^msb^lsb 
+            eot = chr(4).encode()
+            
+            msg = (stx + self.__serial_id + cmd + etx + msb + lsb + chksum + eot)
             # open socket connection as a client
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
                 # connect to the server
                 s.settimeout(self.__socktout)
                 s.connect(self.__sockaddr)
 
-                # send data
-                s.sendall((cmd + chr(13) + chr(10)).encode())
+                s.sendall(msg.encode())
                 time.sleep(self.__socksleep)
 
                 # receive response
@@ -165,42 +177,6 @@ class NE300:
             print(err)
 
 
-    def fetch_from_table(self, name: str, rows=None, first=None, last=None) -> str:
-        try:
-            if name is None:
-                raise("Table 'name' must be provided.")
-            if first is None:
-                if last is None:
-                    if rows is None:
-                        # fetch all data from table
-                        cmd = f"FETCH {name} 1"
-                    else:
-                        # fetch number of rows from end of table
-                        maxid = int(self.tcpip_comm(cmd=f"MAXID {name}", tidy=True))
-                        cmd=f"FETCH {name} {maxid-rows}"                    
-                elif rows is None:
-                    raise("Number of 'rows' to read must be provided together with 'last'.")
-                else:
-                    # fetch number of rows up until last
-                    cmd = f"FETCH {name} {last-rows} {last}"
-            elif last is None:
-                if rows is None:
-                    # fetch all data starting at first
-                    cmd = f"FETCH {name} {first}"
-                else:
-                    # fetch number of rows starting at first
-                    cmd = f"FETCH {name} {first} {first+rows}"
-            else:
-                if rows is None:
-                    cmd = f"FETCH {name} {first} {last}"
-                else:
-                    raise("Ambiguous request, cannot use all of 'first', 'last' and 'rows' at once.")
-            
-            resp = self.tcpip_comm(cmd=cmd, tidy=False)
-
-            return cmd, resp
-        except Exception as err:
-            print(err)
 
 
     def set_datetime(self) -> None:
@@ -368,72 +344,6 @@ class NE300:
                 self._logger.error(err)
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
-
-    def tape_advances_remaining(self) -> str:
-        try:
-            cmd = "$AE33:A"
-            res = self.tcpip_comm(cmd, tidy=True)
-            res = res.replace("\n", "")
-            return res
-
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
-
-    def get_new_log_entries(self, sep="|", save=True) -> str:
-        """
-        Retrieve all records from table data that have not been read and optionally write to log.
-
-        :param str sep: item separator. Defaults to True.
-        :param bln save: Should data be saved to file? Default=True
-        :return str response as decoded string
-        """
-        try:
-            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"{dtm} .get_new_log_entries (name={self.__name}, save={save})")
-
-            # get data_begin_read_id
-            if self.__log_begin_read_id:
-                log_begin_read_id = self.__log_begin_read_id
-            else:
-                # if we don't know where to start, we start at the beginning
-                minid = int(self.tcpip_comm(cmd="MINID Log", tidy=True))
-                log_begin_read_id = minid
-            # read the last record from the Log table
-            # get the maximum id in the Log table
-            log = None
-            maxid = int(self.tcpip_comm(cmd="MAXID Log", tidy=True))
-            if log_begin_read_id < maxid:
-                cmd=f"FETCH Log {log_begin_read_id} {maxid}"                    
-                log = self.tcpip_comm(cmd, tidy=True)
-
-                # set log_begin_read_id for the next call
-                self.__log_begin_read_id = maxid + 1
-
-                if save:
-                    # generate the datafile name
-                    # self.__logfile = os.path.join(self.__logdir,
-                    #                             "".join([self.__name, "-",
-                    #                                     datetimebin.dtbin(self.__reporting_interval), ".log"]))
-                    self.__logfile = os.path.join(self.__logdir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-                                                "".join([self.__name, "-",
-                                                        datetimebin.dtbin(self.__reporting_interval), ".log"]))
-
-                    os.makedirs(os.path.dirname(self.__logfile), exist_ok=True)
-                    with open(self.__logfile, "at", encoding='utf8') as fh:
-                        fh.write(f"{dtm}{sep}{log}\n")
-                        fh.close()
-
-                    # stage data for transfer
-                    self.stage_log_file()
-
-            return log
-
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
 
     def stage_log_file(self) -> None:
