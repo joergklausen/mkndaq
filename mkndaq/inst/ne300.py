@@ -22,19 +22,16 @@ class NE300:
     """
 
     __datadir = None
-    __data_begin_read_id = None
     __datafile = None
     __datafile_to_stage = None
-    __get_config = None
     __logdir = None
-    __log_begin_read_id = None
+    __serial_id = None
     __logfile = None
     __logfile_to_stage = None
     _log = None
     _logger = None
     __name = None
     __reporting_interval = None
-    # __set_config = None
     __set_datetime = None
     __sockaddr = None
     __socksleep = None
@@ -55,15 +52,10 @@ class NE300:
             - config[name]['socket']['port']
             - config[name]['socket']['timeout']
             - config[name]['socket']['sleep']
-            - config[name]['get_config']
-            - config[name]['set_config']
-            - config[name]['get_data']
-            - config[name]['set_datetime']
             - config['logs']
             - config[name]['sampling_interval']
             - config['staging']['path'])
             - config[name]['staging_zip']
-        :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
         """
         colorama.init(autoreset=True)
 
@@ -87,9 +79,6 @@ class NE300:
             self._type = config[name]['type']
             self.__serial_number = config[name]['serial_number']
             self.__serial_id = config[name]['serial_id']
-            self.__get_config = config[name]['get_config']
-            # self.__set_config = config[name]['set_config']
-            self.__set_datetime = config[name]['set_datetime']
 
             # configure tcp/ip
             self.__sockaddr = (config[name]['socket']['host'],
@@ -113,9 +102,6 @@ class NE300:
             self.__zip = config[name]['staging_zip']
 
             print(f"# Initialize NE300 (name: {self.__name}  S/N: {self.__serial_number})")
-            # self.get_config()
-            # if self.__set_datetime:
-                # self.set_datetime()
 
         except Exception as err:
             if self._log:
@@ -128,23 +114,27 @@ class NE300:
         Send a command and retrieve the response. Assumes an open connection.
 
         :param cmd: command sent to instrument
-        :param tidy: 
-        :return: response of instrument, decoded
+        :param tidy: clean-up response, currently not in use.
+        :return: response of instrument, decoded (i.e. UTF-8)
         """
         rcvd = b''
         try:
             # send data using ACOEM protocol
             # chr(2) = STX
             # chr(3) = ETX
-            stx = chr(2).encode()
-            cmd = r'1'.encode()
-            etx = chr(3).encode()
-            msb = r'0'.encode()
-            lsb = r'0'.encode()
-            chksum = stx^self.__serial_id^cmd^etx^msb^lsb 
-            eot = chr(4).encode()
+
+            # stx = chr(2).encode()
+            # cmd = r'1'.encode()
+            # etx = chr(3).encode()
+            # msb = r'0'.encode()
+            # lsb = r'0'.encode()
+            # chksum = stx^self.__serial_id^cmd^etx^msb^lsb 
+            # eot = chr(4).encode()
             
-            msg = (stx + self.__serial_id + cmd + etx + msb + lsb + chksum + eot)
+            # msg = (stx + self.__serial_id + cmd + etx + msb + lsb + chksum + eot)
+
+            msg = f"{cmd}\r"
+
             # open socket connection as a client
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
                 # connect to the server
@@ -159,16 +149,17 @@ class NE300:
                     try:
                         data = s.recv(1024)
                         rcvd = rcvd + data
+                        if b"\r\n" in rcvd:
+                            break
                     except:
                         break
 
-            # decode response, tidy
+            # strip pre-amble, decode response, tidy
+            rcvd = rcvd.replace(b"\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03", b"")
             rcvd = rcvd.decode()
-            if tidy:
-                # rcvd = rcvd.replace("\n", "").replace("\r", "").replace("AE33>", "")
-                # rcvd = rcvd.replace("AE33>", "")
-                rcvd = rcvd.replace("\r\n", "\n")
-                rcvd = rcvd.replace("\n\n", "\n")
+            # if tidy:
+                # rcvd = rcvd.replace("\r\n", "\n")
+                # rcvd = rcvd.replace("\n\n", "\n")
             return rcvd
 
         except Exception as err:
@@ -176,111 +167,257 @@ class NE300:
                 self._logger.error(err)
             print(err)
 
+    def get_id(self, serial_id: str="0") -> (int, str):
+        """Get instrument id, s/w, firmware versions
+
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
+
+        Returns:
+            int: 0 (if no error)
+            str: <...> (if no error)
+        """
+        try:
+            if self.__serial_id:
+                serial_id = self.__serial_id
+            resp = self.tcpip_comm(cmd=f"ID{serial_id}")
+            if resp:
+                print(resp)
+                self._logger.info(resp)
+                return 0, resp
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
 
 
-
-    def set_datetime(self) -> None:
+    def set_datetime(self, serial_id: str="0") -> (int, str):
         """
         Synchronize date and time of instrument with computer time.
 
-        :return:
-        """
-        try:
-            cmd = f"$AE33:{time.strftime('T%Y%m%d%H%M%S')}"
-            # cmd = "HELLO"
-            dtm = self.tcpip_comm(cmd)
-            msg = f"DateTime of instrument {self.__name} set to: {cmd}"
-            print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
-            self._logger.info(msg)
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
 
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
-
-
-    def get_config(self) -> list:
-        """
-        Read current configuration of instrument and optionally write to log.
-
-        :return (err, cfg) configuration or errors, if any.
-
-        """
-        print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .get_config (name={self.__name})")
-        cfg = []
-        try:
-            for cmd in self.__get_config:
-                cfg.append(self.tcpip_comm(cmd))
-
-            if self._log:
-                self._logger.info(f"Current configuration of '{self.__name}': {cfg}")
-
-            return cfg
-
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
-
-
-    def get_new_data(self, sep="|", save=True) -> str:
-        """
-        Retrieve all records from table data that have not been read and optionally write to log.
-
-        :param str sep: item separator. Defaults to True.
-        :param bln save: Should data be saved to file? Default=True
-        :return str response as decoded string
+        Returns:
+            int: 0 (if no error)
+            str: OK (if no error)
         """
         try:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"{dtm} .get_new_data (name={self.__name}, save={save})")
+            resp = self.tcpip_comm(f"**{serial_id}S{time.strftime('%H%M%S%d%m%y')}")
+            if resp=="OK":
+                msg = f"Setting DateTime of instrument {self.__name} to {dtm} ... {resp}"
+                print(f"{dtm} {msg}")
+                self._logger.info(msg)
+                return 0, resp
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
 
-            # read the latest records from the Data table
-            data = ""
-            maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
-            # get data_begin_read_id
-            if self.__data_begin_read_id:
-                data_begin_read_id = self.__data_begin_read_id
-            else:
-                # if we don't know where to start, we start at the beginning
-                minid = int(self.tcpip_comm(cmd="MINID Data", tidy=True))
-                # limit the number of records to download to 1440 (1 day)
-                if maxid - minid > 1440:
-                    minid = maxid - 1440
-                data_begin_read_id = minid
 
-            if data_begin_read_id < maxid:
-                chunk_size = 1000
-                while data_begin_read_id < maxid:
-                    if (maxid - data_begin_read_id) > chunk_size:
-                        cmd=f"FETCH Data {data_begin_read_id} {data_begin_read_id + chunk_size}"
-                    else:
-                        cmd=f"FETCH Data {data_begin_read_id} {maxid}"
-                    print(f"                    {cmd}")
-                    data = self.tcpip_comm(cmd, tidy=True)
-                    data_begin_read_id += chunk_size + 1
-                # set data_begin_read_id
-                self.__data_begin_read_id = maxid + 1
+    def do_span_check(self, serial_id: str="0") -> (int, str):
+        """
+        Override digital IO control and DOSPAN.
 
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
+
+        Returns:
+            int: 0 if no error
+            str: OK
+        """
+        try:
+            resp = self.tcpip_comm(f"DO{serial_id}001")
+            if resp=="OK":
+                msg = f"Force instrument {self.__name} into SPAN mode"
+                print(msg)
+                self._logger.info(msg)
+                return 0, resp
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def do_zero_check(self, serial_id: str="0") -> (int, str):
+        """
+        Override digital IO control and DOZERO.
+
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
+
+        Returns:
+            int: 0 if no error
+            str: OK
+        """
+        try:
+            resp = self.tcpip_comm(f"DO{serial_id}011")
+            if resp=="OK":
+                msg = f"Force instrument {self.__name} into ZERO mode"
+                print(msg)
+                self._logger.info(msg)
+                return 0, resp
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def do_ambient(self, serial_id: str="0") -> (int, str):
+        """
+        Override digital IO control and return to ambient measurement.
+
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
+
+        Returns:
+            int: 0 if no error
+            str: OK
+        """
+        try:
+            resp = self.tcpip_comm(f"DO{serial_id}000")
+            if resp=="OK":
+                msg = f"Force instrument {self.__name} into AMBIENT mode"
+                print(msg)
+                self._logger.info(msg)
+                return 0, resp
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def get_status_word(self, serial_id: str="0") -> (int, str):
+        """
+        Read the System status of the Aurora 3000 microprocessor board. The status word 
+        is the status of the nephelometer in hexadecimal converted to decimal.
+
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
+
+        Returns:
+            int: 0 if no error
+            str: {<STATUS WORD>}
+        """
+        try:
+            resp = self.tcpip_comm(f"VI{serial_id}88")
+            if resp:
+                msg = f"Instrument {self.__name} status: {resp}."
+                print(msg)
+                self._logger.info(msg)
+                return 0, resp
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def get_all_data(self, serial_id: str="0") -> (int, str):
+        """
+        Read the System status of the Aurora 3000 microprocessor board. The status word 
+        is the status of the nephelometer in hexadecimal converted to decimal.
+
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
+
+        Returns:
+            int: 0 if no error
+            str: {<STATUS WORD>}
+        """
+        try:
+            resp = self.tcpip_comm(f"***R")
+            resp = self.tcpip_comm(f"***D")
+            if resp:
+                msg = f"Instrument {self.__name} status: {resp}."
+                print(msg)
+                self._logger.info(msg)
+                return 0, resp
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def get_data(self, serial_id: str="0", get_status_word=True, sep: str=",", save: bool=True) -> (int, str):
+        """
+        Retrieve latest reading on one line
+
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
+
+        Returns:
+            int: 0 if no error
+            str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
+        """
+        try:
+            resp = self.tcpip_comm(f"VI{serial_id}99")
+            resp = resp.replace(", ", ",")
+            if get_status_word:
+                resp += f",{self.get_status_word()}"
+            resp = resp.replace(",", sep)
+
+            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+            print(f"{dtm} .get_data (name={self.__name}, save={save})")
+
+            # read the latest record from the instrument
+            if resp:
                 if save:
                     # generate the datafile name
-                    # self.__datafile = os.path.join(self.__datadir,
-                    #                             "".join([self.__name, "-",
-                    #                                     datetimebin.dtbin(self.__reporting_interval), ".dat"]))
                     self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
                                                 "".join([self.__name, "-",
                                                         datetimebin.dtbin(self.__reporting_interval), ".dat"]))
-
                     os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
                     with open(self.__datafile, "at", encoding='utf8') as fh:
-                        # fh.write(f"{dtm}{sep}{data}\n")
-                        fh.write(data)
+                        fh.write(resp)
                         fh.close()
 
                     # stage data for transfer
                     self.stage_data_file()
+                return 0, resp
 
-            return data
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def get_all_new_data(self, serial_id: str="0", get_status_word=True, sep: str=",", save: bool=True) -> (int, str):
+        """
+        Retrieve all readings from current cursor
+
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
+
+        Returns:
+            int: 0 if no error
+            str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
+        """
+        try:
+            resp = self.tcpip_comm(f"***D")
+            resp = resp.replace(", ", ",")
+            # if get_status_word:
+            #     resp += f",{self.get_status_word()}"
+            resp = resp.replace(",", sep)
+
+            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+            print(f"{dtm} .get_data (name={self.__name}, save={save})")
+
+            # read the latest record from the instrument
+            if resp:
+                if save:
+                    # generate the datafile name
+                    self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
+                                                "".join([self.__name, "-",
+                                                        datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+                    os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
+                    with open(self.__datafile, "at", encoding='utf8') as fh:
+                        fh.write(resp)
+                        fh.close()
+
+                    # stage data for transfer
+                    self.stage_data_file()
+                return 0, resp
 
         except Exception as err:
             if self._log:
@@ -324,26 +461,17 @@ class NE300:
             print(err)
 
 
-    def print_ae33(self) -> None:
-        """Retrieve current record from Data table and print."""
+    def print_data(self, serial_id: str="0") -> None:
+        """Retrieve current record and print."""
         try:
             # read the last record from the Data table
-            maxid = int(self.tcpip_comm(cmd="MAXID Data", tidy=True))
-            cmd=f"FETCH Data {maxid}"                    
-            data = self.tcpip_comm(cmd, tidy=True)
-            data = data.split(sep="|")
-            
-            tape_adv_remaining = self.tape_advances_remaining()
-            msg = f"Tape advances remaining: {tape_adv_remaining}"
-            if int(tape_adv_remaining) < 10:
-                msg += " ATTENTION: Get ready to change change!"
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] BC: {data[44]} ng/m3 UVPM: {data[29]} ng/m3 ({msg})")
+            data = self.tcpip_comm(f"VI{serial_id}99", tidy=True)
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
 
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
-
 
 
     def stage_log_file(self) -> None:
