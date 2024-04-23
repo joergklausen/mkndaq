@@ -3,10 +3,6 @@ PyYAML~=5.4.1
 pysftp~=0.2.9
 sockslib~=1.4.5
 schedule~=1.1.0
-<<<<<<< HEAD
 setuptools~>65.5.1
-=======
-setuptools~=65.5.1    # as advised by github
->>>>>>> dev
 colorama~=0.4.4
 future~=0.18.2
