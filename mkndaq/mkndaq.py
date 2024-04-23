@@ -40,7 +40,7 @@ def main():
     logger = None
     try:
         colorama.init(autoreset=True)
-        version = 'v0.6.6'
+        version = 'v0.6.10'
         print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
 
         # collect and interprete CLI arguments
@@ -105,12 +105,11 @@ def main():
                 schedule.every(fetch+5).seconds.do(tei49i_2.print_o3)
             if cfg.get('g2401', None):
                 g2401 = G2401('g2401', config=cfg)
-                g2401.store_and_stage_new_files()
+                g2401.store_and_stage_files()
                 # g2401.store_and_stage_latest_file()
                 # schedule.every(cfg['g2401']['staging_interval']).minutes.at(
                 #     f":{cfg['g2401']['staging_minute']}").do(g2401.store_and_stage_files)
-                schedule.every(cfg['g2401']['staging_interval']).minutes.at(
-                    f":{cfg['g2401']['staging_minute']}").do(g2401.store_and_stage_new_files)
+                schedule.every(cfg['g2401']['staging_interval']).minutes.do(g2401.store_and_stage_files)
                 schedule.every(fetch).seconds.do(g2401.print_co2_ch4_co)
             if cfg.get('meteo', None):
                 meteo = METEO('meteo', config=cfg)

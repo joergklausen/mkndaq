@@ -9,6 +9,8 @@ import os
 import time
 import logging
 import shutil
+import zipfile
+from mkndaq.utils.filesync import rsync
 
 import colorama
 
@@ -25,12 +27,15 @@ class AEROSOL:
     _log = None
     _staging = None
     _datadir = None
+    _buckets = None
+    _days_to_sync = None
     _name = None
     _logger = None
     _source = None
+    _netshare = None
 
     @classmethod
-    def __init__(cls, name: str, config: dict) -> None:
+    def __init__(self, name: str, config: dict) -> None:
         """
         Constructor
 
@@ -50,7 +55,7 @@ class AEROSOL:
             os.makedirs(logdir, exist_ok=True)
             logfile = '%s.log' % time.strftime('%Y%m%d')
             logfile = os.path.join(logdir, logfile)
-            cls._logger = logging.getLogger(__name__)
+            self._logger = logging.getLogger(__name__)
             logging.basicConfig(level=logging.DEBUG,
                                 format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                 datefmt='%y-%m-%d %H:%M:%S',
@@ -58,70 +63,145 @@ class AEROSOL:
                                 filemode='a')
 
             # read instrument control properties for later use
-            cls._name = name
-            cls._type = config[name]['type']
+            self._name = name
+            self._type = config[name]['type']
 
             # setup data directory
             datadir = os.path.expanduser(config['data'])
-            cls._datadir = os.path.join(datadir, name)
-            os.makedirs(cls._datadir, exist_ok=True)
+            self._datadir = os.path.join(datadir, name)
+            os.makedirs(self._datadir, exist_ok=True)
 
             # source of data files
-            # cls._netshare = config[name]['netshare']
-            cls._source = config[name]['source']
+            dbs = r"\\"
+            self._netshare = os.path.join(f"{dbs}{config[name]['socket']['host']}", config[name]['netshare'])
+
+            # reporting/storage
+            # self._reporting_interval = config[name]['reporting_interval']
+            self._buckets = config[name]['buckets']
+            if self._buckets == "None":
+                self._buckets = None
+
+            # days up to present for which files should be synched to data directory
+            self._days_to_sync = config[name]['days_to_sync']
 
             # interval to fetch and stage data files
-            cls._staging_interval = config[name]['staging_interval']
+            self._staging_interval = config[name]['staging_interval']
 
             # staging area for files to be transfered
-            cls._staging = os.path.expanduser(config['staging']['path'])
-            cls._zip = config[name]['staging_zip']
+            self._staging = os.path.expanduser(config['staging']['path'])
+            self._zip = config[name]['staging_zip']
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
+    # @classmethod
+    # def store_and_stage_files(self):
+    #     """
+    #     Fetch data files from local source and move to datadir. Zip files and place in staging area.
+
+    #     :return: None
+    #     """
+    #     try:
+    #         print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
+
+    #         # get data file from local source
+    #         files = os.listdir(self._source)
+
+    #         if files:
+    #             # staging location for transfer
+    #             stage = os.path.join(self._staging, self._name)
+    #             os.makedirs(stage, exist_ok=True)
+
+    #             # store and stage data files
+    #             for file in files:
+    #                 # stage file
+    #                 shutil.move(os.path.join(self._source, file), os.path.join(stage, file))
+
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
+
+
     @classmethod
-    def store_and_stage_files(cls):
+    def store_and_stage_files(self):
         """
         Fetch data files from local source and move to datadir. Zip files and place in staging area.
+        New files on the PSI machine are not automatically organized in subfolders!
 
         :return: None
         """
         try:
-            print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+            if os.path.exists(self._netshare):
+                # copy 'new' files from source to target
+                files_received = rsync(source=self._netshare, 
+                                        target=self._datadir, 
+                                        buckets=self._buckets, 
+                                        days=self._days_to_sync)
 
-            # get data file from local source
-            files = os.listdir(cls._source)
+                # stage data for transfer
+                for file in files_received:    
+                    stage = os.path.join(self._staging, self._name)
+                    os.makedirs(stage, exist_ok=True)
 
-            if files:
-                # staging location for transfer
-                stage = os.path.join(cls._staging, cls._name)
-                os.makedirs(stage, exist_ok=True)
+                    if self._zip:
+                        # create zip file
+                        archive = os.path.join(stage, "".join([os.path.basename(file)[:-4], ".zip"]))
+                        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                            fh.write(file, os.path.basename(file))
+                    else:
+                        shutil.copyfile(os.path.join(self._datadir, file), os.path.join(stage, os.path.basename(file)))
 
-                # store and stage data files
-                for file in files:
-                    # stage file
-                    shutil.move(os.path.join(cls._source, file), os.path.join(stage, file))
+                    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .store_and_stage_new_files (name={self._name}, file={os.path.basename(file)})")
+            else:
+                msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} (name={self._name}) Warning: {self._netshare} is not accessible!)"
+                if self._log:
+                    self._logger.error(msg)
+                print(colorama.Fore.RED + msg)
+
+            return
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
+    # try:
+    #     print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
+
+    #     # get data file from local source
+    #     files = os.listdir(self._source)
+
+    #     if files:
+    #         # staging location for transfer
+    #         stage = os.path.join(self._staging, self._name)
+    #         os.makedirs(stage, exist_ok=True)
+
+    #         # store and stage data files
+    #         for file in files:
+    #             # stage file
+    #             shutil.move(os.path.join(self._source, file), os.path.join(stage, file))
+
+    # except Exception as err:
+    #     if self._log:
+    #         self._logger.error(err)
+    #     print(err)
+
+
     @classmethod
-    def print_aerosol(cls) -> None:
+    def print_aerosol(self) -> None:
         try:
-            # files = os.listdir(cls._source)
+            # files = os.listdir(self._source)
             # if files:
             #     file = max([x for x in files if "VMSW" in x])
             #
-            #     data = cls.extract_short_bulletin(os.path.join(cls._source, file))
+            #     data = self.extract_short_bulletin(os.path.join(self._source, file))
             print(colorama.Fore.GREEN + "%s [%s] near-real-time display not implemented." %
-                  (time.strftime("%Y-%m-%d %H:%M:%S"), cls._name))
+                  (time.strftime("%Y-%m-%d %H:%M:%S"), self._name))
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)

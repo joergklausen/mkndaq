@@ -121,30 +121,12 @@ class TEI49C:
             print(f"# Initialize TEI49C (name: {self.__name}  S/N: {self.__serial_number})")
             self.get_config()
             self.set_config()
-            # # query instrument to see if communication is possible, set date and time
-            # if not self._simulate:
-            #     dte = self.get_data('date', save=False)
-            #     if dte:
-            #         tme = self.get_data('time', save=False)
-            #         msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (self.__name, dte, tme)
-            #         self._logger.info(msg)
-            #
-            #         # set date and time
-            #         self.set_datetime()
-            #     else:
-            #         msg = "Instrument '%s' did not respond as expected." % self.__name
-            #         self._logger.error(msg)
-            #     print(colorama.Fore.RED + "%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
-
-        # except serial.SerialException as err:
-        #     if self._log:
-        #         self._logger.error(err)
-        #     print(err)
 
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
+
 
     def serial_comm(self, cmd: str, tidy=True) -> str:
         """
@@ -424,7 +406,7 @@ class TEI49C:
 
         return data
 
-    def get_all_rec(self, save=True) -> str:
+    def get_all_rec(self, capacity=[1790, 4096], save=True) -> str:
         """
         Retrieve all long and short records from instrument and optionally write to file.
 
@@ -436,7 +418,7 @@ class TEI49C:
 
             # lrec and srec capacity of logger
             CMD = ["lrec", "srec"]
-            CAPACITY = [1790, 4096]
+            CAPACITY = capacity
 
             print("%s .get_all_rec (name=%s, save=%s)" % (dtm, self.__name, save))
 
