@@ -72,6 +72,8 @@ See [1,2]. Enable sharing of /Data/send as 'psi'. Lookup IP address using ifconf
 
 Files are now also pushed by simple ftp to Minix and staged from there.
 
+Update: Currently, data from /Data/sent are accessible as a netshare (mounted disk) on the Minix.
+
 #### Meteo
 Files are pushed by simple ftp to Minix and staged from there.
 
