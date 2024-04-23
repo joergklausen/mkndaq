@@ -9,6 +9,7 @@ import logging
 import os
 import shutil
 import socket
+import re
 import time
 import zipfile
 
@@ -22,62 +23,60 @@ class TEI49I:
     Instrument of type Thermo TEI 49I with methods, attributes for interaction.
     """
 
-    _datadir = None
-    _datafile = None
-    _data_header = None
-    _get_config = None
-    _get_data = None
-    _id = None
+    __datadir = None
+    __datafile = ""
+    __file_to_stage = None
+    __data_header = None
+    __get_config = None
+    __get_data = None
+    __id = None
     _log = None
     _logger = None
-    _name = None
+    __name = None
     _reporting_interval = None
-    _set_config = None
+    __set_config = None
     _simulate = None
-    _sockaddr = None
-    _socksleep = None
-    _socktout = None
-    _staging = None
-    _zip = False
+    __sockaddr = None
+    __socksleep = None
+    __socktout = None
+    __staging = None
+    __zip = False
 
-    @classmethod
-    def __init__(cls, name: str, config: dict, simulate=False) -> None:
+    def __init__(self, name: str, config: dict, simulate=False) -> None:
         """
         Initialize instrument class.
-        
+
         :param name: name of instrument
-        :param config: dictionary of attributes defining the instrument, serial port and other information
+        :param config: dictionary of attributes defining instrument, serial port and more
             - config[name]['type']
             - config[name]['id']
             - config[name]['serial_number']
+            - config[name]['socket']['host']
+            - config[name]['socket']['port']
+            - config[name]['socket']['timeout']
+            - config[name]['socket']['sleep']
             - config[name]['get_config']
             - config[name]['set_config']
             - config[name]['get_data']
             - config[name]['data_header']
             - config['logs']
-            - config[name]['socket']['host']
-            - config[name]['socket']['port']
-            - config[name]['socket']['timeout']
-            - config[name]['socket']['sleep']
             - config[name]['sampling_interval']
-            - config['data']
-            - config[name]['logs']: default=True, write information to logfile
-            - config['staging']['path']
-            - config['staging']['zip']
+            - config['staging']['path'])
+            - config[name]['staging_zip']
         :param simulate: default=True, simulate instrument behavior. Assumes a serial loopback connector.
         """
         colorama.init(autoreset=True)
-        print("# Initialize TEI49I")
+        # print(f"# Initialize TEI49I (name: {name})")
 
         try:
-            cls._simulate = simulate
+            self._simulate = simulate
             # setup logging
             if config['logs']:
-                cls._log = True
+                self._log = True
                 logs = os.path.expanduser(config['logs'])
                 os.makedirs(logs, exist_ok=True)
-                logfile = '%s.log' % time.strftime('%Y%m%d')
-                cls._logger = logging.getLogger(__name__)
+                logfile = f"{time.strftime('%Y%m%d')}.log"
+                self._logger = logging.getLogger(__name__)
                 logging.basicConfig(level=logging.DEBUG,
                                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                     datefmt='%y-%m-%d %H:%M:%S',
@@ -85,54 +84,45 @@ class TEI49I:
                                     filemode='a')
 
             # read instrument control properties for later use
-            cls._name = name
-            cls._id = config[name]['id'] + 128
-            cls._type = config[name]['type']
-            cls._serial_number = config[name]['serial_number']
-            cls._get_config = config[name]['get_config']
-            cls._set_config = config[name]['set_config']
-            cls._get_data = config[name]['get_data']
-            cls._data_header = config[name]['data_header']
+            self.__name = name
+            self.__id = config[name]['id'] + 128
+            self._type = config[name]['type']
+            self.__serial_number = config[name]['serial_number']
+            self.__get_config = config[name]['get_config']
+            self.__set_config = config[name]['set_config']
+            self.__get_data = config[name]['get_data']
+            self.__data_header = config[name]['data_header']
 
             # configure tcp/ip
-            cls._sockaddr = (config[name]['socket']['host'],
+            self.__sockaddr = (config[name]['socket']['host'],
                              config[name]['socket']['port'])
-            cls._socktout = config[name]['socket']['timeout']
-            cls._socksleep = config[name]['socket']['sleep']
+            self.__socktout = config[name]['socket']['timeout']
+            self.__socksleep = config[name]['socket']['sleep']
 
             # sampling, aggregation, reporting/storage
-            cls._sampling_interval = config[name]['sampling_interval']
-            cls._reporting_interval = config['reporting_interval']
+            self._sampling_interval = config[name]['sampling_interval']
+            self._reporting_interval = config['reporting_interval']
 
             # setup data directory
             datadir = os.path.expanduser(config['data'])
-            cls._datadir = os.path.join(datadir, name)
-            os.makedirs(cls._datadir, exist_ok=True)
+            self.__datadir = os.path.join(datadir, name)
+            os.makedirs(self.__datadir, exist_ok=True)
 
             # staging area for files to be transfered
-            cls._staging = os.path.expanduser(config['staging']['path'])
-            cls._zip = config['staging']['zip']
+            self.__staging = os.path.expanduser(config['staging']['path'])
+            self.__zip = config[name]['staging_zip']
 
-            # # query instrument to see if communication is possible, set date and time
-            # if not cls._simulate:
-            #     dte = cls.get_data('date', save=False)
-            #     if dte:
-            #         tme = cls.get_data('time', save=False)
-            #         msg = "Instrument '%s' initialized. Instrument datetime is %s %s." % (cls._name, dte, tme)
-            #         cls._logger.info(msg)
-            #         cls.set_datetime()
-            #     else:
-            #         msg = "Instrument '%s' did not respond as expected." % cls._name
-            #         cls._logger.error(msg)
-            #     print(colorama.Fore.RED + "%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
+            print(f"# Initialize TEI49I (name: {self.__name}  S/N: {self.__serial_number})")
+            self.get_config()
+            self.set_config()
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def tcpip_comm(cls, cmd: str, tidy=True) -> str:
+
+    def tcpip_comm(self, cmd: str, tidy=True) -> str:
         """
         Send a command and retrieve the response. Assumes an open connection.
 
@@ -140,24 +130,24 @@ class TEI49I:
         :param tidy: remove cmd echo, \n and *\r\x00 from result string, terminate with \n
         :return: response of instrument, decoded
         """
-        _id = bytes([cls._id])
+        __id = bytes([self.__id])
         rcvd = b''
         try:
             # open socket connection as a client
-            if cls._simulate:
-                rcvd = cls.simulate_get_data(cmd).encode()
+            if self._simulate:
+                rcvd = self.simulate__get_data(cmd).encode()
             else:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
                     # connect to the server
-                    s.settimeout(cls._socktout)
-                    s.connect(cls._sockaddr)
+                    s.settimeout(self.__socktout)
+                    s.connect(self.__sockaddr)
 
-                    if cls._simulate:
-                        _id = b''
+                    if self._simulate:
+                        __id = b''
 
                     # send data
-                    s.sendall(_id + ('%s\x0D' % cmd).encode())
-                    time.sleep(cls._socksleep)
+                    s.sendall(__id + (f"{cmd}\x0D").encode())
+                    time.sleep(self.__socksleep)
 
                     # receive response
                     while True:
@@ -172,91 +162,96 @@ class TEI49I:
                 # - remove checksum after and including the '*'
                 rcvd = rcvd.split("*")[0]
                 # - remove echo before and including '\n'
-                if "\n" in rcvd:
-                    rcvd = rcvd.split("\n")[1]
+                rcvd = rcvd.replace(f"{cmd}\n", "")
+                # if "\n" in rcvd:
+                    # rcvd = rcvd.split("\n")[1]
+
+            # TODO: test with local instrument
+            # if rcvd is None:
+            #     rcvd = ""
 
             return rcvd
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def get_config(cls) -> list:
+
+    def get_config(self) -> list:
         """
         Read current configuration of instrument and optionally write to log.
 
         :return (err, cfg) configuration or errors, if any.
-        
+
         """
-        print("%s .get_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+        print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .get_config (name={self.__name})")
         cfg = []
         try:
-            for cmd in cls._get_config:
-                cfg.append(cls.tcpip_comm(cmd))
+            for cmd in self.__get_config:
+                cfg.append(self.tcpip_comm(cmd))
 
-            if cls._log:
-                cls._logger.info("Current configuration of '%s': %s" % (cls._name, cfg))
+            if self._log:
+                self._logger.info(f"Current configuration of '{self.__name}': {cfg}")
 
             return cfg
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def set_datetime(cls) -> None:
+
+    def set_datetime(self) -> None:
         """
         Synchronize date and time of instrument with computer time.
 
         :return:
         """
         try:
-            dte = cls.tcpip_comm("set date %s" % time.strftime('%m-%d-%y'))
-            msg = "Date of instrument %s set to: %s" % (cls._name, dte)
+            dte = self.tcpip_comm("set date %s" % time.strftime('%m-%d-%y'))
+            msg = "Date of instrument %s set to: %s" % (self._name, dte)
             print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
-            cls._logger.info(msg)
+            self._logger.info(msg)
 
-            tme = cls.tcpip_comm("set time %s" % time.strftime('%H:%M:%S'))
-            msg = "Time of instrument %s set to: %s" % (cls._name, tme)
+            tme = self.tcpip_comm("set time %s" % time.strftime('%H:%M:%S'))
+            msg = "Time of instrument %s set to: %s" % (self.__name, tme)
             print("%s %s" % (time.strftime('%Y-%m-%d %H:%M:%S'), msg))
-            cls._logger.info(msg)
+            self._logger.info(msg)
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def set_config(cls) -> list:
+
+    def set_config(self) -> list:
         """
         Set configuration of instrument and optionally write to log.
 
         :return (err, cfg) configuration set or errors, if any.
         """
-        print("%s .set_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), cls._name))
+        print("%s .set_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self.__name))
         cfg = []
         try:
-            for cmd in cls._set_config:
-                cfg.append(cls.tcpip_comm(cmd))
+            for cmd in self.__set_config:
+                cfg.append(self.tcpip_comm(cmd))
             time.sleep(1)
 
-            if cls._log:
-                cls._logger.info("Configuration of '%s' set to: %s" % (cls._name, cfg))
+            if self._log:
+                self._logger.info("Configuration of '%s' set to: %s" % (self.__name, cfg))
 
             return cfg
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def get_data(cls, cmd=None, save=True) -> str:
+
+    def get_data(self, cmd=None, save=True) -> str:
         """
-        Retrieve long record from instrument and optionally write to log.
+        Send command retrieve response from instrument and optionally write to log.
 
         :param str cmd: command sent to instrument
         :param bln save: Should data be saved to file? default=True
@@ -264,77 +259,172 @@ class TEI49I:
         """
         try:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-            if cls._simulate:
-                print("%s .get_data (name=%s, save=%s, simulate=%s)" % (dtm, cls._name, save, cls._simulate))
+            if self._simulate:
+                print("%s .get_data (name=%s, save=%s, simulate=%s)" % (dtm, self._name, save, self._simulate))
             else:
-                print("%s .get_data (name=%s, save=%s)" % (dtm, cls._name, save))
+                print("%s .get_data (name=%s, save=%s)" % (dtm, self.__name, save))
 
             if cmd is None:
-                cmd = cls._get_data
+                cmd = self.__get_data
 
-            data = cls.tcpip_comm(cmd)
+            data = self.tcpip_comm(cmd)
 
-            if cls._simulate:
-                data = cls.simulate_get_data(cmd)
+            if self._simulate:
+                data = self.simulate__get_data(cmd)
 
             if save:
                 # generate the datafile name
-                cls._datafile = os.path.join(cls._datadir,
-                                             "".join([cls._name, "-",
-                                                      datetimebin.dtbin(cls._reporting_interval), ".dat"]))
+                # self.__datafile = os.path.join(self.__datadir, 
+                #                              "".join([self.__name, "-",
+                #                                       datetimebin.dtbin(self._reporting_interval), ".dat"]))
+                self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
+                                             "".join([self.__name, "-",
+                                                      datetimebin.dtbin(self._reporting_interval), ".dat"]))
 
-                if not (os.path.exists(cls._datafile)):
+                os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
+
+                if not os.path.exists(self.__datafile):
                     # if file doesn't exist, create and write header
-                    with open(cls._datafile, "at") as fh:
-                        fh.write("%s\n" % cls._data_header)
+                    with open(self.__datafile, "at", encoding='utf8') as fh:
+                        fh.write(f"{self.__data_header}\n")
                         fh.close()
-                with open(cls._datafile, "at") as fh:
-                    fh.write("%s %s\n" % (dtm, data))
+                with open(self.__datafile, "at", encoding='utf8') as fh:
+                    fh.write(f"{dtm} {data}\n")
                     fh.close()
 
                 # stage data for transfer
-                root = os.path.join(cls._staging, os.path.basename(cls._datadir))
-                os.makedirs(root, exist_ok=True)
-                if cls._zip:
-                    # create zip file
-                    archive = os.path.join(root, "".join([os.path.basename(cls._datafile[:-4]), ".zip"]))
-                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                        fh.write(cls._datafile, os.path.basename(cls._datafile))
-                else:
-                    shutil.copyfile(cls._datafile, os.path.join(root, os.path.basename(cls._datafile)))
+                # root = os.path.join(self.__staging, os.path.basename(self.__datadir))
+                # os.makedirs(root, exist_ok=True)
+                # if self.__zip:
+                #     # create zip file
+                #     archive = os.path.join(root, "".join([os.path.basename(self.__datafile[:-4]), ".zip"]))
+                #     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                #         fh.write(self.__datafile, os.path.basename(self.__datafile))
+                # else:
+                #     shutil.copyfile(self.__datafile, os.path.join(root, os.path.basename(self.__datafile)))
+                if self.__file_to_stage is None:
+                    self.__file_to_stage = self.__datafile
+                elif self.__file_to_stage != self.__datafile:
+                    root = os.path.join(self.__staging, os.path.basename(self.__datadir))
+                    os.makedirs(root, exist_ok=True)
+                    if self.__zip:
+                        # create zip file
+                        archive = os.path.join(root, "".join([os.path.basename(self.__file_to_stage)[:-4], ".zip"]))
+                        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                            zf.write(self.__file_to_stage, os.path.basename(self.__file_to_stage))
+                    else:
+                        shutil.copyfile(self.__file_to_stage, os.path.join(root, os.path.basename(self.__file_to_stage)))
+                    self.__file_to_stage = self.__datafile
 
             return data
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def get_o3(cls) -> str:
+
+    def get_all_lrec(self, save=True) -> str:
+        """download entire buffer from instrument and save to file
+
+        :param bln save: Should data be saved to file? default=True
+        :return str response as decoded string
+        """
         try:
-            return cls.tcpip_comm('o3')
+            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+
+            # retrieve numbers of lrec stored in buffer
+            no_of_lrec = self.tcpip_comm("no of lrec")
+            no_of_lrec = int(re.findall(r"(\d+)", no_of_lrec)[0])
+
+            if save:
+                # generate the datafile name
+                self.__datafile = os.path.join(self.__datadir,
+                                            "".join([self.__name, "_all_lrec-",
+                                                    time.strftime("%Y%m%d%H%M%S"), ".dat"]))
+
+            # retrieve all lrec records stored in buffer
+            index = no_of_lrec
+            retrieve = 10
+
+            while index > 0:
+                if index < 10:
+                    retrieve = index
+                cmd = f"lrec {str(index)} {str(retrieve)}"
+                print(cmd)
+                data = self.tcpip_comm(cmd)
+
+                # remove all the extra info in the string returned
+                # 05:26 07-19-22 flags 0C100400 o3 30.781 hio3 0.000 cellai 50927 cellbi 51732 bncht 29.9 lmpt 53.1 o3lt 0.0 flowa 0.435 flowb 0.000 pres 493.7
+                data = data.replace("flags ", "")
+                data = data.replace("hio3 ", "")
+                data = data.replace("cellai ", "")
+                data = data.replace("cellbi ", "")
+                data = data.replace("bncht ", "")
+                data = data.replace("lmpt ", "")
+                data = data.replace("o3lt ", "")
+                data = data.replace("flowa ", "")
+                data = data.replace("flowb ", "")
+                data = data.replace("pres ", "")
+                data = data.replace("o3 ", "")
+
+                if save:
+                    if not os.path.exists(self.__datafile):
+                        # if file doesn't exist, create and write header
+                        with open(self.__datafile, "at", encoding='utf8') as fh:
+                            fh.write(f"{self.__data_header}\n")
+                            fh.close()
+
+                    with open(self.__datafile, "at", encoding='utf8') as fh:
+                        fh.write(f"{data}\n")
+                        fh.close()
+
+                index = index - 10
+
+            if save:
+                # stage data for transfer
+                root = os.path.join(self.__staging, os.path.basename(self.__datadir))
+                os.makedirs(root, exist_ok=True)
+                if self.__zip:
+                    # create zip file
+                    archive = os.path.join(root, "".join([os.path.basename(self.__datafile[:-4]), ".zip"]))
+                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                        fh.write(self.__datafile, os.path.basename(self.__datafile))
+                else:
+                    shutil.copyfile(self.__datafile, os.path.join(root, os.path.basename(self.__datafile)))
+
+            return data
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
+            if self._log:
+                self._logger.error(err)
             print(err)
 
-    @classmethod
-    def print_o3(cls) -> None:
+
+    def get_o3(self) -> str:
         try:
-            o3 = cls.tcpip_comm('O3').split()
+            return self.tcpip_comm('o3')
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def print_o3(self) -> None:
+        try:
+            o3 = self.tcpip_comm('O3').split()
             print(colorama.Fore.GREEN + "%s [%s] %s %s %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
-                                                        cls._name,
+                                                        self.__name,
                                                         o3[0], str(float(o3[1])), o3[2]))
 
         except Exception as err:
-            if cls._log:
-                cls._logger.error(err)
-            print(err)
+            if self._log:
+                self._logger.error(err)
+            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
-    @classmethod
-    def simulate_get_data(cls, cmd=None) -> str:
+
+    def simulate__get_data(self, cmd=None) -> str:
         """
 
         :param cmd:

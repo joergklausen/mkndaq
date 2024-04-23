@@ -17,14 +17,19 @@ To execute the workflow:
 - highlight the CLI script, __main__.py
 - run >Tools>External Tools>PyInstaller.
 
-In VS Code, open a terminal in your venv, then navigate to
-	
-``(venv) user@host:~/<path>/mkndaq$``
+In VS Code, open a bash terminal, then activate your .venv, then navigate to /mkndaq
+
+``source .venv/Scripts/activate``	
+``(.venv) user@host:~/<path>/mkndaq$``
 	
 Execute
 
-``pyinstaller --onefile --name mkndaq.exe mkndaq/mkndaq.py``
-	
+``pyinstaller --onefile --name mkndaq.exe ./mkndaq/mkndaq.py``
+
+or
+
+``pyinstaller --onefile --name mkndaq.exe ./mkndaq/mkndaq.py [--log-level=DEBUG]``
+
 ### usage
 Execute in a command window as
 
@@ -65,6 +70,8 @@ See [1,2]. Enable sharing of /Data/send as 'psi'. Lookup IP address using ifconf
     - if needed, change the default entry 'workgroup = WORKGROUP' to match the Windows workgroup
 
 Files are now also pushed by simple ftp to Minix and staged from there.
+
+Update: Currently, data from /Data/sent are accessible as a netshare (mounted disk) on the Minix.
 
 #### Meteo
 Files are pushed by simple ftp to Minix and staged from there.
