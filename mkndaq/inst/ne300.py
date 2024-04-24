@@ -4,8 +4,9 @@ Define a class NE300 facilitating communication with a Acoem NE-300 nephelometer
 @author: joerg.klausen@meteoswiss.ch
 """
 
-import logging
 import os
+import datetime
+import logging
 import shutil
 import socket
 import re
@@ -61,7 +62,6 @@ class NE300:
         colorama.init(autoreset=True)
 
         try:
-            self._simulate = simulate
             # setup logging
             if 'logs' in config.keys():
                 self._log = True
@@ -85,13 +85,16 @@ class NE300:
             self.__sockaddr = (config[name]['socket']['host'],
                              config[name]['socket']['port'])
             self.__socktout = config[name]['socket']['timeout']
-            self.__socksleep = config[name]['socket']['sleep']
+            # self.__socksleep = config[name]['socket']['sleep']
 
             # configure comms protocol
-            self.__protocol = config[name]['protocol']
+            if config[name]['protocol'] in ["acoem", "legacy"]:
+                self.__protocol = config[name]['protocol']
+            else:
+                raise ValueError("Communication protocol not recognized.")
 
             # sampling, aggregation, reporting/storage
-            self._sampling_interval = config[name]['sampling_interval']
+            # self._sampling_interval = config[name]['sampling_interval']
             self.__reporting_interval = config['reporting_interval']
 
             # setup data and log directory
@@ -105,7 +108,10 @@ class NE300:
             self.__staging = os.path.expanduser(config['staging']['path'])
             self.__zip = config[name]['staging_zip']
 
-            print(f"# Initialize NE300 (name: {self.__name}  S/N: {self.__serial_number})")
+            self.__verbosity = config[name]['verbosity']
+
+            if self.__verbosity>0:
+                print(f"# Initialize NE300 (name: {self.__name}  S/N: {self.__serial_number})")
 
         except Exception as err:
             if self._log:
@@ -113,119 +119,216 @@ class NE300:
             print(err)
 
 
-    def tcpip_comm(self, cmd: str, tidy=True) -> str:
+    def __checksum(self, x: bytes) -> bytes:
         """
-        Send a command and retrieve the response. Assumes an open connection.
+        Compute the checksum of all bytes except checksum and EOT by XORing bytes from left 
+        to right. (Reference: Aurora NE Series User Manual v1.2 Appendix A.1)
 
-        :param cmd: command sent to instrument
-        :param tidy: clean-up response, currently not in use.
-        :return: response of instrument, decoded (i.e. UTF-8)
-        """
-        rcvd = b''
-        try:
-            # open socket connection as a client
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
-                # connect to the server
-                s.settimeout(self.__socktout)
-                s.connect(self.__sockaddr)
-
-                if self.__protocol=="acoem":
-                    # send data using ACOEM protocol
-                    # chr(2) = STX
-                    # chr(3) = ETX
-                    # chr(4) = EOT
-                    stx = chr(2).encode()
-                    etx = chr(3).encode()
-                    eot = chr(4).encode()
-                    # cmd = r'1'.encode()
-                    # msb = r'0'.encode()
-                    # lsb = r'0'.encode()
-                    # chksum = stx^self.__serial_id^cmd^etx^msb^lsb 
-                    
-                    # msg = (stx + self.__serial_id + cmd + etx + msb + lsb + chksum + eot)
-                elif self.__protocol=="legacy":
-                    print("whatever needs to be done to use the legacy protocol ...")
-                else:
-                    raise ValueError("Communication protocol unknown.")
-
-                msg = f"{cmd}\r"
-
-                s.sendall(msg.encode())
-                time.sleep(self.__socksleep)
-
-                # receive response
-                while True:
-                    try:
-                        data = s.recv(1024)
-                        rcvd = rcvd + data
-                        if b"\r\n" in rcvd:
-                            break
-                    except:
-                        break
-
-            # strip pre-amble, decode response, tidy
-            rcvd = rcvd.replace(b"\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03", b"")
-            rcvd = rcvd.decode()
-            # if tidy:
-                # rcvd = rcvd.replace("\r\n", "\n")
-                # rcvd = rcvd.replace("\n\n", "\n")
-            return rcvd
-
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
-
-    def get_id(self, serial_id: str="0") -> (int, str):
-        """Get instrument id, s/w, firmware versions
-
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
+        Args:
+            x (bytes): Bytes 1..(N-2)
 
         Returns:
-            int: 0 (if no error)
+            bytes: Checksum (1 Byte)
+        """
+        cs = bytes([0])
+        for i in range(len(x)):
+            cs = bytes([a^b for a,b in zip(cs, bytes([x[i]]))])
+        return cs
+
+    
+    def __acoem_timestamp_to_datetime(self, token: bytes) -> datetime.datetime:
+        if self.__verbosity>1:
+            print(bin(token[0]))
+        dtm = token[0]
+        SS = dtm % 64
+        dtm = dtm // 64
+        MM = dtm % 64
+        dtm = dtm // 64
+        HH = dtm % 32
+        dtm = dtm // 32
+        dd = dtm % 32
+        dtm = dtm // 32
+        mm = dtm % 16
+        yyyy = dtm // 16 + 2000
+
+        return datetime.datetime(yyyy, mm, dd, HH, MM, SS)
+
+
+    def __datetime_to_acoem_timestamp(self, dtm: datetime.datetime=time.gmtime()) -> bytes:
+        if self.__verbosity>1:
+            print(dtm)
+            # dtm = time.gmtime()
+            SS = bin(dtm.tm_sec)[2:].zfill(6)
+            MM = bin(dtm.tm_min)[2:].zfill(6)
+            HH = bin(dtm.tm_hour)[2:].zfill(5)
+            dd = bin(dtm.tm_mday)[2:].zfill(5)
+            mm = bin(dtm.tm_mon)[2:].zfill(4)
+            yyyy = bin(dtm.tm_year - 2000).zfill(6)
+            return (int(yyyy + mm + dd + HH + MM + SS, base=2)).to_bytes(4)
+
+
+    def tcpip_comm(self, command: str, message_data: bytes=None) -> bytes:
+        """
+        Send and receive data using ACOEM protocol
+        
+        Byte  |1  |2  |3  |4  |5..6     |7..10    |11       |12
+              |STX|SID|CMD|ETX|msg_len  |msg_data |checksum |EOT
+        STX = chr(2)
+        SID = serial_id
+        CMD = command
+        ETX = chr(3)
+        msg_len = message length
+        msg_data = message data
+        EOT = chr(4)
+
+        Args:
+            command (str): Command to be sent (valid commands depend on protocol used)
+            message_data (bytes, optional): Message data as required by the ACOEM protocol. Defaults to None.
+
+        Raises:
+            ValueError: 
+
+        Returns:
+            bytes: _description_
+        """
+        if self.__protocol=="acoem":
+            command = int(command)
+            EOT = bytes([4])
+            if message_data:
+                msgl = len(message_data)
+                msg = bytes([2, self.__serial_id, command, 3, 0, msgl]) + message_data
+            else:
+                msg = bytes([2, self.__serial_id, command, 3, 0, 0])
+            checksum = self.__checksum(msg)
+            msg += checksum + EOT
+        else:
+            print("whatever needs to be done to use the legacy protocol ...")
+        if self.__verbosity>1:
+            print(f"msg: {msg}")
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
+            # connect to the server
+            s.settimeout(self.__socktout)
+            s.connect(self.__sockaddr)
+
+            # clear buffer
+            s.recv(1024)
+
+            # send message
+            s.sendall(msg)
+
+            # receive response
+            rcvd = b''
+            while True:
+                try:
+                    data = s.recv(1024)
+                    rcvd = rcvd + data
+                    if EOT in rcvd:
+                        break
+                except:
+                    break
+            if self.__verbosity>1:
+                print(f"rcvd (raw): {rcvd}")
+            rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
+
+            if self.__verbosity>1:
+                print(f"rcvd: {rcvd}")
+
+            response_length = int(int.from_bytes(rcvd[4:6]) / 4)
+            if self.__verbosity>1:
+                print(f"response length: {response_length}")
+            
+            response = []
+            for i in range(6, (response_length + 1) * 4 + 2, 4):
+                token = int.from_bytes(rcvd[i:(i+4)])
+                print(f"{i}: {token}")
+                response.append(token)
+        return response
+    
+    
+    # commands = {
+    #     # 'get_error': bytes([0]),
+    #     'get_instr_type': 1,
+    #     'get_version': 2,
+    #     'reset': 3,
+    #     'get_values': 4,
+    #     }
+    def get_id(self):
+        """Get instrument type, s/w, firmware versions
+
+        Parameters:
+
+        Returns:
             str: <...> (if no error)
         """
         try:
-            if self.__serial_id:
-                serial_id = self.__serial_id
-            resp = self.tcpip_comm(cmd=f"ID{serial_id}")
-            if resp:
-                print(resp)
-                self._logger.info(resp)
-                return 0, resp
+            if self.__protocol=="acoem":
+                response = self.tcpip_comm(command='1')
+                response = self.tcpip_comm(command='2')
+            else:
+                response = self.tcpip_comm(command=f"ID{self.__serial_id}")
+            if response:
+                self._logger.info(response)
+                return response
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
 
 
-    def set_datetime(self, serial_id: str="0") -> (int, str):
+    def get_datetime(self) -> datetime.datetime:
         """
-        Synchronize date and time of instrument with computer time.
+        Get date and time of instrument
 
         Parameters:
-            serial_id (str, optional): Defaults to '0'.
 
         Returns:
             int: 0 (if no error)
             str: OK (if no error)
         """
         try:
-            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-            resp = self.tcpip_comm(f"**{serial_id}S{time.strftime('%H%M%S%d%m%y')}")
-            if resp=="OK":
-                msg = f"Setting DateTime of instrument {self.__name} to {dtm} ... {resp}"
+            if self.__protocol=="acoem":
+                resp = self.tcpip_comm(command='4', message_data=bytes([0,0,0,1]))
+                resp = self.__acoem_timestamp_to_datetime(resp)
+            else:
+                resp = self.tcpip_comm(f"**{serial_id}S{time.strftime('%H%M%S%d%m%y')}")
+                if resp=="OK":
+                    msg = f"Setting DateTime of instrument {self.__name} to {dtm} ... {resp}"
                 print(f"{dtm} {msg}")
                 self._logger.info(msg)
-                return 0, resp
+            return resp
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
 
 
-    def do_span_check(self, serial_id: str="0") -> (int, str):
+    def set_datetime(self, dtm: datetime.datetime=time.gmtime()) -> None:
+        """
+        Set date and time of instrument
+
+        Parameters:
+
+        Returns:
+        """
+        try:
+            if self.__protocol=="acoem":
+                message_data = bytes([0,0,0,1]) + self.__datetime_to_acoem_timestamp(dtm=dtm)
+                resp = self.tcpip_comm(command='5', message_data=message_data)
+            else:
+                # resp = self.tcpip_comm(f"**{serial_id}S{time.strftime('%H%M%S%d%m%y')}")
+                # if resp=="OK":
+                #     msg = f"Setting DateTime of instrument {self.__name} to {dtm} ... {resp}"
+                # print(f"{dtm} {msg}")
+                self._logger.info(msg)
+            return resp
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+
+
+    def do_span_check(self) -> (int, str):
         """
         Override digital IO control and DOSPAN.
 
