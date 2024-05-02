@@ -9,7 +9,7 @@ import datetime
 import logging
 import shutil
 import socket
-import re
+import struct
 import time
 import zipfile
 
@@ -295,7 +295,7 @@ class NEPH:
                     data = dict(zip(keys, values))
                     for k, v in data.items():
                         data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else None
-                    data['dtm'] = __acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8]))
+                    data['dtm'] = self.__acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8]))
                     #  1631383872 b'a<\xf1@'
                     data['logging_interval'] = int.from_bytes(records[i][8:12])
                     # item  48 (bytes  192- 195): 60 None b'\x00\x00\x00<'
