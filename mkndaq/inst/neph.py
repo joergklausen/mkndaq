@@ -142,9 +142,9 @@ class NEPH:
             print(err)
 
 
-    def __acoem_timestamp_to_datetime(self, token: bytes) -> datetime.datetime:
+    def __acoem_timestamp_to_datetime(self, timestamp: int) -> datetime.datetime:
         try:
-            dtm = token[0]
+            dtm = timestamp
             SS = dtm % 64
             dtm = dtm // 64
             MM = dtm % 64
@@ -162,6 +162,7 @@ class NEPH:
             if self._log:
                 self._logger.error(err)
             print(err)
+            return datetime.datetime(1111, 1, 1, 1, 1, 1)
 
 
     def __acoem_datetime_to_timestamp(self, dtm: datetime.datetime=datetime.datetime.now()) -> bytes:
@@ -179,6 +180,7 @@ class NEPH:
             if self._log:
                 self._logger.error(err)
             print(err)
+            return b''
 
 
     def __legacy_timestamp_to_datetime(self, fmt: str, dte: str, tme: str) -> datetime.datetime:
@@ -223,6 +225,7 @@ class NEPH:
             int: _description_
         """
         return base_id * 1000000 + wavelength * 1000 + angle
+    
 
     def __acoem_construct_message(self, command: int, parameter_id: int=None, payload: bytes=None) -> bytes:
         """
@@ -258,7 +261,56 @@ class NEPH:
         return msg + self.__checksum(msg) + bytes([4])
 
 
-    def tcpip_comm2(self, message: bytes, verbosity: int=0) -> (list[int], bytes):
+    def __acoem_decode_logged_data(self, response: bytes, verbosity: int=0) -> dict():
+        if response[2] == 7:
+            # get_logger_data command (7) sent
+            message_length = int(int.from_bytes(response[4:6]) / 4)
+            response_body = response[6:-2]
+            fields_per_record = int.from_bytes(response_body[12:16])
+            items_per_record = fields_per_record + 4
+            number_of_records = message_length // items_per_record
+            if verbosity>1:
+                print(f"message length (items): {message_length}")
+                print(f"response body length  : {len(response_body)}")
+                print(f"response body (bytes) : {response_body}")
+                print(f"number of records     : {number_of_records}")
+
+            # parse bytearray into records and records into dict of header record(s) and data records
+            records = [response_body[(i*items_per_record*4):((i+1)*(items_per_record*4)-1)] for i in range(number_of_records)]
+            keys = []
+            values = []
+            data = dict()
+            all = []
+            # for i in range(number_of_records):
+            for i in range(2):
+                if records[i][0]==1:
+                    # header record
+                    number_of_fields = int.from_bytes(records[i][12:16])
+                    keys = [int.from_bytes(records[i][(16 +j*4):(16 + (j+1)*4)]) for j in range(number_of_fields)]
+                if records[i][0]==0:
+                    # data record
+                    number_of_fields = int.from_bytes(records[i][12:16])
+                    values = [records[i][(16 +j*4):(16 + (j+1)*4)] for j in range(number_of_fields)]
+
+                    data = dict(zip(keys, values))
+                    for k, v in data.items():
+                        data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else None
+                    data['dtm'] = __acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8]))
+                    #  1631383872 b'a<\xf1@'
+                    data['logging_interval'] = int.from_bytes(records[i][8:12])
+                    # item  48 (bytes  192- 195): 60 None b'\x00\x00\x00<'
+                if verbosity>1:
+                    print(f"record  {i:2.0f}: {records[i]}")
+                    print(f"type    : {records[i][0]}")
+                    print(f"inst op : {records[i][0]}")
+                    print(f"{i}: keys: {keys}")
+                    print(f"{i}: values: {values}")
+                    print(data)
+                all.append(data)
+            return all[1:]
+
+
+    def tcpip_comm(self, message: bytes, verbosity: int=0) -> tuple[list[int], bytes]:
         """
         Send and receive data using ACOEM protocol
         
@@ -273,65 +325,58 @@ class NEPH:
         Returns:
             list[int]: list of items returned.
         """
-        # if self.__protocol=="acoem":
-        #     command = int(command)
-        #     if message_data:
-        #         msgl = len(message_data)
-        #         msg = bytes([2, self.__serial_id, command, 3, 0, msgl]) + message_data
-        #     else:
-        #         msg = bytes([2, self.__serial_id, command, 3, 0, 0])
-        #     checksum = self.__checksum(msg)
-        #     msg += checksum + EOT
-        # elif self.__protocol=="legacy":
-        #     print("whatever needs to be done to use the legacy protocol ...")
-        # else:
-        #     raise ValueError("Communication protocol unknown")
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
+                # connect to the server
+                s.settimeout(self.__socktout)
+                s.connect(self.__sockaddr)
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
-            # connect to the server
-            s.settimeout(self.__socktout)
-            s.connect(self.__sockaddr)
+                # clear buffer (at least the first 1024 bytes, should be sufficient)
+                s.recv(1024)
 
-            # clear buffer (at least the first 1024 bytes, should be sufficient)
-            s.recv(1024)
+                # send message
+                if verbosity>0:
+                    print(f"message sent    : {message}")
+                s.sendall(message)
 
-            # send message
-            if verbosity>0:
-                print(f"message sent    : {message}")
-            s.sendall(message)
-
-            # receive response
-            rcvd = b''
-            while True:
-                try:
-                    data = s.recv(256)
-                    rcvd += data
-                    if EOT in rcvd:
+                # receive response
+                rcvd = b''
+                while True:
+                    try:
+                        data = s.recv(256)
+                        rcvd += data
+                        if EOT in rcvd:
+                            break
+                    except:
                         break
-                except:
-                    break
-            if verbosity>1:
-            #     print(f"response (raw)  : {rcvd}")
-            # # rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
-
-            # if verbosity>1:
-                print(f"response (bytes): {rcvd}")
-
-            response_length = int(int.from_bytes(rcvd[4:6]) / 4)
-            if verbosity>1:
-                print(f"response length : {response_length}")
-            
-            response = []
-            for i in range(6, (response_length + 1) * 4 + 2, 4):
-                item = int.from_bytes(rcvd[i:(i+4)])
-                itm2 = float.fr
                 if verbosity>1:
-                    print(f"response item{(i-2)/4:3.0f}: {item}")
-                response.append(item)
-        return response, rcvd
+                #     print(f"response (raw)  : {rcvd}")
+                # # rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
+
+                # if verbosity>1:
+                    print(f"response (bytes): {rcvd}")
+
+                response_length = int(int.from_bytes(rcvd[4:6]) / 4)
+                if verbosity>1:
+                    print(f"response length : {response_length}")
+                
+                response = []
+                for i in range(6, (response_length + 1) * 4 + 2, 4):
+                    item = int.from_bytes(rcvd[i:(i+4)])
+                    itm2 = float.fr
+                    if verbosity>1:
+                        print(f"response item{(i-2)/4:3.0f}: {item}")
+                    response.append(item)
+            return response, rcvd
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+            return [], b''
+
     
-    
-    def tcpip_comm(self, command: str, message_data: bytes=None, verbosity: int=0) -> list[int]:
+    def tcpip_comm1(self, command: str, message_data: bytes=None, verbosity: int=0) -> list[int]:
         """
         Send and receive data using ACOEM protocol
         
@@ -359,12 +404,12 @@ class NEPH:
         EOT = bytes([4])
 
         if self.__protocol=="acoem":
-            command = int(command)
+            cmd = int(command)
             if message_data:
                 msgl = len(message_data)
-                msg = bytes([2, self.__serial_id, command, 3, 0, msgl]) + message_data
+                msg = bytes([2, self.__serial_id, cmd, 3, 0, msgl]) + message_data
             else:
-                msg = bytes([2, self.__serial_id, command, 3, 0, 0])
+                msg = bytes([2, self.__serial_id, cmd, 3, 0, 0])
             checksum = self.__checksum(msg)
             msg += checksum + EOT
         elif self.__protocol=="legacy":
@@ -377,8 +422,9 @@ class NEPH:
             s.settimeout(self.__socktout)
             s.connect(self.__sockaddr)
 
-            # clear buffer (at least the first 1024 bytes, should be sufficient)
-            s.recv(1024)
+            # clear buffer (at least the first 128 bytes, should be sufficient)
+            # When first talked to, the instrument may respond with b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03'
+            s.recv(128)
 
             # send message
             if verbosity>0:
@@ -415,21 +461,103 @@ class NEPH:
         return response
     
     
-    # commands = {
-    #     # 'get_error': bytes([0]),
-    #     'get_instr_type': 1,
-    #     'get_version': 2,
-    #     'reset': 3,
-    #     'get_values': 4,
-    #     }
-    def get_logging_config(self, verbosity: int=0) -> dict:
-        message = self.__acoem_construct_message(6)
-        return self.tcpip_comm2(message, verbosity=verbosity)
+    def get_instr_type(self, verbosity: int=0) -> list[int]:
+        """A.3.2 Requests details on the type of analyser being communicated with.
 
+        Args:
+            verbosity (int, optional): Verbosity for debugging purposes. Defaults to 0.
 
-    def get_instr_type(self, verbosity: int=0) -> dict:
+        Returns:
+            list: 4 integers, namely, Model, Variant, Sub-Type, and Range.
+        """
         message = self.__acoem_construct_message(1)
-        return self.tcpip_comm2(message, verbosity=verbosity)
+        return self.tcpip_comm(message, verbosity=verbosity)
+
+
+    def get_version(self, verbosity: int=0) -> list[int]:
+        """A.3.3 Requests the current firmware version running on the analyser.
+
+        Args:
+            verbosity (int, optional): Verbosity for debugging purposes. Defaults to 0.
+
+        Returns:
+            list: 2 integers, namely, Build, and Branch.
+        """
+        message = self.__acoem_construct_message(1)
+        return self.tcpip_comm(message, verbosity=verbosity)
+
+
+    def reset(self, verbosity: int=0) -> None:
+        """
+        A.3.4 Forces the analyser to do a full restart.
+        The payload must contain the letters REALLY exactly, as 6 4 byte words.
+
+        Args:
+            verbosity (int, optional): Verbosity for debugging purposes. Defaults to 0.
+
+        Returns:
+            None.
+        """
+        payload = bytes([82, 69, 65, 76, 76, 89])
+        message = self.__acoem_construct_message(command=1, payload=payload)
+        self.tcpip_comm(message, verbosity=verbosity)
+        return
+    
+
+    def get_values(self, parameters: list[int], verbosity: int=0) -> dict:
+        """A.3.5 Requests the value of one or more instrument parameters.
+
+        Args:
+            parameters (list[int]): list of parameters to query, according to A.4 List of Aurora parameters
+            verbosity (int, optional): _description_. Defaults to 0.
+
+        Returns:
+            dict: requested indexes are the keys, values are the responses from the instrument.
+        """
+        msg_data = bytes()
+        for p in parameters:
+            msg_data += (p).to_bytes(4)
+        msg_len = len(msg_data)
+        msg = bytes([2, self.__serial_id, 4, 3]) + (msg_len).to_bytes(2) + msg_data + self.__checksum(msg) + bytes([4])
+        items, raw = self.tcpip_comm(message=msg, verbosity=verbosity)
+        return dict(zip(parameters, items))
+
+
+    def set_values(self, parameter_id: int, value: int, verbosity: int=0) -> None:
+        """A.3.6 Sets the value of an instrument parameter.
+
+        Args:
+            parameter_id (int): Parameter to set.
+            value (int): Value to be set.
+            verbosity (int, optional): _description_. Defaults to 0.
+        """
+        payload = bytes([0,0,0,value])
+        message = self.__acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
+        self.tcpip_comm(message, verbosity=verbosity)
+
+        # wait until value is set by polling 
+        message = self.__acoem_construct_message(command=4, parameter_id=parameter_id)
+        while True:
+            if res := self.tcpip_comm(message, verbosity=verbosity)[0]:
+                return res
+            time.sleep(0.1)
+
+
+    def get_logging_config(self, verbosity: int=0) -> list:
+        """
+        A.3.7 Return the list of parameter IDs currently being logged. 
+        It is sent with zero message data length.
+        The first 4 byte word of the response data is the number of fields being logged (0..500).
+        Each following 4 byte word is the ID of the parameter.
+
+        Args:
+            verbosity (int, optional): Verbosity. Defaults to 0.
+
+        Returns:
+            list: Parameter IDs (integers) currently being logged
+        """
+        message = self.__acoem_construct_message(6)
+        return self.tcpip_comm(message, verbosity=verbosity)
 
 
     def get_logged_data(self, start: datetime.datetime, end: datetime.datetime, verbosity: int=0) -> dict:
@@ -441,8 +569,8 @@ class NEPH:
         else:
             raise ValueError("start and/or end date not valid.")
         message = self.__acoem_construct_message(command=7, payload=payload)
-        return self.tcpip_comm2(message, verbosity=verbosity)
-
+        response = self.tcpip_comm(message, verbosity=verbosity)
+        return self.__acoem_decode_logged_data(response=response, verbosity=verbosity)
 
     def get_current_operation(self, verbosity: int=0) -> None:
         """_summary_
@@ -452,9 +580,9 @@ class NEPH:
         """
         parameter_id = 4035
         message = self.__acoem_construct_message(command=4, parameter_id=parameter_id)
-        return self.tcpip_comm2(message, verbosity=verbosity)
+        return self.tcpip_comm(message, verbosity=verbosity)
 
-        
+
     def set_current_operation(self, state: int=0, verbosity: int=0) -> None:
         """_summary_
 
@@ -466,31 +594,32 @@ class NEPH:
         payload = bytes([0,0,0,state])
         parameter_id = 4035
         message = self.__acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
-        self.tcpip_comm2(message, verbosity=verbosity)
+        self.tcpip_comm(message, verbosity=verbosity)
 
         # wait for valve action to be completed by polling operating state
         message = self.__acoem_construct_message(command=4, parameter_id=parameter_id)
         while True:
-            if res := self.tcpip_comm2(message, verbosity=verbosity)[0]:
+            if res := self.tcpip_comm(message, verbosity=verbosity)[0]:
                 return res
+            time.sleep(0.1)
 
 
-    def get_id(self, verbosity: int=0) -> str:
+    def get_id(self, verbosity: int=0) -> dict:
         """Get instrument type, s/w, firmware versions
 
         Parameters:
             verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
 
         Returns:
-            str: response depends on protocol
+            dict: response depends on protocol
         """
         try:
             if self.__protocol=="acoem":
-                instr_type = self.tcpip_comm(command='1', verbosity=verbosity)
-                version = self.tcpip_comm(command='2', verbosity=verbosity)
+                instr_type = self.get_instr_type(verbosity=verbosity)
+                version = self.get_version(verbosity=verbosity)
                 resp = dict(zip(['Model', 'Variant', 'Sub-Type', 'Range', 'Build', 'Branch'], instr_type + version))
             elif self.__protocol=="legacy":
-                resp = self.tcpip_comm(command=f"ID{self.__serial_id}", verbosity=verbosity)
+                resp = dict('id': self.tcpip_comm1(command=f"ID{self.__serial_id}", verbosity=verbosity))
             else:
                 raise ValueError("Communication protocol unknown")
 
@@ -501,6 +630,7 @@ class NEPH:
             if self._log:
                 self._logger.error(err)
             print(err)
+            return dict()
 
 
     def get_datetime(self, verbosity: int=0) -> datetime.datetime:
@@ -514,12 +644,13 @@ class NEPH:
         """
         try:
             if self.__protocol=="acoem":
-                resp = self.tcpip_comm(command='4', message_data=bytes([0,0,0,1]), verbosity=verbosity)
-                resp = self.__acoem_timestamp_to_datetime(resp)
+                msg = self.__acoem_construct_message(4, 1)
+                resp, raw = self.tcpip_comm(message=msg, verbosity=verbosity)
+                resp = self.__acoem_timestamp_to_datetime(resp[0])
             else:
-                fmt = self.tcpip_comm(f"VI{self.__serial_id}64", verbosity=verbosity)
-                dte = self.tcpip_comm(f"VI{self.__serial_id}80", verbosity=verbosity)
-                tme = self.tcpip_comm(f"VI{self.__serial_id}81", verbosity=verbosity)
+                fmt = self.tcpip_comm1(f"VI{self.__serial_id}64", verbosity=verbosity)
+                dte = self.tcpip_comm1(f"VI{self.__serial_id}80", verbosity=verbosity)
+                tme = self.tcpip_comm1(f"VI{self.__serial_id}81", verbosity=verbosity)
                 resp = self.__legacy_timestamp_to_datetime(fmt, dte, tme)
 
             self._logger.info(f"get_datetime: {resp}")
@@ -544,9 +675,9 @@ class NEPH:
         try:
             if self.__protocol=="acoem":
                 message_data = bytes([0,0,0,1]) + self.__acoem_datetime_to_timestamp(dtm=dtm)
-                resp = self.tcpip_comm(command='5', message_data=message_data)
+                resp = self.tcpip_comm1(command='5', message_data=message_data)
             else:
-                resp = self.tcpip_comm(f"**{self.__serial_id}S{dtm.strftime('%H%M%S%d%m%y')}")
+                resp = self.tcpip_comm1(f"**{self.__serial_id}S{dtm.strftime('%H%M%S%d%m%y')}")
                 msg = f"DateTime of instrument {self.__name} set to {dtm} ... {resp}"
                 print(f"{dtm} {msg}")
                 self._logger.info(msg)
@@ -569,7 +700,7 @@ class NEPH:
             str: OK
         """
         try:
-            resp = self.tcpip_comm(f"DO{serial_id}001")
+            resp = self.tcpip_comm1(f"DO{serial_id}001")
             if resp=="OK":
                 msg = f"Force instrument {self.__name} into SPAN mode"
                 print(msg)
@@ -593,7 +724,7 @@ class NEPH:
             str: OK
         """
         try:
-            resp = self.tcpip_comm(f"DO{serial_id}011")
+            resp = self.tcpip_comm1(f"DO{serial_id}011")
             if resp=="OK":
                 msg = f"Force instrument {self.__name} into ZERO mode"
                 print(msg)
@@ -617,7 +748,7 @@ class NEPH:
             str: OK
         """
         try:
-            resp = self.tcpip_comm(f"DO{serial_id}000")
+            resp = self.tcpip_comm1(f"DO{serial_id}000")
             if resp=="OK":
                 msg = f"Force instrument {self.__name} into AMBIENT mode"
                 print(msg)
@@ -642,7 +773,7 @@ class NEPH:
             str: {<STATUS WORD>}
         """
         try:
-            resp = self.tcpip_comm(f"VI{serial_id}88")
+            resp = self.tcpip_comm1(f"VI{serial_id}88")
             if resp:
                 msg = f"Instrument {self.__name} status: {resp}."
                 print(msg)
@@ -667,8 +798,8 @@ class NEPH:
             str: {<STATUS WORD>}
         """
         try:
-            resp = self.tcpip_comm(f"***R")
-            resp = self.tcpip_comm(f"***D")
+            resp = self.tcpip_comm1(f"***R")
+            resp = self.tcpip_comm1(f"***D")
             if resp:
                 msg = f"Instrument {self.__name} status: {resp}."
                 print(msg)
@@ -692,7 +823,7 @@ class NEPH:
             str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
         """
         try:
-            resp = self.tcpip_comm(f"VI{serial_id}99")
+            resp = self.tcpip_comm1(f"VI{serial_id}99")
             resp = resp.replace(", ", ",")
             if get_status_word:
                 resp += f",{self.get_status_word()}"
@@ -735,7 +866,7 @@ class NEPH:
             str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
         """
         try:
-            resp = self.tcpip_comm(f"***D")
+            resp = self.tcpip_comm1(f"***D")
             resp = resp.replace(", ", ",")
             # if get_status_word:
             #     resp += f",{self.get_status_word()}"
@@ -806,7 +937,7 @@ class NEPH:
         """Retrieve current record and print."""
         try:
             # read the last record from the Data table
-            data = self.tcpip_comm(f"VI{serial_id}99", tidy=True)
+            data = self.tcpip_comm1(f"VI{serial_id}99", tidy=True)
             print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
 
         except Exception as err:
