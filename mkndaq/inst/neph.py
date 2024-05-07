@@ -163,7 +163,7 @@ class NEPH:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return datetime.datetime(1111, 1, 1, 1, 1, 1)
+            return datetime.datetime(1111, 1, 1)
 
 
     def __acoem_datetime_to_timestamp(self, dtm: datetime.datetime=datetime.datetime.now()) -> bytes:
@@ -229,7 +229,7 @@ class NEPH:
         return base_id * 1000000 + wavelength * 1000 + angle
     
 
-    def __acoem_construct_message(self, command: int, parameter_id: int=None, payload: bytes=b'') -> bytes:
+    def __acoem_construct_message(self, command: int, parameter_id: int=0, payload: bytes=b'') -> bytes:
         """
         Construct ACOEM packet to be sent to instrument. This is fairly involved and we refer to the ACOEM manual for explanations.
         
@@ -245,14 +245,14 @@ class NEPH:
 
         Args:
             command (int): cf. ACOEM manual Table 19 - List of Commands
-            parameter (int, optional): cf. ACOEM manual Table 46 - Aurora Parameters. Defaults to None.
+            parameter (int, optional): cf. ACOEM manual Table 46 - Aurora Parameters. Defaults to 0 (Not a valid parameter).
             payload (int, optional): _description_. Defaults to None.
 
         Returns:
             bytes: _description_
         """
         msg_data = bytes()
-        if parameter_id:
+        if parameter_id>0:
             msg_data = (parameter_id).to_bytes(4)
         if len(payload)>0:
             msg_data += payload
@@ -336,20 +336,20 @@ class NEPH:
         else:
             return [dict()]
 
+
     def tcpip_comm(self, message: bytes, verbosity: int=0) -> bytes:
         """
         Send and receive data using ACOEM protocol
         
         Args:
-            command (str): Command to be sent (valid commands depend on protocol used)
-            message_data (bytes, optional): Message data as required by the ACOEM protocol. Defaults to None.
+            message (bytes): message data as required by the ACOEM protocol.
             verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
 
         Raises:
             ValueError: if protocol is unknown.
 
         Returns:
-            list[int]: list of items returned.
+            bytes: bytes returned.
         """
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
@@ -384,91 +384,6 @@ class NEPH:
             print(err)
             return b''
 
-    
-    def tcpip_comm1(self, command: str, message_data: bytes=None, verbosity: int=0) -> list[int]:
-        """
-        Send and receive data using ACOEM protocol
-        
-        Byte  |1  |2  |3  |4  |5..6     |7..10    |11       |12
-              |STX|SID|CMD|ETX|msg_len  |msg_data |checksum |EOT
-        STX = chr(2)
-        SID = serial_id
-        CMD = command
-        ETX = chr(3)
-        msg_len = message length
-        msg_data = message data
-        EOT = chr(4)
-
-        Args:
-            command (str): Command to be sent (valid commands depend on protocol used)
-            message_data (bytes, optional): Message data as required by the ACOEM protocol. Defaults to None.
-            verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
-
-        Raises:
-            ValueError: if protocol is unknown.
-
-        Returns:
-            list[int]: list of items returned.
-        """
-        EOT = bytes([4])
-
-        if self.__protocol=="acoem":
-            cmd = int(command)
-            if message_data:
-                msgl = len(message_data)
-                msg = bytes([2, self.__serial_id, cmd, 3, 0, msgl]) + message_data
-            else:
-                msg = bytes([2, self.__serial_id, cmd, 3, 0, 0])
-            checksum = self.__checksum(msg)
-            msg += checksum + EOT
-        elif self.__protocol=="legacy":
-            print("whatever needs to be done to use the legacy protocol ...")
-        else:
-            raise ValueError("Communication protocol unknown")
-
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
-            # connect to the server
-            s.settimeout(self.__socktout)
-            s.connect(self.__sockaddr)
-
-            # clear buffer (at least the first 128 bytes, should be sufficient)
-            # When first talked to, the instrument may respond with b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03'
-            s.recv(128)
-
-            # send message
-            if verbosity>0:
-                print(f"message sent    : {msg}")
-            s.sendall(msg)
-
-            # receive response
-            rcvd = b''
-            while True:
-                try:
-                    data = s.recv(1024)
-                    rcvd = rcvd + data
-                    if rcvd.endswith(EOT):
-                        break
-                except:
-                    break
-            if verbosity>1:
-                print(f"response (raw)  : {rcvd}")
-            rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
-
-            if verbosity>1:
-                print(f"response (clean): {rcvd}")
-
-            response_length = int(int.from_bytes(rcvd[4:6]) / 4)
-            if verbosity>1:
-                print(f"response length : {response_length}")
-            
-            response = []
-            for i in range(6, (response_length + 1) * 4 + 2, 4):
-                item = int.from_bytes(rcvd[i:(i+4)])
-                if verbosity>1:
-                    print(f"response item{(i-2)/4:3.0f}: {item}")
-                response.append(item)
-        return response
-    
     
     def get_instr_type(self, verbosity: int=0) -> list[int]:
         """A.3.2 Requests details on the type of analyser being communicated with.
@@ -529,12 +444,14 @@ class NEPH:
         for p in parameters:
             msg_data += (p).to_bytes(4)
         msg_len = len(msg_data)
-        msg = bytes([2, self.__serial_id, 4, 3]) + (msg_len).to_bytes(2) + msg_data + self.__checksum(msg) + bytes([4])
-        items, raw = self.tcpip_comm(message=msg, verbosity=verbosity)
+        msg = bytes([2, self.__serial_id, 4, 3]) + (msg_len).to_bytes(2) + msg_data
+        msg += self.__checksum(msg) + bytes([4])
+        response = self.tcpip_comm(message=msg, verbosity=verbosity)
+        items = self.__acoem_decode_response(response=response, verbosity=verbosity)
         return dict(zip(parameters, items))
 
 
-    def set_values(self, parameter_id: int, value: int, verbosity: int=0) -> None:
+    def set_values(self, parameter_id: int, value: int, verbosity: int=0) -> list[int]:
         """A.3.6 Sets the value of an instrument parameter.
 
         Args:
@@ -544,17 +461,11 @@ class NEPH:
         """
         payload = bytes([0,0,0,value])
         message = self.__acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
-        self.tcpip_comm(message, verbosity=verbosity)
-
-        # wait until value is set by polling 
-        message = self.__acoem_construct_message(command=4, parameter_id=parameter_id)
-        while True:
-            if res := self.tcpip_comm(message, verbosity=verbosity)[0]:
-                return res
-            time.sleep(0.1)
+        response = self.tcpip_comm(message=message, verbosity=verbosity)
+        return self.__acoem_decode_response(response=response, verbosity=verbosity)
 
 
-    def get_logging_config(self, verbosity: int=0) -> list:
+    def get_logging_config(self, verbosity: int=0) -> list[int]:
         """
         A.3.7 Return the list of parameter IDs currently being logged. 
         It is sent with zero message data length.
@@ -572,7 +483,7 @@ class NEPH:
         return self.__acoem_decode_response(response=response, verbosity=verbosity)
 
 
-    def get_logged_data(self, start: datetime.datetime, end: datetime.datetime, verbosity: int=0) -> dict:
+    def get_logged_data(self, start: datetime.datetime, end: datetime.datetime, verbosity: int=0) -> list[dict]:
         # initial request
         if start:
             payload = self.__acoem_datetime_to_timestamp(start)
@@ -584,7 +495,8 @@ class NEPH:
         response = self.tcpip_comm(message, verbosity=verbosity)
         return self.__acoem_decode_logged_data(response=response, verbosity=verbosity)
 
-    def get_current_operation(self, verbosity: int=0) -> None:
+
+    def get_current_operation(self, verbosity: int=0) -> list[int]:
         """_summary_
 
         Args:
@@ -619,6 +531,7 @@ class NEPH:
                 break
             time.sleep(0.1)
         return state
+
 
     def get_id(self, verbosity: int=0) -> dict:
         """Get instrument type, s/w, firmware versions
@@ -658,27 +571,29 @@ class NEPH:
         Returns:
             datetime.datetime: Date and time of instrument
         """
+        response = datetime.datetime(1111,1,1)
         try:
             if self.__protocol=="acoem":
                 msg = self.__acoem_construct_message(4, 1)
-                resp, raw = self.tcpip_comm(message=msg, verbosity=verbosity)
-                resp = self.__acoem_timestamp_to_datetime(resp[0])
+                response_bytes = self.tcpip_comm(message=msg, verbosity=verbosity)
+                response_int = self.__acoem_decode_response(response=response_bytes, verbosity=verbosity)[0]
+                response = self.__acoem_timestamp_to_datetime(response_int)
             else:
-                fmt = self.tcpip_comm1(f"VI{self.__serial_id}64", verbosity=verbosity)
-                dte = self.tcpip_comm1(f"VI{self.__serial_id}80", verbosity=verbosity)
-                tme = self.tcpip_comm1(f"VI{self.__serial_id}81", verbosity=verbosity)
-                resp = self.__legacy_timestamp_to_datetime(fmt, dte, tme)
-
-            self._logger.info(f"get_datetime: {resp}")
-            return resp
+                fmt = self.tcpip_comm(message=f"VI{self.__serial_id}64".encode(), verbosity=verbosity).decode()
+                dte = self.tcpip_comm(message=f"VI{self.__serial_id}80".encode(), verbosity=verbosity).decode()
+                tme = self.tcpip_comm(message=f"VI{self.__serial_id}81".encode(), verbosity=verbosity).decode()
+                response = self.__legacy_timestamp_to_datetime(fmt, dte, tme)
+            self._logger.info(f"get_datetime: {response}")
+            return response
 
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
+            return response
 
 
-    def set_datetime(self, dtm: datetime.datetime=time.gmtime(), verbosity: int=0) -> None:
+    def set_datetime(self, dtm: datetime.datetime=datetime.datetime.now(), verbosity: int=0) -> bytes:
         """Set date and time of instrument
 
         Parameters:
@@ -690,315 +605,404 @@ class NEPH:
         """
         try:
             if self.__protocol=="acoem":
-                message_data = bytes([0,0,0,1]) + self.__acoem_datetime_to_timestamp(dtm=dtm)
-                resp = self.tcpip_comm1(command='5', message_data=message_data)
+                payload = self.__acoem_datetime_to_timestamp(dtm=dtm)
+                msg = self.__acoem_construct_message(command=5, parameter_id=1, payload=payload)
+                response = self.tcpip_comm(message=msg, verbosity=verbosity)
             else:
-                resp = self.tcpip_comm1(f"**{self.__serial_id}S{dtm.strftime('%H%M%S%d%m%y')}")
-                msg = f"DateTime of instrument {self.__name} set to {dtm} ... {resp}"
-                print(f"{dtm} {msg}")
-                self._logger.info(msg)
-            return resp
+                response = b''
+                # resp = self.tcpip_comm1(f"**{self.__serial_id}S{dtm.strftime('%H%M%S%d%m%y')}")
+                # msg = f"DateTime of instrument {self.__name} set to {dtm} ... {resp}"
+                # print(f"{dtm} {msg}")
+                # self._logger.info(msg)
+            return response
+        
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
+            return b''
 
 
-    def do_span_check(self, verbosity: int=0) -> (int, str):
-        """
-        Override digital IO control and DOSPAN.
+    # def do_span_check(self, verbosity: int=0) -> int:
+    #     """
+    #     Override digital IO control and DOSPAN.
 
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
+    #     Parameters:
+    #         serial_id (str, optional): Defaults to '0'.
 
-        Returns:
-            int: 0 if no error
-            str: OK
-        """
-        try:
-            resp = self.tcpip_comm1(f"DO{serial_id}001")
-            if resp=="OK":
-                msg = f"Force instrument {self.__name} into SPAN mode"
-                print(msg)
-                self._logger.info(msg)
-                return 0, resp
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
-
-
-    def do_zero_check(self, serial_id: str="0", verbosity: int=0) -> (int, str):
-        """
-        Override digital IO control and DOZERO.
-
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
-
-        Returns:
-            int: 0 if no error
-            str: OK
-        """
-        try:
-            resp = self.tcpip_comm1(f"DO{serial_id}011")
-            if resp=="OK":
-                msg = f"Force instrument {self.__name} into ZERO mode"
-                print(msg)
-                self._logger.info(msg)
-                return 0, resp
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+    #     Returns:
+    #         int: 0 if no error
+    #         str: OK
+    #     """
+    #     try:
+    #         resp = self.tcpip_comm1(f"DO{self.serial_id}001")
+    #         if resp=="OK":
+    #             msg = f"Force instrument {self.__name} into SPAN mode"
+    #             print(msg)
+    #             self._logger.info(msg)
+    #             return resp
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
 
 
-    def do_ambient(self, serial_id: str="0", verbosity: int=0) -> (int, str):
-        """
-        Override digital IO control and return to ambient measurement.
+    # def do_zero_check(self, serial_id: str="0", verbosity: int=0) -> (int, str):
+    #     """
+    #     Override digital IO control and DOZERO.
 
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
+    #     Parameters:
+    #         serial_id (str, optional): Defaults to '0'.
 
-        Returns:
-            int: 0 if no error
-            str: OK
-        """
-        try:
-            resp = self.tcpip_comm1(f"DO{serial_id}000")
-            if resp=="OK":
-                msg = f"Force instrument {self.__name} into AMBIENT mode"
-                print(msg)
-                self._logger.info(msg)
-                return 0, resp
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
-
-
-    def get_status_word(self, serial_id: str="0", verbosity: int=0) -> (int, str):
-        """
-        Read the System status of the Aurora 3000 microprocessor board. The status word 
-        is the status of the nephelometer in hexadecimal converted to decimal.
-
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
-
-        Returns:
-            int: 0 if no error
-            str: {<STATUS WORD>}
-        """
-        try:
-            resp = self.tcpip_comm1(f"VI{serial_id}88")
-            if resp:
-                msg = f"Instrument {self.__name} status: {resp}."
-                print(msg)
-                self._logger.info(msg)
-                return 0, resp
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+    #     Returns:
+    #         int: 0 if no error
+    #         str: OK
+    #     """
+    #     try:
+    #         resp = self.tcpip_comm1(f"DO{serial_id}011")
+    #         if resp=="OK":
+    #             msg = f"Force instrument {self.__name} into ZERO mode"
+    #             print(msg)
+    #             self._logger.info(msg)
+    #             return 0, resp
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
 
 
-    def get_all_data(self, serial_id: str="0", verbosity: int=0) -> (int, str):
-        """
-        Read the System status of the Aurora 3000 microprocessor board. The status word 
-        is the status of the nephelometer in hexadecimal converted to decimal.
+    # def do_ambient(self, serial_id: str="0", verbosity: int=0) -> (int, str):
+    #     """
+    #     Override digital IO control and return to ambient measurement.
 
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
+    #     Parameters:
+    #         serial_id (str, optional): Defaults to '0'.
 
-        Returns:
-            int: 0 if no error
-            str: {<STATUS WORD>}
-        """
-        try:
-            resp = self.tcpip_comm1(f"***R")
-            resp = self.tcpip_comm1(f"***D")
-            if resp:
-                msg = f"Instrument {self.__name} status: {resp}."
-                print(msg)
-                self._logger.info(msg)
-                return 0, resp
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+    #     Returns:
+    #         int: 0 if no error
+    #         str: OK
+    #     """
+    #     try:
+    #         resp = self.tcpip_comm1(f"DO{serial_id}000")
+    #         if resp=="OK":
+    #             msg = f"Force instrument {self.__name} into AMBIENT mode"
+    #             print(msg)
+    #             self._logger.info(msg)
+    #             return 0, resp
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
 
 
-    def get_data(self, serial_id: str="0", get_status_word=True, sep: str=",", save: bool=True, verbosity: int=0) -> (int, str):
-        """
-        Retrieve latest reading on one line
+    # def get_status_word(self, serial_id: str="0", verbosity: int=0) -> (int, str):
+    #     """
+    #     Read the System status of the Aurora 3000 microprocessor board. The status word 
+    #     is the status of the nephelometer in hexadecimal converted to decimal.
 
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
+    #     Parameters:
+    #         serial_id (str, optional): Defaults to '0'.
 
-        Returns:
-            int: 0 if no error
-            str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
-        """
-        try:
-            resp = self.tcpip_comm1(f"VI{serial_id}99")
-            resp = resp.replace(", ", ",")
-            if get_status_word:
-                resp += f",{self.get_status_word()}"
-            resp = resp.replace(",", sep)
-
-            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"{dtm} .get_data (name={self.__name}, save={save})")
-
-            # read the latest record from the instrument
-            if resp:
-                if save:
-                    # generate the datafile name
-                    self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-                                                "".join([self.__name, "-",
-                                                        datetimebin.dtbin(self.__reporting_interval), ".dat"]))
-                    os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
-                    with open(self.__datafile, "at", encoding='utf8') as fh:
-                        fh.write(resp)
-                        fh.close()
-
-                    # stage data for transfer
-                    self.stage_data_file()
-                return 0, resp
-
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+    #     Returns:
+    #         int: 0 if no error
+    #         str: {<STATUS WORD>}
+    #     """
+    #     try:
+    #         resp = self.tcpip_comm1(f"VI{serial_id}88")
+    #         if resp:
+    #             msg = f"Instrument {self.__name} status: {resp}."
+    #             print(msg)
+    #             self._logger.info(msg)
+    #             return 0, resp
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
 
 
-    def get_all_new_data(self, serial_id: str="0", get_status_word=True, sep: str=",", save: bool=True, verbosity: int=0) -> (int, str):
-        """
-        Retrieve all readings from current cursor
+    # def get_all_data(self, serial_id: str="0", verbosity: int=0) -> (int, str):
+    #     """
+    #     Read the System status of the Aurora 3000 microprocessor board. The status word 
+    #     is the status of the nephelometer in hexadecimal converted to decimal.
 
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
+    #     Parameters:
+    #         serial_id (str, optional): Defaults to '0'.
 
-        Returns:
-            int: 0 if no error
-            str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
-        """
-        try:
-            resp = self.tcpip_comm1(f"***D")
-            resp = resp.replace(", ", ",")
-            # if get_status_word:
-            #     resp += f",{self.get_status_word()}"
-            resp = resp.replace(",", sep)
-
-            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"{dtm} .get_data (name={self.__name}, save={save})")
-
-            # read the latest record from the instrument
-            if resp:
-                if save:
-                    # generate the datafile name
-                    self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-                                                "".join([self.__name, "-",
-                                                        datetimebin.dtbin(self.__reporting_interval), ".dat"]))
-                    os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
-                    with open(self.__datafile, "at", encoding='utf8') as fh:
-                        fh.write(resp)
-                        fh.close()
-
-                    # stage data for transfer
-                    self.stage_data_file()
-                return 0, resp
-
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+    #     Returns:
+    #         int: 0 if no error
+    #         str: {<STATUS WORD>}
+    #     """
+    #     try:
+    #         resp = self.tcpip_comm1(f"***R")
+    #         resp = self.tcpip_comm1(f"***D")
+    #         if resp:
+    #             msg = f"Instrument {self.__name} status: {resp}."
+    #             print(msg)
+    #             self._logger.info(msg)
+    #             return 0, resp
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
 
 
-    def stage_data_file(self) -> None:
-        """Stage a file if it is no longer written to. This is determined by checking if the path 
-           of the file to be staged is different from the path of the current (data)file.
+    # def get_data(self, serial_id: str="0", get_status_word=True, sep: str=",", save: bool=True, verbosity: int=0) -> (int, str):
+    #     """
+    #     Retrieve latest reading on one line
 
-        Raises:
-            ValueError: _description_
-            ValueError: _description_
-            ValueError: _description_
-        """
-        try:
-            if self.__datafile is None:
-                raise ValueError("__datafile cannot be None.")
-            if self.__staging is None:
-                raise ValueError("__staging cannot be None.")
-            if self.__datadir is None:
-                raise ValueError("__datadir cannot be None.")
-            if self.__datafile_to_stage is None:
-                self.__datafile_to_stage = self.__datafile
-            elif self.__datafile_to_stage != self.__datafile:
-                root = os.path.join(self.__staging, self.__name, os.path.basename(self.__datadir))
-                os.makedirs(root, exist_ok=True)
-                if self.__zip:
-                    # create zip file
-                    archive = os.path.join(root, "".join([os.path.basename(self.__datafile_to_stage)[:-4], ".zip"]))
-                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                        zf.write(self.__datafile_to_stage, os.path.basename(self.__datafile_to_stage))
-                else:
-                    shutil.copyfile(self.__datafile_to_stage, os.path.join(root, os.path.basename(self.__datafile_to_stage)))
-                self.__datafile_to_stage = self.__datafile
+    #     Parameters:
+    #         serial_id (str, optional): Defaults to '0'.
 
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+    #     Returns:
+    #         int: 0 if no error
+    #         str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
+    #     """
+    #     try:
+    #         resp = self.tcpip_comm1(f"VI{serial_id}99")
+    #         resp = resp.replace(", ", ",")
+    #         if get_status_word:
+    #             resp += f",{self.get_status_word()}"
+    #         resp = resp.replace(",", sep)
 
+    #         dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+    #         print(f"{dtm} .get_data (name={self.__name}, save={save})")
 
-    def print_data(self, serial_id: str="0") -> None:
-        """Retrieve current record and print."""
-        try:
-            # read the last record from the Data table
-            data = self.tcpip_comm1(f"VI{serial_id}99", tidy=True)
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+    #         # read the latest record from the instrument
+    #         if resp:
+    #             if save:
+    #                 # generate the datafile name
+    #                 self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
+    #                                             "".join([self.__name, "-",
+    #                                                     datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+    #                 os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
+    #                 with open(self.__datafile, "at", encoding='utf8') as fh:
+    #                     fh.write(resp)
+    #                     fh.close()
 
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
+    #                 # stage data for transfer
+    #                 self.stage_data_file()
+    #             return 0, resp
+
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
 
 
-    def stage_log_file(self) -> None:
-        """Stage a file if it is no longer written to. This is determined by checking if the path 
-           of the file to be staged is different the path of the current (data)file.
+    # def get_all_new_data(self, serial_id: str="0", get_status_word=True, sep: str=",", save: bool=True, verbosity: int=0) -> (int, str):
+    #     """
+    #     Retrieve all readings from current cursor
 
-        Raises:
-            ValueError: _description_
-            ValueError: _description_
-            ValueError: _description_
-        """
-        try:
-            if self.__logfile is None:
-                raise ValueError("__logfile cannot be None.")
-            if self.__staging is None:
-                raise ValueError("__staging cannot be None.")
-            if self.__logdir is None:
-                raise ValueError("__logdir cannot be None.")
+    #     Parameters:
+    #         serial_id (str, optional): Defaults to '0'.
 
-            if self.__logfile_to_stage is None:
-                self.__logfile_to_stage = self.__logfile
-            elif self.__logfile_to_stage != self.__logfile:
-                root = os.path.join(self.__staging, self.__name, os.path.basename(self.__logdir))
-                os.makedirs(root, exist_ok=True)
-                if self.__zip:
-                    # create zip file
-                    archive = os.path.join(root, "".join([os.path.basename(self.__logfile_to_stage)[:-4], ".zip"]))
-                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                        zf.write(self.__logfile_to_stage, os.path.basename(self.__logfile_to_stage))
-                else:
-                    shutil.copyfile(self.__logfile_to_stage, os.path.join(root, os.path.basename(self.__logfile_to_stage)))
-                self.__logfile_to_stage = self.__logfile
+    #     Returns:
+    #         int: 0 if no error
+    #         str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
+    #     """
+    #     try:
+    #         resp = self.tcpip_comm1(f"***D")
+    #         resp = resp.replace(", ", ",")
+    #         # if get_status_word:
+    #         #     resp += f",{self.get_status_word()}"
+    #         resp = resp.replace(",", sep)
 
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+    #         dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+    #         print(f"{dtm} .get_data (name={self.__name}, save={save})")
+
+    #         # read the latest record from the instrument
+    #         if resp:
+    #             if save:
+    #                 # generate the datafile name
+    #                 self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
+    #                                             "".join([self.__name, "-",
+    #                                                     datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+    #                 os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
+    #                 with open(self.__datafile, "at", encoding='utf8') as fh:
+    #                     fh.write(resp)
+    #                     fh.close()
+
+    #                 # stage data for transfer
+    #                 self.stage_data_file()
+    #             return 0, resp
+
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
 
 
+    # def stage_data_file(self) -> None:
+    #     """Stage a file if it is no longer written to. This is determined by checking if the path 
+    #        of the file to be staged is different from the path of the current (data)file.
+
+    #     Raises:
+    #         ValueError: _description_
+    #         ValueError: _description_
+    #         ValueError: _description_
+    #     """
+    #     try:
+    #         if self.__datafile is None:
+    #             raise ValueError("__datafile cannot be None.")
+    #         if self.__staging is None:
+    #             raise ValueError("__staging cannot be None.")
+    #         if self.__datadir is None:
+    #             raise ValueError("__datadir cannot be None.")
+    #         if self.__datafile_to_stage is None:
+    #             self.__datafile_to_stage = self.__datafile
+    #         elif self.__datafile_to_stage != self.__datafile:
+    #             root = os.path.join(self.__staging, self.__name, os.path.basename(self.__datadir))
+    #             os.makedirs(root, exist_ok=True)
+    #             if self.__zip:
+    #                 # create zip file
+    #                 archive = os.path.join(root, "".join([os.path.basename(self.__datafile_to_stage)[:-4], ".zip"]))
+    #                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    #                     zf.write(self.__datafile_to_stage, os.path.basename(self.__datafile_to_stage))
+    #             else:
+    #                 shutil.copyfile(self.__datafile_to_stage, os.path.join(root, os.path.basename(self.__datafile_to_stage)))
+    #             self.__datafile_to_stage = self.__datafile
+
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
+
+
+    # def print_data(self, serial_id: str="0") -> None:
+    #     """Retrieve current record and print."""
+    #     try:
+    #         # read the last record from the Data table
+    #         data = self.tcpip_comm1(f"VI{serial_id}99", tidy=True)
+    #         print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
+
+
+    # def stage_log_file(self) -> None:
+    #     """Stage a file if it is no longer written to. This is determined by checking if the path 
+    #        of the file to be staged is different the path of the current (data)file.
+
+    #     Raises:
+    #         ValueError: _description_
+    #         ValueError: _description_
+    #         ValueError: _description_
+    #     """
+    #     try:
+    #         if self.__logfile is None:
+    #             raise ValueError("__logfile cannot be None.")
+    #         if self.__staging is None:
+    #             raise ValueError("__staging cannot be None.")
+    #         if self.__logdir is None:
+    #             raise ValueError("__logdir cannot be None.")
+
+    #         if self.__logfile_to_stage is None:
+    #             self.__logfile_to_stage = self.__logfile
+    #         elif self.__logfile_to_stage != self.__logfile:
+    #             root = os.path.join(self.__staging, self.__name, os.path.basename(self.__logdir))
+    #             os.makedirs(root, exist_ok=True)
+    #             if self.__zip:
+    #                 # create zip file
+    #                 archive = os.path.join(root, "".join([os.path.basename(self.__logfile_to_stage)[:-4], ".zip"]))
+    #                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    #                     zf.write(self.__logfile_to_stage, os.path.basename(self.__logfile_to_stage))
+    #             else:
+    #                 shutil.copyfile(self.__logfile_to_stage, os.path.join(root, os.path.basename(self.__logfile_to_stage)))
+    #             self.__logfile_to_stage = self.__logfile
+
+    #     except Exception as err:
+    #         if self._log:
+    #             self._logger.error(err)
+    #         print(err)
+
+
+    # def tcpip_comm1(self, command: str, message_data: bytes=None, verbosity: int=0) -> list[int]:
+    #     """
+    #     Send and receive data using ACOEM protocol
+        
+    #     Byte  |1  |2  |3  |4  |5..6     |7..10    |11       |12
+    #           |STX|SID|CMD|ETX|msg_len  |msg_data |checksum |EOT
+    #     STX = chr(2)
+    #     SID = serial_id
+    #     CMD = command
+    #     ETX = chr(3)
+    #     msg_len = message length
+    #     msg_data = message data
+    #     EOT = chr(4)
+
+    #     Args:
+    #         command (str): Command to be sent (valid commands depend on protocol used)
+    #         message_data (bytes, optional): Message data as required by the ACOEM protocol. Defaults to None.
+    #         verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
+
+    #     Raises:
+    #         ValueError: if protocol is unknown.
+
+    #     Returns:
+    #         list[int]: list of items returned.
+    #     """
+    #     EOT = bytes([4])
+
+    #     if self.__protocol=="acoem":
+    #         cmd = int(command)
+    #         if message_data:
+    #             msgl = len(message_data)
+    #             msg = bytes([2, self.__serial_id, cmd, 3, 0, msgl]) + message_data
+    #         else:
+    #             msg = bytes([2, self.__serial_id, cmd, 3, 0, 0])
+    #         checksum = self.__checksum(msg)
+    #         msg += checksum + EOT
+    #     elif self.__protocol=="legacy":
+    #         print("whatever needs to be done to use the legacy protocol ...")
+    #     else:
+    #         raise ValueError("Communication protocol unknown")
+
+    #     with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
+    #         # connect to the server
+    #         s.settimeout(self.__socktout)
+    #         s.connect(self.__sockaddr)
+
+    #         # clear buffer (at least the first 128 bytes, should be sufficient)
+    #         # When first talked to, the instrument may respond with b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03'
+    #         s.recv(128)
+
+    #         # send message
+    #         if verbosity>0:
+    #             print(f"message sent    : {msg}")
+    #         s.sendall(msg)
+
+    #         # receive response
+    #         rcvd = b''
+    #         while True:
+    #             try:
+    #                 data = s.recv(1024)
+    #                 rcvd = rcvd + data
+    #                 if rcvd.endswith(EOT):
+    #                     break
+    #             except:
+    #                 break
+    #         if verbosity>1:
+    #             print(f"response (raw)  : {rcvd}")
+    #         rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
+
+    #         if verbosity>1:
+    #             print(f"response (clean): {rcvd}")
+
+    #         response_length = int(int.from_bytes(rcvd[4:6]) / 4)
+    #         if verbosity>1:
+    #             print(f"response length : {response_length}")
+            
+    #         response = []
+    #         for i in range(6, (response_length + 1) * 4 + 2, 4):
+    #             item = int.from_bytes(rcvd[i:(i+4)])
+    #             if verbosity>1:
+    #                 print(f"response item{(i-2)/4:3.0f}: {item}")
+    #             response.append(item)
+    #     return response
+    
+    
 
 # %%
 if __name__ == "__main__":
