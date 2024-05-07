@@ -277,7 +277,18 @@ class NEPH:
         return items
 
 
-    def __acoem_decode_logged_data(self, response: bytes, verbosity: int=0) -> dict:
+    def __acoem_decode_logged_data(self, response: bytes, verbosity: int=0) -> list[dict]:
+        """Decode the binary response received from the instrument after sending command 7.
+
+        Args:
+            response (bytes): See A.3.8 in the manual for more information
+            verbosity (int, optional): _description_. Defaults to 0.
+
+        Returns:
+            list[dict]: List of dictionaries, where the keys are the parameter ids, and the values are the measured values.
+        """
+        data = dict()
+        all = [data]
         if response[2] == 7:
             # get_logger_data command (7) sent
             message_length = int(int.from_bytes(response[4:6]) / 4)
@@ -295,8 +306,6 @@ class NEPH:
             records = [response_body[(i*items_per_record*4):((i+1)*(items_per_record*4)-1)] for i in range(number_of_records)]
             keys = []
             values = []
-            data = dict()
-            all = []
             for i in range(number_of_records):
             # for i in range(2):
                 if records[i][0]==1:
@@ -323,8 +332,9 @@ class NEPH:
                     print(f"{i}: values: {values}")
                     print(data)
                 all.append(data)
-            return all[1:]
-
+            return all
+        else:
+            return [dict()]
 
     def tcpip_comm(self, message: bytes, verbosity: int=0) -> bytes:
         """
@@ -361,7 +371,7 @@ class NEPH:
                     try:
                         data = s.recv(4096)
                         rcvd += data
-                        if chr(4) in rcvd:
+                        if rcvd.endswith(b'\x04'):
                             break
                     except:
                         break
