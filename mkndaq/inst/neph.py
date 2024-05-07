@@ -196,12 +196,15 @@ class NEPH:
             datetime.datetime: instrument date and time
         """
         try:
+            fmt = fmt.replace(' ', '').replace('\r\n', '')
+            dte = dte.replace('\r\n', '')
+            tme = tme.replace('\r\n', '')
             if fmt=="D/M/Y":
-                fmt = "%d/%m%y"
+                fmt = "%d/%m/%Y"
             elif fmt=="M/D/Y":
-                fmt = "%m/%d/%y"
+                fmt = "%m/%d/%Y"
             elif fmt=="Y-M-D":
-                fmt = "%y-%m-%d"
+                fmt = "%Y-%m-%d"
             else:
                 raise ValueError("'fmt' not recognized.")
             return datetime.datetime.strptime(f"{dte} {tme}", f"{fmt} %H:%M:%S")
@@ -319,8 +322,8 @@ class NEPH:
 
                     data = dict(zip(keys, values))
                     for k, v in data.items():
-                        data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else None
-                    data['dtm'] = self.__acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8]))
+                        data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else b''
+                    data['dtm'] = self.__acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8])).strftime('%Y%m%d%H%M%S')
                     #  1631383872 b'a<\xf1@'
                     data['logging_interval'] = int.from_bytes(records[i][8:12])
                     # item  48 (bytes  192- 195): 60 None b'\x00\x00\x00<'
@@ -371,7 +374,12 @@ class NEPH:
                     try:
                         data = s.recv(1024)
                         rcvd += data
-                        if rcvd.endswith(b'\x04'):
+                        if self.__protocol=='acoem' and rcvd.endswith(b'\x04'):
+                            break
+                        elif self.__protocol=='legacy' and rcvd.endswith(b'\r\n'):
+                            # data = s.recv(8)
+                            # rcvd += data
+                            # if rcvd.endswith(b'\r\n'):
                             break
                     except:
                         break
@@ -484,7 +492,6 @@ class NEPH:
 
 
     def get_logged_data(self, start: datetime.datetime, end: datetime.datetime, verbosity: int=0) -> list[dict]:
-        # initial request
         if start:
             payload = self.__acoem_datetime_to_timestamp(start)
             if end:
@@ -514,7 +521,6 @@ class NEPH:
         Args:
             state (int, optional): 0: ambient, 1: zero, 2: span. Defaults to 0.
             verbosity (int, optional): _description_. Defaults to 0.
-        [TODO] fix polling to be safe
         """
         # set operating state
         payload = bytes([0,0,0,state])
@@ -547,8 +553,8 @@ class NEPH:
                 instr_type = self.get_instr_type(verbosity=verbosity)
                 version = self.get_version(verbosity=verbosity)
                 resp = dict(zip(['Model', 'Variant', 'Sub-Type', 'Range', 'Build', 'Branch'], instr_type + version))
-            # elif self.__protocol=="legacy":
-            #     resp = dict('id': self.tcpip_comm1(command=f"ID{self.__serial_id}", verbosity=verbosity))
+            elif self.__protocol=="legacy":
+                resp = {'id': self.tcpip_comm(message=f"ID{self.__serial_id}\r".encode(), verbosity=verbosity).decode()}
             else:
                 raise ValueError("Communication protocol unknown")
 
@@ -579,9 +585,9 @@ class NEPH:
                 response_int = self.__acoem_decode_response(response=response_bytes, verbosity=verbosity)[0]
                 response = self.__acoem_timestamp_to_datetime(response_int)
             else:
-                fmt = self.tcpip_comm(message=f"VI{self.__serial_id}64".encode(), verbosity=verbosity).decode()
-                dte = self.tcpip_comm(message=f"VI{self.__serial_id}80".encode(), verbosity=verbosity).decode()
-                tme = self.tcpip_comm(message=f"VI{self.__serial_id}81".encode(), verbosity=verbosity).decode()
+                fmt = self.tcpip_comm(message=f"VI{self.__serial_id}64\r".encode(), verbosity=verbosity).decode()
+                dte = self.tcpip_comm(message=f"VI{self.__serial_id}80\r".encode(), verbosity=verbosity).decode()
+                tme = self.tcpip_comm(message=f"VI{self.__serial_id}81\r".encode(), verbosity=verbosity).decode()
                 response = self.__legacy_timestamp_to_datetime(fmt, dte, tme)
             self._logger.info(f"get_datetime: {response}")
             return response
@@ -746,24 +752,24 @@ class NEPH:
     #         print(err)
 
 
-    # def get_data(self, serial_id: str="0", get_status_word=True, sep: str=",", save: bool=True, verbosity: int=0) -> (int, str):
-    #     """
-    #     Retrieve latest reading on one line
+    def get_data(self, get_status_word=True, sep: str=",", verbosity: int=0) -> str:
+        """
+        Retrieve latest reading on one line
 
-    #     Parameters:
-    #         serial_id (str, optional): Defaults to '0'.
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
 
-    #     Returns:
-    #         int: 0 if no error
-    #         str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
-    #     """
-    #     try:
-    #         resp = self.tcpip_comm1(f"VI{serial_id}99")
+        Returns:
+            int: 0 if no error
+            str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
+        """
+        try:
+            resp = self.tcpip_comm(f"VI{self.__serial_id}99\r".encode(), verbosity=verbosity).decode()
     #         resp = resp.replace(", ", ",")
     #         if get_status_word:
     #             resp += f",{self.get_status_word()}"
-    #         resp = resp.replace(",", sep)
-
+            resp = resp.replace(",", sep)
+            return resp
     #         dtm = time.strftime('%Y-%m-%d %H:%M:%S')
     #         print(f"{dtm} .get_data (name={self.__name}, save={save})")
 
@@ -783,53 +789,54 @@ class NEPH:
     #                 self.stage_data_file()
     #             return 0, resp
 
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+            return ''
 
 
-    # def get_all_new_data(self, serial_id: str="0", get_status_word=True, sep: str=",", save: bool=True, verbosity: int=0) -> (int, str):
-    #     """
-    #     Retrieve all readings from current cursor
+    def get_all_new_data(self, get_status_word=True, sep: str=",", verbosity: int=0) -> str:
+        """
+        Retrieve all readings from current cursor
 
-    #     Parameters:
-    #         serial_id (str, optional): Defaults to '0'.
+        Parameters:
+            serial_id (str, optional): Defaults to '0'.
 
-    #     Returns:
-    #         int: 0 if no error
-    #         str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
-    #     """
-    #     try:
-    #         resp = self.tcpip_comm1(f"***D")
-    #         resp = resp.replace(", ", ",")
-    #         # if get_status_word:
-    #         #     resp += f",{self.get_status_word()}"
-    #         resp = resp.replace(",", sep)
+        Returns:
+            int: 0 if no error
+            str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
+        """
+        try:
+            resp = self.tcpip_comm(f"***D\r".encode()).decode()
+            resp = resp.replace(", ", ",")
+            # if get_status_word:
+            #     resp += f",{self.get_status_word()}"
+            resp = resp.replace(",", sep)
+            return resp
+            # dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+            # print(f"{dtm} .get_data (name={self.__name}, save={save})")
 
-    #         dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-    #         print(f"{dtm} .get_data (name={self.__name}, save={save})")
+            # # read the latest record from the instrument
+            # if resp:
+            #     if save:
+            #         # generate the datafile name
+            #         self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
+            #                                     "".join([self.__name, "-",
+            #                                             datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+            #         os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
+            #         with open(self.__datafile, "at", encoding='utf8') as fh:
+            #             fh.write(resp)
+            #             fh.close()
 
-    #         # read the latest record from the instrument
-    #         if resp:
-    #             if save:
-    #                 # generate the datafile name
-    #                 self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-    #                                             "".join([self.__name, "-",
-    #                                                     datetimebin.dtbin(self.__reporting_interval), ".dat"]))
-    #                 os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
-    #                 with open(self.__datafile, "at", encoding='utf8') as fh:
-    #                     fh.write(resp)
-    #                     fh.close()
+            #         # stage data for transfer
+            #         self.stage_data_file()
+            #     return 0, resp
 
-    #                 # stage data for transfer
-    #                 self.stage_data_file()
-    #             return 0, resp
-
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
 
 
     # def stage_data_file(self) -> None:
@@ -918,89 +925,64 @@ class NEPH:
     #         print(err)
 
 
-    # def tcpip_comm1(self, command: str, message_data: bytes=None, verbosity: int=0) -> list[int]:
-    #     """
-    #     Send and receive data using ACOEM protocol
-        
-    #     Byte  |1  |2  |3  |4  |5..6     |7..10    |11       |12
-    #           |STX|SID|CMD|ETX|msg_len  |msg_data |checksum |EOT
-    #     STX = chr(2)
-    #     SID = serial_id
-    #     CMD = command
-    #     ETX = chr(3)
-    #     msg_len = message length
-    #     msg_data = message data
-    #     EOT = chr(4)
+    def tcpip_comm1(self, command: str, verbosity: int=0):
+        """
+        Send and receive data using Aurora legacy protocol
 
-    #     Args:
-    #         command (str): Command to be sent (valid commands depend on protocol used)
-    #         message_data (bytes, optional): Message data as required by the ACOEM protocol. Defaults to None.
-    #         verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
+        Args:
+            command (str): Command to be sent (valid commands depend on protocol used)
+            message_data (bytes, optional): Message data as required by the ACOEM protocol. Defaults to None.
+            verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
 
-    #     Raises:
-    #         ValueError: if protocol is unknown.
+        Raises:
+            ValueError: if protocol is unknown.
 
-    #     Returns:
-    #         list[int]: list of items returned.
-    #     """
-    #     EOT = bytes([4])
+        Returns:
+            list[int]: list of items returned.
+        """
+        if self.__protocol=="legacy":
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
+                # connect to the server
+                s.settimeout(self.__socktout)
+                s.connect(self.__sockaddr)
 
-    #     if self.__protocol=="acoem":
-    #         cmd = int(command)
-    #         if message_data:
-    #             msgl = len(message_data)
-    #             msg = bytes([2, self.__serial_id, cmd, 3, 0, msgl]) + message_data
-    #         else:
-    #             msg = bytes([2, self.__serial_id, cmd, 3, 0, 0])
-    #         checksum = self.__checksum(msg)
-    #         msg += checksum + EOT
-    #     elif self.__protocol=="legacy":
-    #         print("whatever needs to be done to use the legacy protocol ...")
-    #     else:
-    #         raise ValueError("Communication protocol unknown")
+                # clear buffer (at least the first 128 bytes, should be sufficient)
+                # When first talked to, the instrument may respond with b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03'
+                s.recv(128)
 
-    #     with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
-    #         # connect to the server
-    #         s.settimeout(self.__socktout)
-    #         s.connect(self.__sockaddr)
+                # send message
+                if verbosity>0:
+                    print(f"message sent    : {msg}")
+                s.sendall(msg)
 
-    #         # clear buffer (at least the first 128 bytes, should be sufficient)
-    #         # When first talked to, the instrument may respond with b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03'
-    #         s.recv(128)
+                # receive response
+                rcvd = b''
+                while True:
+                    try:
+                        data = s.recv(1024)
+                        rcvd = rcvd + data
+                        if rcvd.endswith(bytes([chr(3)])):
+                            break
+                    except:
+                        break
+                if verbosity>1:
+                    print(f"response (raw)  : {rcvd}")
+                # rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
 
-    #         # send message
-    #         if verbosity>0:
-    #             print(f"message sent    : {msg}")
-    #         s.sendall(msg)
+                if verbosity>1:
+                    print(f"response (clean): {rcvd}")
 
-    #         # receive response
-    #         rcvd = b''
-    #         while True:
-    #             try:
-    #                 data = s.recv(1024)
-    #                 rcvd = rcvd + data
-    #                 if rcvd.endswith(EOT):
-    #                     break
-    #             except:
-    #                 break
-    #         if verbosity>1:
-    #             print(f"response (raw)  : {rcvd}")
-    #         rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
-
-    #         if verbosity>1:
-    #             print(f"response (clean): {rcvd}")
-
-    #         response_length = int(int.from_bytes(rcvd[4:6]) / 4)
-    #         if verbosity>1:
-    #             print(f"response length : {response_length}")
-            
-    #         response = []
-    #         for i in range(6, (response_length + 1) * 4 + 2, 4):
-    #             item = int.from_bytes(rcvd[i:(i+4)])
-    #             if verbosity>1:
-    #                 print(f"response item{(i-2)/4:3.0f}: {item}")
-    #             response.append(item)
-    #     return response
+                response_length = int(int.from_bytes(rcvd[4:6]) / 4)
+                if verbosity>1:
+                    print(f"response length : {response_length}")
+                
+                response = []
+                for i in range(6, (response_length + 1) * 4 + 2, 4):
+                    item = int.from_bytes(rcvd[i:(i+4)])
+                    if verbosity>1:
+                        print(f"response item{(i-2)/4:3.0f}: {item}")
+                    response.append(item)
+            return response
     
     
 
