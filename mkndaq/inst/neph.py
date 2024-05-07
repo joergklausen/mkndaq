@@ -369,7 +369,7 @@ class NEPH:
                 rcvd = b''
                 while True:
                     try:
-                        data = s.recv(4096)
+                        data = s.recv(1024)
                         rcvd += data
                         if rcvd.endswith(b'\x04'):
                             break
@@ -446,7 +446,7 @@ class NEPH:
                 try:
                     data = s.recv(1024)
                     rcvd = rcvd + data
-                    if EOT in rcvd:
+                    if rcvd.endswith(EOT):
                         break
                 except:
                     break
@@ -596,7 +596,7 @@ class NEPH:
         return self.__acoem_decode_response(response=response, verbosity=verbosity)
 
 
-    def set_current_operation(self, state: int=0, verbosity: int=0) -> None:
+    def set_current_operation(self, state: int=0, verbosity: int=0) -> int:
         """_summary_
 
         Args:
@@ -613,10 +613,12 @@ class NEPH:
         # wait for valve action to be completed by polling operating state
         message = self.__acoem_construct_message(command=4, parameter_id=parameter_id)
         while True:
-            if response := self.tcpip_comm(message, verbosity=verbosity):
-                return self.__acoem_decode_response(response=response, verbosity=verbosity)
+            response = self.tcpip_comm(message, verbosity=verbosity)
+            response = self.__acoem_decode_response(response=response, verbosity=verbosity)
+            if response==[state]:            
+                break
             time.sleep(0.1)
-
+        return state
 
     def get_id(self, verbosity: int=0) -> dict:
         """Get instrument type, s/w, firmware versions
