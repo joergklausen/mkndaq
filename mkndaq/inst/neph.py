@@ -113,10 +113,11 @@ class NEPH:
             if self.__verbosity>0:
                 print(f"# Initialize NEPH (name: {self.__name}  S/N: {self.__serial_number})")
 
-            try:
-                print(f"  Instrument identified itself as '{self.get_id()}'.")
-            except:
-                raise Warning(f"Could not communicate with instrument. Protocol set to {self.__protocol}. Please verify instrument settings.")
+            id = self.get_id()
+            if id=={}:
+                raise Warning(f"Could not communicate with instrument. Protocol set to '{self.__protocol}'. Please verify instrument settings.")
+            else:
+                print(f"  Instrument identified itself as '{id}'.")
 
         except Exception as err:
             if self._log:
@@ -389,19 +390,20 @@ class NEPH:
                 #     except:
                 #         break
                 if self.__protocol=='acoem':
-                    while b'\x04' not in rcvd:
-                            data = s.recv(1024)
-                            rcvd += data
+                    while not rcvd.endswith(b'\x04'):
+                        data = s.recv(1024)
+                        rcvd += data
+                        return rcvd
                 elif self.__protocol=='legacy':
                     while not (rcvd.endswith(b'\r\n') or rcvd.endswith(b'\r\n\n')):
-                            data = s.recv(8)
-                            rcvd += data
+                        data = s.recv(1024)
+                        rcvd += data
+                    return rcvd.strip()
                 else:
                     raise ValueError('Protocol not recognized.')
                 
                 if verbosity>1:
                     print(f"response (bytes): {rcvd}")
-            return rcvd.strip()
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -507,7 +509,10 @@ class NEPH:
             elif self.__protocol=='legacy':
                 items = []
                 for p in parameters:
-                    items.append(self.tcpip_comm(message=f"VI{self.__serial_id}{p}".encode(), verbosity=verbosity).decode())
+                    if p in range(100):
+                        items.append(self.tcpip_comm(message=f"VI{self.__serial_id}{p:02.0f}\r".encode(), verbosity=verbosity).decode())
+                    else:
+                        items.append('')
             else:
                 raise Warning("Not implemented.")
             return dict(zip(parameters, items))
@@ -648,15 +653,18 @@ class NEPH:
                 payload = bytes([0,0,0,state])
                 parameter_id = 4035
                 message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
-                self.tcpip_comm(message, verbosity=verbosity)
-
+                # response = self.tcpip_comm(message, verbosity=verbosity)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
+                    s.connect(self.__sockaddr)
+                    s.sendall(message)
+                    response = b''
                 # wait for valve action to be completed by polling operating state
                 message = self._acoem_construct_message(command=4, parameter_id=parameter_id)
-                while True:
+                while response!=[state]:
                     response = self.tcpip_comm(message, verbosity=verbosity)
                     response = self._acoem_decode_response(response=response, verbosity=verbosity)
-                    if response==[state]:            
-                        break
+                    # if response==[state]:            
+                    #     break
                     time.sleep(0.1)
                 return state
             else:
@@ -870,8 +878,8 @@ class NEPH:
             if self.__protocol=="acoem":
                 raise Warning("Not implemented.")
             elif self.__protocol=='legacy':
-                response = self.tcpip_comm(message=f"***R".encode(), verbosity=verbosity).decode()
-                response = self.tcpip_comm(message=f"***D".encode(), verbosity=verbosity).decode()
+                response = self.tcpip_comm(message=f"***R\r".encode(), verbosity=verbosity).decode()
+                response = self.tcpip_comm(message=f"***D\r".encode(), verbosity=verbosity).decode()
                 return response
             else:
                 raise ValueError("Protocol not implemented.")
@@ -882,23 +890,23 @@ class NEPH:
             return ''
 
 
-    def get_data(self, sep: str=",", verbosity: int=0) -> str:
+    def get_current_data(self, sep: str=",", verbosity: int=0) -> str:
         """
-        Retrieve latest reading on one line (cf. B.7 VI)
+        Retrieve latest near-real-time reading on one line (cf. B.7 VI: 99)
 
         Parameters:
             verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
 
         Returns:
             int: 0 if no error
-            str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
+            str: {<date> <time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>
         """
         try:
             if self.__protocol=='acoem':
                 raise Warning("Not implemented.")
             elif self.__protocol=='legacy':
                 response = self.tcpip_comm(f"VI{self.__serial_id}99\r".encode(), verbosity=verbosity).decode()
-    #         resp = resp.replace(", ", ",")
+                response = response.replace(", ", ",")
                 response = response.replace(",", sep)
                 return response
             else:
