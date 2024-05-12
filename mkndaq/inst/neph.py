@@ -125,7 +125,7 @@ class NEPH:
             print(err)
 
 
-    def _checksum(self, x: bytes) -> bytes:
+    def _acoem_checksum(self, x: bytes) -> bytes:
         """
         Compute the checksum of all bytes except checksum and EOT by XORing bytes from left 
         to right. (Reference: Aurora NE Series User Manual v1.2 Appendix A.1)
@@ -190,38 +190,6 @@ class NEPH:
             return b''
 
 
-    def __legacy_timestamp_to_datetime(self, fmt: str, dte: str, tme: str) -> datetime.datetime:
-        """Convert a legacy timestamp to datetime
-
-        Args:
-            fmt (str): date reporting format as string: D/M/Y, M/D/Y or Y-M-D (where D=Day, M=Month, Y=Year)
-            dte (str): instrument date
-            tme (str): instrument time as %H:%M:%S
-
-        Returns:
-            datetime.datetime: instrument date and time
-        """
-        try:
-            fmt = fmt.replace(' ', '').replace('\r\n', '')
-            dte = dte.replace('\r\n', '')
-            tme = tme.replace('\r\n', '')
-            if fmt=="D/M/Y":
-                fmt = "%d/%m/%Y"
-            elif fmt=="M/D/Y":
-                fmt = "%m/%d/%Y"
-            elif fmt=="Y-M-D":
-                fmt = "%Y-%m-%d"
-            else:
-                raise ValueError("'fmt' not recognized.")
-            return datetime.datetime.strptime(f"{dte} {tme}", f"{fmt} %H:%M:%S")
-
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
-            return datetime.datetime(1111, 1, 1, 1, 1, 1)
-
-
     def _acoem_construct_parameter_id(self, base_id: int, wavelength: int, angle: int) -> int:
         """
         Construct ACOEM measurement parameter id. Cf. ACOEM manual for details.
@@ -269,7 +237,7 @@ class NEPH:
         # if msg_len==0:
         #     msg_data = bytes([0])
         msg = bytes([2, self.__serial_id, command, 3]) + (msg_len).to_bytes(2) + msg_data
-        return msg + self._checksum(msg) + bytes([4])
+        return msg + self._acoem_checksum(msg) + bytes([4])
     
 
     def _acoem_decode_response(self, response: bytes, verbosity: int=0) -> list[int]:
@@ -342,16 +310,74 @@ class NEPH:
                     print(data)
                 all.append(data)
             return all
+        elif response[2]==0:
+            # response error
+            return [{'communication_error': self._acoem_decode_error(error_code=response[7])}]
         else:
             return [dict()]
 
 
-    def tcpip_comm(self, message: bytes, verbosity: int=0) -> bytes:
+    def _acoem_decode_error(self, error_code: int) -> str:
+        """A.3.1 Return description of error code
+
+        Args:
+            error_code (bytes): A.3.1. Table 21 error codes
+
+        Returns:
+            str: description of error code
+        """
+        error_map = {0: 'checksum failed',
+                     1: 'invalid command byte',
+                     2: 'invalid parameter',
+                     3: 'invalid message length',
+                     4: 'reserved',
+                     5: 'reserved',
+                     6: 'reserved',
+                     7: 'reserved',
+                     8: 'media not connected',
+                     9: 'media busy',}
+        return error_map[error_code]
+    
+
+    def __legacy_timestamp_to_datetime(self, fmt: str, dte: str, tme: str) -> datetime.datetime:
+        """Convert a legacy timestamp to datetime
+
+        Args:
+            fmt (str): date reporting format as string: D/M/Y, M/D/Y or Y-M-D (where D=Day, M=Month, Y=Year)
+            dte (str): instrument date
+            tme (str): instrument time as %H:%M:%S
+
+        Returns:
+            datetime.datetime: instrument date and time
+        """
+        try:
+            fmt = fmt.replace(' ', '').replace('\r\n', '')
+            dte = dte.replace('\r\n', '')
+            tme = tme.replace('\r\n', '')
+            if fmt=="D/M/Y":
+                fmt = "%d/%m/%Y"
+            elif fmt=="M/D/Y":
+                fmt = "%m/%d/%Y"
+            elif fmt=="Y-M-D":
+                fmt = "%Y-%m-%d"
+            else:
+                raise ValueError("'fmt' not recognized.")
+            return datetime.datetime.strptime(f"{dte} {tme}", f"{fmt} %H:%M:%S")
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+            return datetime.datetime(1111, 1, 1, 1, 1, 1)
+
+
+    def tcpip_comm(self, message: bytes, expect_response: bool=True, verbosity: int=0) -> bytes:
         """
         Send and receive data using ACOEM protocol
         
         Args:
             message (bytes): message data as required by the ACOEM protocol.
+            expect_repsonse (bool, optional): If True, read response after sending message. Defaults to True.
             verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
 
         Raises:
@@ -375,35 +401,25 @@ class NEPH:
                 s.sendall(message)
 
                 # receive response
-                rcvd = b''
-                # while True:
-                #     try:
-                #         data = s.recv(1024)
-                #         rcvd += data
-                #         if self.__protocol=='acoem' and rcvd.endswith(b'\x04'):
-                #             break
-                #         elif self.__protocol=='legacy' and rcvd.endswith(b'\r\n'):
-                #             # data = s.recv(8)
-                #             # rcvd += data
-                #             # if rcvd.endswith(b'\r\n'):
-                #             break
-                #     except:
-                #         break
-                if self.__protocol=='acoem':
-                    while not rcvd.endswith(b'\x04'):
-                        data = s.recv(1024)
-                        rcvd += data
-                        return rcvd
-                elif self.__protocol=='legacy':
-                    while not (rcvd.endswith(b'\r\n') or rcvd.endswith(b'\r\n\n')):
-                        data = s.recv(1024)
-                        rcvd += data
-                    return rcvd.strip()
-                else:
-                    raise ValueError('Protocol not recognized.')
-                
-                if verbosity>1:
-                    print(f"response (bytes): {rcvd}")
+                rcvd = b''                
+                if expect_response:
+                    if self.__protocol=='acoem':
+                        while not rcvd.endswith(b'\x04'):
+                            data = s.recv(1024)
+                            rcvd += data
+                            # return rcvd
+                    elif self.__protocol=='legacy':
+                        while not (rcvd.endswith(b'\r\n') or rcvd.endswith(b'\r\n\n')):
+                            data = s.recv(1024)
+                            rcvd += data
+                        # return rcvd.strip()
+                    else:
+                        raise ValueError('Protocol not recognized.')
+                    rcvd = rcvd.strip()
+                    
+                    if verbosity>1:
+                        print(f"response (bytes): {rcvd}")
+                return rcvd
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -475,7 +491,7 @@ class NEPH:
                 message = f"**B\r".encode()
             else:
                 raise ValueError('Protocol not recognized.')
-            self.tcpip_comm(message, verbosity=verbosity)
+            self.tcpip_comm(message, expect_response=False, verbosity=verbosity)
             return
         except Exception as err:
             if self._log:
@@ -503,7 +519,7 @@ class NEPH:
                     msg_data += (p).to_bytes(4)
                 msg_len = len(msg_data)
                 msg = bytes([2, self.__serial_id, 4, 3]) + (msg_len).to_bytes(2) + msg_data
-                msg += self._checksum(msg) + bytes([4])
+                msg += self._acoem_checksum(msg) + bytes([4])
                 response = self.tcpip_comm(message=msg, verbosity=verbosity)
                 items = self._acoem_decode_response(response=response, verbosity=verbosity)
             elif self.__protocol=='legacy':
@@ -642,7 +658,7 @@ class NEPH:
 
 
     def set_current_operation(self, state: int=0, verbosity: int=0) -> int:
-        """_summary_
+        """Sets the instrument operating state by actuating the internal valve.
 
         Args:
             state (int, optional): 0: ambient, 1: zero, 2: span. Defaults to 0.
@@ -653,22 +669,35 @@ class NEPH:
                 payload = bytes([0,0,0,state])
                 parameter_id = 4035
                 message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
-                # response = self.tcpip_comm(message, verbosity=verbosity)
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
-                    s.connect(self.__sockaddr)
-                    s.sendall(message)
-                    response = b''
+                response = self.tcpip_comm(message, expect_response=False, verbosity=verbosity)
                 # wait for valve action to be completed by polling operating state
                 message = self._acoem_construct_message(command=4, parameter_id=parameter_id)
                 while response!=[state]:
                     response = self.tcpip_comm(message, verbosity=verbosity)
                     response = self._acoem_decode_response(response=response, verbosity=verbosity)
-                    # if response==[state]:            
-                    #     break
-                    time.sleep(0.1)
+                    time.sleep(1)
                 return state
+            elif self.__protocol=='legacy':
+                if self.get_instr_type()[0]==158:
+                    raise Warning("Not implemented for NE-300.")
+                else:
+                    map_state = {
+                        0: "0000", 
+                        1: "0011", 
+                        2: "0001", 
+                        }
+                    message = f"DO{self.__serial_number}{map_state[state]}\r".encode()
+                    response = self.tcpip_comm(message=message, verbosity=verbosity).decode()
+                    inverse_map_state = {0: 0, 1: 2, 11: 1}
+                    # while response!=[state]:
+                    #     response = self.get_values(parameters=[71], verbosity=verbosity)    # Could be 68 (major state) rather than 71 (DO span/zero measure mode)
+                    #     # [k for k, v in inverse_map_state.items()]
+                    #     time.sleep(1)
+                    #     raise Warning(f"Incomplete implementation. Please expand and test. Call returned {response}.")
+                    raise Warning(f"Incomplete implementation. Please expand and test. Call returned '{response}'.")
+                    return state
             else:
-                raise Warning("Not implemented for NE-300. For Aurora 3000, try 'do_zero_check' 'do_span_check' and 'do_ambient' instead.")
+                raise ValueError("Protocol not recognized.")
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -676,7 +705,7 @@ class NEPH:
             return 9
 
 
-    def get_id(self, verbosity: int=0) -> dict:
+    def get_id(self, verbosity: int=0) -> dict[str, str]:
         """Get instrument type, s/w, firmware versions
 
         Parameters:
@@ -689,7 +718,17 @@ class NEPH:
             if self.__protocol=="acoem":
                 instr_type = self.get_instr_type(verbosity=verbosity)
                 version = self.get_version(verbosity=verbosity)
-                resp = dict(zip(['Model', 'Variant', 'Sub-Type', 'Range', 'Build', 'Branch'], instr_type + version))
+                map_instr_type = {
+                        'Model': {158: 'ACOEM Aurora',
+                                  },
+                        'Variant': {300: 'NE-300',
+                                    },
+                        }
+                # resp = dict(zip(['Model', 'Variant', 'Sub-Type', 'Range', 'Build', 'Branch'], instr_type + version))
+                id = f"{map_instr_type['Model'][instr_type[0]]} {map_instr_type['Variant'][instr_type[1]]} Sub-Type: {instr_type[2]} Range: {instr_type[3]} "
+                id += f"Build: {version[0]} Branch: {version[1]}"
+                resp = {'id': id}
+
             elif self.__protocol=="legacy":
                 resp = {'id': self.tcpip_comm(message=f"ID{self.__serial_id}\r".encode(), verbosity=verbosity).decode()}
             else:
@@ -766,77 +805,44 @@ class NEPH:
             return b''
 
 
-    # def do_span_check(self, verbosity: int=0) -> int:
-    #     """
-    #     Override digital IO control and DOSPAN.
+    def do_span_check(self, verbosity: int=0) -> int:
+        """
+        Override digital IO control and DOSPAN. Wrapper for set_current_operation.
 
-    #     Parameters:
-    #         serial_id (str, optional): Defaults to '0'.
+        Parameters:
+            verbosity (int, optional): ...
 
-    #     Returns:
-    #         int: 0 if no error
-    #         str: OK
-    #     """
-    #     try:
-    #         resp = self.tcpip_comm1(f"DO{self.serial_id}001")
-    #         if resp=="OK":
-    #             msg = f"Force instrument {self.__name} into SPAN mode"
-    #             print(msg)
-    #             self._logger.info(msg)
-    #             return resp
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
+        Returns:
+            int: 2: span
+        """
+        return self.set_current_operation(state=2, verbosity=verbosity)
 
 
-    # def do_zero_check(self, serial_id: str="0", verbosity: int=0) -> (int, str):
-    #     """
-    #     Override digital IO control and DOZERO.
+    def do_zero_check(self, verbosity: int=0) -> int:
+        """
+        Override digital IO control and DOZERO. Wrapper for set_current_operation.
 
-    #     Parameters:
-    #         serial_id (str, optional): Defaults to '0'.
+        Parameters:
+            verbosity (int, optional): ...
+        
+        Returns:
+            int: 1: zero
+        """
+        return self.set_current_operation(state=1)
+    
 
-    #     Returns:
-    #         int: 0 if no error
-    #         str: OK
-    #     """
-    #     try:
-    #         resp = self.tcpip_comm1(f"DO{serial_id}011")
-    #         if resp=="OK":
-    #             msg = f"Force instrument {self.__name} into ZERO mode"
-    #             print(msg)
-    #             self._logger.info(msg)
-    #             return 0, resp
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
+    def do_ambient(self, verbosity: int=0) -> int:
+        """
+        Override digital IO control and return to ambient measurement. Wrapper for set_current_operation.
 
+        Parameters:
+            verbosity (int, optional): ...
 
-    # def do_ambient(self, serial_id: str="0", verbosity: int=0) -> (int, str):
-    #     """
-    #     Override digital IO control and return to ambient measurement.
-
-    #     Parameters:
-    #         serial_id (str, optional): Defaults to '0'.
-
-    #     Returns:
-    #         int: 0 if no error
-    #         str: OK
-    #     """
-    #     try:
-    #         resp = self.tcpip_comm1(f"DO{serial_id}000")
-    #         if resp=="OK":
-    #             msg = f"Force instrument {self.__name} into AMBIENT mode"
-    #             print(msg)
-    #             self._logger.info(msg)
-    #             return 0, resp
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
-
+        Returns:
+            int: 0: ambient
+        """
+        return self.set_current_operation(state=0)
+    
 
     # def get_status_word(self, verbosity: int=0) -> int:
     #     """
@@ -890,32 +896,41 @@ class NEPH:
             return ''
 
 
-    def get_current_data(self, sep: str=",", verbosity: int=0) -> str:
+    def get_current_data(self, add_params: list=[], verbosity: int=0) -> dict[int, int]:
         """
-        Retrieve latest near-real-time reading on one line (cf. B.7 VI: 99)
+        Retrieve latest near-real-time reading on one line .
+        With the legacy protocol, this uses the command 99 (cf. B.7 VI: 99), returning parameters [80, 81, 1, 30, 2, 31, 3, 32, 17, 18, 16, 19, 00, 90].
+        These are mapped to the corresponding Acoem parameters.
+        Optionally, several more parameters can be retrieved, depending on the protocol.
 
         Parameters:
+            add_params (list, optional): read more values and append to dictionary. Defaults to [].
             verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
 
         Returns:
             int: 0 if no error
             str: {<date> <time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>
         """
+        parameters = [80,81,1,1635000,1525000,1450000,1635090,1525090,1450090,5001,5004,5003,5002,4036,4035]
+        if add_params:
+            parameters += add_params
         try:
             if self.__protocol=='acoem':
-                raise Warning("Not implemented.")
+                # raise Warning("Not implemented.")
+                response = self.get_values(parameters=parameters)
             elif self.__protocol=='legacy':
                 response = self.tcpip_comm(f"VI{self.__serial_id}99\r".encode(), verbosity=verbosity).decode()
                 response = response.replace(", ", ",")
-                response = response.replace(",", sep)
-                return response
+                response = response.replace(" ", ",")   # separate 80 81 by comma
+                response = dict(zip(parameters, response))
             else:
                 raise ValueError("Protocol not recognized.")
+            return response
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return ''
+            return dict()
 
 
     def get_new_data(self, get_status_word=True, sep: str=",", verbosity: int=0) -> str:
