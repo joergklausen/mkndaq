@@ -898,7 +898,7 @@ class NEPH:
 
     def get_current_data(self, add_params: list=[], verbosity: int=0) -> dict[int, int]:
         """
-        Retrieve latest near-real-time reading on one line .
+        Retrieve latest near-real-time reading on one line.
         With the legacy protocol, this uses the command 99 (cf. B.7 VI: 99), returning parameters [80, 81, 1, 30, 2, 31, 3, 32, 17, 18, 16, 19, 00, 90].
         These are mapped to the corresponding Acoem parameters.
         Optionally, several more parameters can be retrieved, depending on the protocol.
@@ -918,10 +918,20 @@ class NEPH:
             if self.__protocol=='acoem':
                 # raise Warning("Not implemented.")
                 response = self.get_values(parameters=parameters)
+                for k, v in response.items():
+                        print(f"encoded: {response[k]}")
+                        response[k] = struct.unpack('>f', (v).to_bytes(4))[0] if k!=1 else v
+                        print(f"decoded: {response[k]}")
+                # response = self._acoem_decode_response(response)
+                dtm = self._acoem_timestamp_to_datetime(response[1])
+                response[80] = dtm.strftime("%Y-%m-%d")
+                response[81] = dtm.strftime("%H:%M:%S")
+                response[1] = dtm
             elif self.__protocol=='legacy':
+                # response = self.get_values(parameters=parameters)
                 response = self.tcpip_comm(f"VI{self.__serial_id}99\r".encode(), verbosity=verbosity).decode()
-                response = response.replace(", ", ",")
-                response = response.replace(" ", ",")   # separate 80 81 by comma
+                response = response.replace(", ", ",").replace(" ", ",").split(',')
+                response.insert(2, datetime.datetime.strptime(f"{response[0]} {response[1]}", "%d/%m/%Y %H:%M:%S"))
                 response = dict(zip(parameters, response))
             else:
                 raise ValueError("Protocol not recognized.")
