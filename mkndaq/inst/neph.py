@@ -283,27 +283,33 @@ class NEPH:
             print(f"response length : {response_length}")
 
         items_bytes = [response[i:(i+4)] for i in range(6, (response_length + 1) * 4 + 2, 4)]
-        
+        if verbosity>1:
+            print(f"items: {len(items_bytes)}\nitems (bytes): {items_bytes}")
+
         if len(parameters)==len(items_bytes):
             data_bytes = dict(zip(parameters, items_bytes))
         else:
             raise ValueError("Number of parameters does not match number of items retrieved from response.")    
 
         # decode values
-        for parameter, item in data.items():
-            if parameter==1:
+        for parameter, item in data_bytes.items():
+            if parameter in [1, 2201]:
                 data[parameter] = self._acoem_timestamp_to_datetime(int.from_bytes(item))
-            elif parameter<1000:
-                data[parameter] = int.from_bytes(item)
+            elif parameter in [range(1000, 5000), 
+                               range(12000000, 13000000), 
+                               range(14000000, 15000000),
+                               range(16000000, 17000000),
+                               range(27000000, 2027000000)]:
+                data[parameter] = int.from_bytes(item, signed=True)
             else:
-                data[parameter] = struct.unpack('>f', item)
+                data[parameter] = struct.unpack('>f', item)[0]
 
         if verbosity==1:
-            print(f"response items (bytes):\n{data}")
+            print(f"response items:\n{data}")
 
         if verbosity>1:
             print(f"response items (bytes):\n{data_bytes}")
-            print(f"response items (bytes):\n{data}")
+            print(f"response items:\n{data}")
 
         return data
 
@@ -319,7 +325,7 @@ class NEPH:
             list[dict]: List of dictionaries, where the keys are the parameter ids, and the values are the measured values.
         """
         data = dict()
-        all = [data]
+        all = []
         if response[2] == 7:
             # command 7 (byte 3)
             message_length = int(int.from_bytes(response[4:6]) / 4)
@@ -342,24 +348,26 @@ class NEPH:
                     # header record
                     number_of_fields = int.from_bytes(records[i][12:16])
                     keys = [int.from_bytes(records[i][(16 +j*4):(16 + (j+1)*4)]) for j in range(number_of_fields)]
-                if records[i][0]==0:
+                elif records[i][0]==0:
                     # data record
                     number_of_fields = int.from_bytes(records[i][12:16])
                     values = [records[i][(16 +j*4):(16 + (j+1)*4)] for j in range(number_of_fields)]
 
                     data = dict(zip(keys, values))
                     for k, v in data.items():
-                        data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else b''
+                        data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else v#b''
                     data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8])).strftime('%Y-%m-%d %H:%M:%S')
                     data['logging_interval'] = int.from_bytes(records[i][8:12])
-                if verbosity>1:
-                    print(f"record  {i:2.0f}: {records[i]}")
-                    print(f"type    : {records[i][0]}")
-                    print(f"inst op : {records[i][0]}")
-                    print(f"{i}: keys: {keys}")
-                    print(f"{i}: values: {values}")
-                    print(data)
-                all.append(data)
+                    if verbosity==1:
+                        print(data)
+                    if verbosity>1:
+                        print(f"record  {i:2.0f}: {records[i]}")
+                        print(f"type    : {records[i][0]}")
+                        print(f"inst op : {records[i][0]}")
+                        print(f"{i}: keys: {keys}")
+                        print(f"{i}: values: {values}")
+                        print(data)
+                    all.append(data)
             return all
         elif response[2]==0:
             # response error
@@ -669,7 +677,12 @@ class NEPH:
                     raise ValueError("start and/or end date not valid.")
                 message = self._acoem_construct_message(command=7, payload=payload)
                 response = self.tcpip_comm(message, verbosity=verbosity)
-                return self._acoem_decode_logged_data(response=response, verbosity=verbosity)
+                data =  self._acoem_decode_logged_data(response=response, verbosity=verbosity)
+                return data
+                # # get next record
+                # message = self._acoem_construct_message(command=7, payload=bytes([4]))
+                # while response:=self.tcpip_comm(message, verbosity=verbosity):
+                #     data.append(self._acoem_decode_logged_data(response=response, verbosity=verbosity))
             else:
                 raise Warning("Not implemented. For the legacy protocol, try 'get_all_data' or 'get_new_data'.")
         except Exception as err:
@@ -733,24 +746,24 @@ class NEPH:
                     time.sleep(1)
                 return state
             elif self.__protocol=='legacy':
-                if self.get_instr_type()[0]==158:
-                    raise Warning("Not implemented for NE-300.")
-                else:
-                    map_state = {
-                        0: "0000", 
-                        1: "0011", 
-                        2: "0001", 
-                        }
-                    message = f"DO{self.__serial_number}{map_state[state]}\r".encode()
-                    response = self.tcpip_comm(message=message, verbosity=verbosity).decode()
-                    inverse_map_state = {0: 0, 1: 2, 11: 1}
-                    # while response!=[state]:
-                    #     response = self.get_values(parameters=[71], verbosity=verbosity)    # Could be 68 (major state) rather than 71 (DO span/zero measure mode)
-                    #     # [k for k, v in inverse_map_state.items()]
-                    #     time.sleep(1)
-                    #     raise Warning(f"Incomplete implementation. Please expand and test. Call returned {response}.")
-                    raise Warning(f"Incomplete implementation. Please expand and test. Call returned '{response}'.")
-                    return state
+                # if self.get_instr_type()[0]==158:
+                raise Warning("Not implemented for NE-300.")
+                # else:
+                #     map_state = {
+                #         0: "0000", 
+                #         1: "0011", 
+                #         2: "0001", 
+                #         }
+                #     message = f"DO{self.__serial_number}{map_state[state]}\r".encode()
+                #     response = self.tcpip_comm(message=message, verbosity=verbosity).decode()
+                #     inverse_map_state = {0: 0, 1: 2, 11: 1}
+                #     # while response!=[state]:
+                #     #     response = self.get_values(parameters=[71], verbosity=verbosity)    # Could be 68 (major state) rather than 71 (DO span/zero measure mode)
+                #     #     # [k for k, v in inverse_map_state.items()]
+                #     #     time.sleep(1)
+                #     #     raise Warning(f"Incomplete implementation. Please expand and test. Call returned {response}.")
+                #     raise Warning(f"Incomplete implementation. Please expand and test. Call returned '{response}'.")
+                #     return state
             else:
                 raise ValueError("Protocol not recognized.")
         except Exception as err:
@@ -928,7 +941,8 @@ class NEPH:
                 raise Warning("Not implemented. Use 'get_logged_data' with specified period instead.")
             elif self.__protocol=='legacy':
                 response = self.tcpip_comm(message=f"***R\r".encode(), verbosity=verbosity).decode()
-                response = self.tcpip_comm(message=f"***D\r".encode(), verbosity=verbosity).decode()
+                response = self.get_new_data(verbosity=verbosity)
+                # response = self.tcpip_comm(message=f"***D\r".encode(), verbosity=verbosity).decode()
                 return response
             else:
                 raise ValueError("Protocol not implemented.")
@@ -961,12 +975,12 @@ class NEPH:
         try:
             if self.__protocol=='acoem':
                 # raise Warning("Not implemented.")
-                data = self.get_values(parameters=parameters)
-                # for k, v in response.items():
-                #         print(f"encoded: {response[k]}")
-                #         response[k] = struct.unpack('>f', (v).to_bytes(4))[0] if k!=1 else v
-                #         print(f"decoded: {response[k]}")
-                # # response = self._acoem_bytes2int(response)
+                data = self.get_values(parameters=parameters, verbosity=verbosity)
+                if strict:
+                    if 1 in parameters:
+                        data[1] = data[1].strftime(format=f"%d/%m/%Y{sep}%H:%M:%S")
+                    response = sep.join([str(data[k]) for k, v in data.items()])
+                    data = {99: response}
                 # dtm = self._acoem_timestamp_to_datetime(response[1])
                 # response[80] = dtm.strftime("%Y-%m-%d")
                 # response[81] = dtm.strftime("%H:%M:%S")
@@ -974,12 +988,14 @@ class NEPH:
             elif self.__protocol=='legacy':
                 # response = self.get_values(parameters=parameters)
                 response = self.tcpip_comm(f"VI{self.__serial_id}99\r".encode(), verbosity=verbosity).decode()
-                response = response.replace(", ", ",").replace(" ", ",")
+                response = response.replace(", ", ",")
                 if strict:
                     response = response.replace(',', sep)
                     data = {99: response}
                 else:
-                    data = dict(zip(parameters, response.split(',')))
+                    response = response.split(',')
+                    response = [response[0]] + [float(v) for v in response[1:]]
+                    data = dict(zip(parameters, response))
                 # response.insert(2, datetime.datetime.strptime(f"{response[0]} {response[1]}", "%d/%m/%Y %H:%M:%S"))
                 # response = dict(zip(parameters, response))
             else:
@@ -994,7 +1010,7 @@ class NEPH:
 
     def get_new_data(self, sep: str=",", verbosity: int=0) -> str:
         """
-        Retrieve all readings from current cursor
+        Retrieve all readings from current cursor. Available for the legacy format only.
 
         Parameters:
             serial_id (str, optional): Defaults to '0'.
@@ -1008,10 +1024,7 @@ class NEPH:
                 raise Warning("Not implemented.")
             elif self.__protocol=='legacy':
                 resp = self.tcpip_comm(f"***D\r".encode()).decode()
-                resp = resp.replace(", ", ",")
-                # if get_status_word:
-                #     resp += f",{self.get_status_word()}"
-                resp = resp.replace(",", sep)
+                resp = resp.replace('\r\n\n', '\r\n').replace(", ", ",").replace(",", sep)
                 return resp
             else:
                 raise ValueError("Protocol not recognized.")
