@@ -398,7 +398,7 @@ class NEPH:
         return error_map[error_code]
     
 
-    def __legacy_timestamp_to_datetime(self, fmt: str, dte: str, tme: str) -> datetime.datetime:
+    def _legacy_timestamp_to_date_time(self, fmt: str, dte: str, tme: str) -> datetime.datetime:
         """Convert a legacy timestamp to datetime
 
         Args:
@@ -428,6 +428,25 @@ class NEPH:
                 self._logger.error(err)
             print(err)
             return datetime.datetime(1111, 1, 1, 1, 1, 1)
+        
+
+    def _acoem_logged_data_to_string(self, data: list[dict], sep: str=',') -> str:
+        """Convert data retrieved using the get_logged_data to a string format ready for saving.
+
+        Args:
+            data (list[dict]): data retrieved from get_logged_data
+            sep (str, optional): Separator to use for export. Defaults to ','.
+
+        Returns:
+            str: string consisting of rows of <sep>-separated items
+        """
+        result = []
+        for d in data:
+            dtm_value = d.pop('dtm')
+            values = [str(dtm_value)] + [str(value) for key, value in d.items()]
+            result.append(sep.join(values))
+
+        return '\n'.join(result)
 
 
     def tcpip_comm(self, message: bytes, expect_response: bool=True, verbosity: int=0) -> bytes:
@@ -832,7 +851,7 @@ class NEPH:
                 fmt = self.tcpip_comm(message=f"VI{self.__serial_id}64\r".encode(), verbosity=verbosity).decode()
                 dte = self.tcpip_comm(message=f"VI{self.__serial_id}80\r".encode(), verbosity=verbosity).decode()
                 tme = self.tcpip_comm(message=f"VI{self.__serial_id}81\r".encode(), verbosity=verbosity).decode()
-                response = self.__legacy_timestamp_to_datetime(fmt, dte, tme)
+                response = self._legacy_timestamp_to_date_time(fmt, dte, tme)
             else:
                 raise ValueError("Protocol not recognized.")
             self._logger.info(f"get_datetime: {response}")
@@ -1008,26 +1027,67 @@ class NEPH:
             return dict()
 
 
-    def get_new_data(self, sep: str=",", verbosity: int=0) -> str:
+    def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
         """
-        Retrieve all readings from current cursor. Available for the legacy format only.
+        For the acoem format: Retrieve all readings from (now - reporting_interval) until now.
+        For the legacy format: Retrieve all readings from current cursor.
+        
+        Args:
+            sep (str, optional): Separator to use for output and file, respectively. Defaults to ",".
+            save (bool, optional): Should data be saved to file? Defaults to True.
+            verbosity (int, optional): _description_. Defaults to 0.
 
-        Parameters:
-            serial_id (str, optional): Defaults to '0'.
+        Raises:
+            Warning: _description_
+            ValueError: _description_
 
         Returns:
-            int: 0 if no error
-            str: {<date>},{<time>},{< σsp 1>}, {<σsp 2>}, {<σsp 3>}, {<σbsp 1>}, {<σbsp 2>}, {<σbsp 3>},{<sampletemp>},{<enclosure temp>},{<RH>},{<pressure>},{<major state>},{<DIO state>}<CR><LF>        
+            str: data retrieved from logger as decoded string, including line breaks.
         """
         try:
+            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
+            print(f"{dtm} .get_new_data (name={self.__name}, save={save})")
+
+
             if self.__protocol=='acoem':
-                raise Warning("Not implemented.")
+                if self.__reporting_interval is None:
+                    raise ValueError("__reporting_interval cannot be None.")
+                result = []
+                end = datetime.datetime.now(datetime.timezone.utc)
+                start = end - datetime.timedelta(minutes=self.__reporting_interval)
+                data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
+                if verbosity>0:
+                    print(data)
+
+                for d in data:
+                    values = [str(d.pop('dtm'))] + [str(value) for key, value in d.items()]
+                    result.append(sep.join(values))
+                data = '\n'.join(result)
             elif self.__protocol=='legacy':
-                resp = self.tcpip_comm(f"***D\r".encode()).decode()
-                resp = resp.replace('\r\n\n', '\r\n').replace(", ", ",").replace(",", sep)
-                return resp
+                data = self.tcpip_comm(f"***D\r".encode()).decode()
+                data = data.replace('\r\n\n', '\r\n').replace(", ", ",").replace(",", sep)
             else:
                 raise ValueError("Protocol not recognized.")
+            
+            if verbosity>0:
+                print(data)
+
+            if save:
+                # generate the datafile name
+                self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
+                                            "".join([self.__name, "-",
+                                                    datetimebin.dtbin(self.__reporting_interval), ".dat"]))
+
+                os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
+                with open(self.__datafile, "at", encoding='utf8') as fh:
+                    fh.write(data)
+                    fh.close()
+
+                # stage data for transfer
+                self.stage_data_file()
+
+            return data
+        
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -1035,53 +1095,53 @@ class NEPH:
             return ''
 
 
-    # def stage_data_file(self) -> None:
-    #     """Stage a file if it is no longer written to. This is determined by checking if the path 
-    #        of the file to be staged is different from the path of the current (data)file.
+    def stage_data_file(self) -> None:
+        """Stage a file if it is no longer written to. This is determined by checking if the path 
+           of the file to be staged is different from the path of the current (data)file.
 
-    #     Raises:
-    #         ValueError: _description_
-    #         ValueError: _description_
-    #         ValueError: _description_
-    #     """
-    #     try:
-    #         if self.__datafile is None:
-    #             raise ValueError("__datafile cannot be None.")
-    #         if self.__staging is None:
-    #             raise ValueError("__staging cannot be None.")
-    #         if self.__datadir is None:
-    #             raise ValueError("__datadir cannot be None.")
-    #         if self.__datafile_to_stage is None:
-    #             self.__datafile_to_stage = self.__datafile
-    #         elif self.__datafile_to_stage != self.__datafile:
-    #             root = os.path.join(self.__staging, self.__name, os.path.basename(self.__datadir))
-    #             os.makedirs(root, exist_ok=True)
-    #             if self.__zip:
-    #                 # create zip file
-    #                 archive = os.path.join(root, "".join([os.path.basename(self.__datafile_to_stage)[:-4], ".zip"]))
-    #                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    #                     zf.write(self.__datafile_to_stage, os.path.basename(self.__datafile_to_stage))
-    #             else:
-    #                 shutil.copyfile(self.__datafile_to_stage, os.path.join(root, os.path.basename(self.__datafile_to_stage)))
-    #             self.__datafile_to_stage = self.__datafile
+        Raises:
+            ValueError: _description_
+            ValueError: _description_
+            ValueError: _description_
+        """
+        try:
+            if self.__datafile is None:
+                raise ValueError("__datafile cannot be None.")
+            if self.__staging is None:
+                raise ValueError("__staging cannot be None.")
+            if self.__datadir is None:
+                raise ValueError("__datadir cannot be None.")
+            if self.__datafile_to_stage is None:
+                self.__datafile_to_stage = self.__datafile
+            elif self.__datafile_to_stage != self.__datafile:
+                root = os.path.join(self.__staging, self.__name, os.path.basename(self.__datadir))
+                os.makedirs(root, exist_ok=True)
+                if self.__zip:
+                    # create zip file
+                    archive = os.path.join(root, "".join([os.path.basename(self.__datafile_to_stage)[:-4], ".zip"]))
+                    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                        zf.write(self.__datafile_to_stage, os.path.basename(self.__datafile_to_stage))
+                else:
+                    shutil.copyfile(self.__datafile_to_stage, os.path.join(root, os.path.basename(self.__datafile_to_stage)))
+                self.__datafile_to_stage = self.__datafile
 
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
 
 
-    # def print_data(self, serial_id: str="0") -> None:
-    #     """Retrieve current record and print."""
-    #     try:
-    #         # read the last record from the Data table
-    #         data = self.tcpip_comm1(f"VI{serial_id}99", tidy=True)
-    #         print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+    def print_ssp_bssp(self) -> None:
+        """Retrieve current readings and print."""
+        try:
+            data = self.get_values(parameters=[2635000, 2635090, 2525000, 2525090, 2450000, 2450090])
+            data = f"ssp|bssp (Mm-1) red: {data[2635000]}|{data[2635090]} green: {data[2525000]}|{data[2525090]} blue: {data[2450000]}|{data[2450090]}"
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
 
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
 
 
     # def stage_log_file(self) -> None:
