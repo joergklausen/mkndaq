@@ -12,6 +12,7 @@ import socket
 import struct
 import time
 import zipfile
+import timeit
 
 import colorama
 
@@ -32,7 +33,6 @@ class NEPH:
     # _logger = None
     # __name = None
     # __reporting_interval = None
-    # __set_datetime = None
     # __sockaddr = ""
     # __socksleep = None
     # __socktout = None
@@ -40,7 +40,7 @@ class NEPH:
     # __zip = False
     # __protocol = None
 
-    def __init__(self, name: str, config: dict, simulate=False) -> None:
+    def __init__(self, name: str, config: dict, verbosity: int=0) -> None:
         """
         Initialize instrument class.
 
@@ -55,6 +55,9 @@ class NEPH:
             - config[name]['socket']['sleep']
             - config['logs']
             - config[name]['sampling_interval']
+            - config[name]['reporting_interval']
+            - config[name]['zero_check_duration']
+            - config[name]['span_check_duration']
             - config['staging']['path'])
             - config[name]['staging_zip']
             - config['protocol']
@@ -94,8 +97,12 @@ class NEPH:
                 raise ValueError("Communication protocol not recognized.")
 
             # sampling, aggregation, reporting/storage
-            # self._sampling_interval = config[name]['sampling_interval']
+            self.__sampling_interval = config[name]['sampling_interval']
             self.__reporting_interval = config['reporting_interval']
+
+            # zero and span check durations
+            self.__zero_check_duration = config[name]['zero_check_duration']
+            self.__span_check_duration = config[name]['span_check_duration']
 
             # setup data and log directory
             datadir = os.path.expanduser(config['data'])
@@ -106,6 +113,7 @@ class NEPH:
 
             # staging area for files to be transfered
             self.__staging = os.path.expanduser(config['staging']['path'])
+            self.__datafile_to_stage = None
             self.__zip = config[name]['staging_zip']
 
             self.__verbosity = config[name]['verbosity']
@@ -113,11 +121,23 @@ class NEPH:
             if self.__verbosity>0:
                 print(f"# Initialize NEPH (name: {self.__name}  S/N: {self.__serial_number})")
 
-            id = self.get_id()
-            if id=={}:
-                raise Warning(f"Could not communicate with instrument. Protocol set to '{self.__protocol}'. Please verify instrument settings.")
+                id = self.get_id(verbosity=verbosity)
+                if id=={}:
+                    raise Warning(f"Could not communicate with instrument. Protocol set to '{self.__protocol}'. Please verify instrument settings.")
+                else:
+                    print(f"  - Instrument identified itself as '{id}'.")
+
+            # put instrument in ambient mode
+            state = self.do_ambient(verbosity=verbosity)
+            if state==0:
+                if self.__verbosity>0:
+                    print(f"  - Instrument current operation: ambient.")
+                self._logger.info("Instrument current operation: ambient.")
             else:
-                print(f"  Instrument identified itself as '{id}'.")
+                raise Warning(f"Could not verify {self.__name} measurement mode as 'ambient'.")
+
+            # get dtm from instrument, then set date and time
+            self.get_set_datetime(dtm=datetime.datetime.now())
 
         except Exception as err:
             if self._log:
@@ -208,7 +228,7 @@ class NEPH:
 
     def _acoem_construct_message(self, command: int, parameter_id: int=0, payload: bytes=b'') -> bytes:
         """
-        Construct ACOEM packet to be sent to instrument. This is fairly involved and we refer to the ACOEM manual for explanations.
+        Construct ACOEM packet to be sent to instrument. See the ACOEM manual for explanations.
         
         Byte  |1  |2  |3  |4  |5..6     |7..10    |11       |12
               |STX|SID|CMD|ETX|msg_len  |msg_data |checksum |EOT
@@ -234,8 +254,6 @@ class NEPH:
         if len(payload)>0:
             msg_data += payload
         msg_len = len(msg_data)
-        # if msg_len==0:
-        #     msg_data = bytes([0])
         msg = bytes([2, self.__serial_id, command, 3]) + (msg_len).to_bytes(2) + msg_data
         return msg + self._acoem_checksum(msg) + bytes([4])
     
@@ -295,18 +313,18 @@ class NEPH:
         for parameter, item in data_bytes.items():
             if parameter in [1, 2201]:
                 data[parameter] = self._acoem_timestamp_to_datetime(int.from_bytes(item))
-            elif parameter in [range(1000, 5000), 
-                               range(12000000, 13000000), 
-                               range(14000000, 15000000),
-                               range(16000000, 17000000),
-                               range(27000000, 2027000000)]:
-                data[parameter] = int.from_bytes(item, signed=True)
+            elif ((parameter>1000 and parameter<5000) \
+                  or (parameter>12000000 and parameter<13000000) \
+                  or (parameter>14000000 and parameter<15000000) \
+                  or (parameter>14000000 and parameter<15000000) \
+                  or (parameter>16000000 and parameter<17000000) \
+                  or (parameter>27000000 and parameter<2027000000)):
+                data[parameter] = struct.unpack('>i', item)[0]
             else:
                 data[parameter] = struct.unpack('>f', item)[0]
 
         if verbosity==1:
             print(f"response items:\n{data}")
-
         if verbosity>1:
             print(f"response items (bytes):\n{data_bytes}")
             print(f"response items:\n{data}")
@@ -324,7 +342,7 @@ class NEPH:
         Returns:
             list[dict]: List of dictionaries, where the keys are the parameter ids, and the values are the measured values.
         """
-        data = dict()
+        # data = dict()
         all = []
         if response[2] == 7:
             # command 7 (byte 3)
@@ -356,8 +374,8 @@ class NEPH:
                     data = dict(zip(keys, values))
                     for k, v in data.items():
                         data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else v#b''
-                    data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8])).strftime('%Y-%m-%d %H:%M:%S')
                     data['logging_interval'] = int.from_bytes(records[i][8:12])
+                    data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8])).strftime('%Y-%m-%d %H:%M:%S')
                     if verbosity==1:
                         print(data)
                     if verbosity>1:
@@ -471,7 +489,8 @@ class NEPH:
                 s.connect(self.__sockaddr)
 
                 # clear buffer (at least the first 1024 bytes, should be sufficient)
-                s.recv(1024)
+                # tmp = s.recv(128)
+                start = time.perf_counter()
 
                 # send message
                 if verbosity>0:
@@ -479,24 +498,29 @@ class NEPH:
                 s.sendall(message)
 
                 # receive response
-                rcvd = b''                
+                rcvd = b''
                 if expect_response:
                     if self.__protocol=='acoem':
-                        while not rcvd.endswith(b'\x04'):
+                        while not b'\x04' in rcvd:
+                        # while not rcvd.endswith(b'\x04'):
                             data = s.recv(1024)
+                            if not data:
+                                break
                             rcvd += data
-                            # return rcvd
                     elif self.__protocol=='legacy':
                         while not (rcvd.endswith(b'\r\n') or rcvd.endswith(b'\r\n\n')):
                             data = s.recv(1024)
                             rcvd += data
-                        # return rcvd.strip()
                     else:
                         raise ValueError('Protocol not recognized.')
                     rcvd = rcvd.strip()
-                    
+                    # remove pre-ambel
+                    rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
+
+                    end = time.perf_counter()    
                     if verbosity>1:
                         print(f"response (bytes): {rcvd}")
+                        print(f"time elapsed (s): {end - start:0.4f}")
                 return rcvd
         except Exception as err:
             if self._log:
@@ -620,27 +644,37 @@ class NEPH:
             return dict()
 
 
-    def set_value(self, parameter_id: int, value: int, verbosity: int=0) -> list[int]:
+    def set_value(self, parameter_id: int, value: int, verify: bool=True, verbosity: int=0) -> int:
         """A.3.6 Sets the value of an instrument parameter.
 
         Args:
             parameter_id (int): Parameter to set.
             value (int): Value to be set.
+            verify (bool, optional): Should the value be queried and echoed after setting? Defaults to True.
             verbosity (int, optional): _description_. Defaults to 0.
         """
         try:
+            response = -1
             if self.__protocol=='acoem':
                 payload = bytes([0,0,0,value])
                 message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
-                response = self.tcpip_comm(message=message, verbosity=verbosity)
-                return self._acoem_bytes2int(response=response, verbosity=verbosity)
+                self.tcpip_comm(message=message, expect_response=False, verbosity=verbosity)
+                time.sleep(0.1)
+                if verify:
+                    while response!=value:
+                        response = self.get_values(parameters=[parameter_id], verbosity=verbosity)[parameter_id]
+                        # print(f"{time.perf_counter()} {response}")
+                        time.sleep(0.1)
+                    return response
+                else:
+                    return response
             else:
                 raise Warning("Not implemented.")
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return []
+            return -1
 
 
     def get_logging_config(self, verbosity: int=0) -> list[int]:
@@ -726,9 +760,9 @@ class NEPH:
         try:
             if self.__protocol=='acoem':
                 parameter_id = 4035
-                message = self._acoem_construct_message(command=4, parameter_id=parameter_id)
-                response = self.tcpip_comm(message, verbosity=verbosity)
-                return self._acoem_bytes2int(response=response, verbosity=verbosity)[0]
+                # message = self._acoem_construct_message(command=4, parameter_id=parameter_id)
+                return self.get_values(parameters=[parameter_id], verbosity=verbosity)[parameter_id]
+                # return self._acoem_bytes2int(response=response, verbosity=verbosity)[0]
             elif self.__protocol=='legacy':
                 response = self.tcpip_comm(message=f"VI{self.__serial_id}71\r".encode(), verbosity=verbosity).decode()
                 mapping = {'000': 0, '016': 2, '032': 1}
@@ -743,27 +777,32 @@ class NEPH:
             return 9
 
 
-    def set_current_operation(self, state: int=0, verbosity: int=0) -> int:
+    def set_current_operation(self, state: int=0, verify: bool=True, verbosity: int=0) -> int:
         """Sets the instrument operating state by actuating the internal valve.
 
         Args:
             state (int, optional): 0: ambient, 1: zero, 2: span. Defaults to 0.
+            verify (bool, optional): Should the value be queried and echoed after setting? Defaults to True.
             verbosity (int, optional): _description_. Defaults to 0.
         """
         try:
             if self.__protocol=='acoem':
-                parameter_id = 4035
-                response = self.set_value(parameter_id=parameter_id, value=state)
-                # payload = bytes([0,0,0,state])
-                # message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
-                # response = self.tcpip_comm(message, expect_response=False, verbosity=verbosity)
-                # wait for valve action to be completed by polling operating state
-                message = self._acoem_construct_message(command=4, parameter_id=parameter_id)
-                while response!=[state]:
-                    response = self.tcpip_comm(message, verbosity=verbosity)
-                    response = self._acoem_bytes2int(response=response, verbosity=verbosity)
-                    time.sleep(1)
-                return state
+                return self.set_value(parameter_id=4035, value=state, verify=verify, verbosity=verbosity)
+                # response = self.get_current_operation(verbosity=verbosity)
+                # # payload = bytes([0,0,0,state])
+                # # message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
+                # # response = self.tcpip_comm(message, expect_response=False, verbosity=verbosity)
+                # # wait for valve action to be completed by polling operating state
+                # if response!=state:
+                #     response = self.set_value(parameter_id=4035, value=state)
+                # # message = self._acoem_construct_message(command=4, parameter_id=parameter_id)
+                # while response!=[state]:
+                #     response = int(self.get_current_operation(verbosity=verbosity)[4035])
+                #     print(f"{time.localtime()} transitioning: {response}")
+                #     # response = self.tcpip_comm(message, verbosity=verbosity)
+                #     # response = self._acoem_bytes2int(response=response, verbosity=verbosity)
+                #     time.sleep(1)
+                # return state
             elif self.__protocol=='legacy':
                 # if self.get_instr_type()[0]==158:
                 raise Warning("Not implemented for NE-300.")
@@ -863,7 +902,7 @@ class NEPH:
             return response
 
 
-    def set_datetime(self, dtm: datetime.datetime=datetime.datetime.now(), verbosity: int=0) -> bytes:
+    def get_set_datetime(self, dtm: datetime.datetime=datetime.datetime.now(), verbosity: int=1) -> None:
         """Set date and time of instrument
 
         Parameters:
@@ -875,24 +914,72 @@ class NEPH:
         """
         try:
             if self.__protocol=="acoem":
+                # get dtm from instrument
+                dtm_found = self.get_values(parameters=[1])[1].strftime('%Y-%m-%d %H:%M:%S')
+                
+                # set dtm of instrument
                 payload = self._acoem_datetime_to_timestamp(dtm=dtm)
                 msg = self._acoem_construct_message(command=5, parameter_id=1, payload=payload)
-                response = self.tcpip_comm(message=msg, verbosity=verbosity)
+                self.tcpip_comm(message=msg, expect_response=False, verbosity=0)
+                
+                # get new dtm from instrument
+                dtm_set = self.get_values(parameters=[1])[1].strftime('%Y-%m-%d %H:%M:%S')
             else:
                 raise Warning("Not implemented.")
                 # resp = self.tcpip_comm1(f"**{self.__serial_id}S{dtm.strftime('%H%M%S%d%m%y')}")
                 # msg = f"DateTime of instrument {self.__name} set to {dtm} ... {resp}"
                 # print(f"{dtm} {msg}")
                 # self._logger.info(msg)
-            return response
+            
+            if verbosity>0:
+                msg = f"dtm found: {dtm_found} > dtm after set: {dtm_set}."
+                print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")            
+                self._logger.info(msg)
+            return
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return b''
 
 
-    def do_span_check(self, verbosity: int=0) -> int:
+    def do_zero_span_check(self, verbosity: int=0) -> None:
+        """
+        Launch a zero check, followed by a span check.
+
+        Parameters:
+            verbosity (int, optional): ...
+
+        Returns:
+            None
+        """
+        dtm = now = datetime.datetime.now()
+
+        # change operating state to ZERO
+        resp = self.set_current_operation(state=1, verbosity=verbosity)
+        if resp==1:
+            data = f"Instrument switched to ZERO CHECK mode."
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+        while dtm < now + datetime.timedelta(minutes=self.__zero_check_duration):
+            time.sleep(1)
+        now = datetime.datetime.now()
+        
+        # change operating state to SPAN
+        resp = self.set_current_operation(state=2, verbosity=verbosity)
+        if resp==2:
+            data = f"Instrument switched to SPAN CHECK mode."
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+        while dtm < now + datetime.timedelta(minutes=self.__span_check_duration):
+            time.sleep(1)
+        
+        # change operating state to AMBIENT
+        resp = self.set_current_operation(state=0, verbosity=verbosity)
+        if resp==0:
+            data = f"Instrument switched to AMBIENT mode."
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+        return
+
+
+    def do_span(self, verify: bool=True, verbosity: int=0) -> int:
         """
         Override digital IO control and DOSPAN. Wrapper for set_current_operation.
 
@@ -902,10 +989,10 @@ class NEPH:
         Returns:
             int: 2: span
         """
-        return self.set_current_operation(state=2, verbosity=verbosity)
+        return self.set_current_operation(state=2, verify=verify, verbosity=verbosity)
 
 
-    def do_zero_check(self, verbosity: int=0) -> int:
+    def do_zero(self, verify: bool=True, verbosity: int=0) -> int:
         """
         Override digital IO control and DOZERO. Wrapper for set_current_operation.
 
@@ -915,10 +1002,10 @@ class NEPH:
         Returns:
             int: 1: zero
         """
-        return self.set_current_operation(state=1)
+        return self.set_current_operation(state=1, verify=verify, verbosity=verbosity)
     
 
-    def do_ambient(self, verbosity: int=0) -> int:
+    def do_ambient(self, verify: bool=True, verbosity: int=0) -> int:
         """
         Override digital IO control and return to ambient measurement. Wrapper for set_current_operation.
 
@@ -928,7 +1015,8 @@ class NEPH:
         Returns:
             int: 0: ambient
         """
-        return self.set_current_operation(state=0)
+        return self.set_current_operation(state=0, verify=verify, verbosity=verbosity)
+
     
 
     def get_status_word(self, verbosity: int=0) -> int:
@@ -1029,7 +1117,7 @@ class NEPH:
 
     def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
         """
-        For the acoem format: Retrieve all readings from (now - reporting_interval) until now.
+        For the acoem format: Retrieve all readings from (now - sampling_interval) until now.
         For the legacy format: Retrieve all readings from current cursor.
         
         Args:
@@ -1050,11 +1138,11 @@ class NEPH:
 
 
             if self.__protocol=='acoem':
-                if self.__reporting_interval is None:
-                    raise ValueError("__reporting_interval cannot be None.")
+                if self.__sampling_interval is None:
+                    raise ValueError("'sampling_interval' cannot be None.")
                 result = []
                 end = datetime.datetime.now(datetime.timezone.utc)
-                start = end - datetime.timedelta(minutes=self.__reporting_interval)
+                start = end - datetime.timedelta(minutes=self.__sampling_interval)
                 data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
                 if verbosity>0:
                     print(data)
@@ -1073,6 +1161,8 @@ class NEPH:
                 print(data)
 
             if save:
+                if self.__reporting_interval is None:
+                    raise ValueError("'reporting_interval' cannot be None.")
                 # generate the datafile name
                 self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
                                             "".join([self.__name, "-",
@@ -1083,9 +1173,9 @@ class NEPH:
                     fh.write(data)
                     fh.close()
 
-                # stage data for transfer
-                self.stage_data_file()
-
+                if self.__staging:
+                    # stage data for transfer
+                    self.stage_data_file()
             return data
         
         except Exception as err:
@@ -1135,7 +1225,7 @@ class NEPH:
         """Retrieve current readings and print."""
         try:
             data = self.get_values(parameters=[2635000, 2635090, 2525000, 2525090, 2450000, 2450090])
-            data = f"ssp|bssp (Mm-1) red: {data[2635000]}|{data[2635090]} green: {data[2525000]}|{data[2525090]} blue: {data[2450000]}|{data[2450090]}"
+            data = f"ssp|bssp (Mm-1) r: {data[2635000]:0.4f}|{data[2635090]:0.4f} g: {data[2525000]:0.4f}|{data[2525090]:0.4f} b: {data[2450000]:0.4f}|{data[2450090]:0.4f}"
             print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
 
         except Exception as err:
