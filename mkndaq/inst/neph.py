@@ -13,6 +13,7 @@ import struct
 import time
 import zipfile
 import timeit
+import warnings
 
 import colorama
 
@@ -89,6 +90,9 @@ class NEPH:
                              config[name]['socket']['port'])
             self.__socktout = config[name]['socket']['timeout']
             # self.__socksleep = config[name]['socket']['sleep']
+            
+            # flag to maintain state to prevent concurrent tcpip communication in a threaded setup
+            self.__tcpip_line_is_busy = False
 
             # configure comms protocol
             if config[name]['protocol'] in ["acoem", "legacy"]:
@@ -123,7 +127,7 @@ class NEPH:
 
                 id = self.get_id(verbosity=verbosity)
                 if id=={}:
-                    raise Warning(f"Could not communicate with instrument. Protocol set to '{self.__protocol}'. Please verify instrument settings.")
+                    warnings.warn(f"Could not communicate with instrument. Protocol set to '{self.__protocol}'. Please verify instrument settings.")
                 else:
                     print(f"  - Instrument identified itself as '{id}'.")
 
@@ -134,7 +138,7 @@ class NEPH:
                     print(f"  - Instrument current operation: ambient.")
                 self._logger.info("Instrument current operation: ambient.")
             else:
-                raise Warning(f"Could not verify {self.__name} measurement mode as 'ambient'.")
+                warnings.warn(f"Could not verify {self.__name} measurement mode as 'ambient'.")
 
             # get dtm from instrument, then set date and time
             self.get_set_datetime(dtm=datetime.datetime.now())
@@ -467,6 +471,18 @@ class NEPH:
         return '\n'.join(result)
 
 
+    def _tcpip_comm_wait_for_line(self) -> None:                        
+        t0 = time.perf_counter()
+        while self.__tcpip_line_is_busy:
+            time.sleep(0.1)
+            if time.perf_counter() > (t0 + 3 * self.__socktout):
+                msg = "'tcpip_comm_wait_for_line' timed out!"
+                warnings.warn(msg)
+                self._logger.warning(msg)
+                break
+        return
+
+
     def tcpip_comm(self, message: bytes, expect_response: bool=True, verbosity: int=0) -> bytes:
         """
         Send and receive data using ACOEM protocol
@@ -483,6 +499,9 @@ class NEPH:
             bytes: bytes returned.
         """
         try:
+            # prevent other callers from proceeding if they require to send and retrieve
+            self.__tcpip_line_is_busy = True
+
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM, ) as s:
                 # connect to the server
                 s.settimeout(self.__socktout)
@@ -522,10 +541,16 @@ class NEPH:
                         print(f"response (bytes): {rcvd}")
                         print(f"time elapsed (s): {end - start:0.4f}")
                 return rcvd
+
+                # inform other callers tha line is free
+                self.__tcpip_line_is_busy = False
+
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
+            # inform other callers tha line is free
+            self.__tcpip_line_is_busy = False
             return b''
 
     
@@ -544,7 +569,7 @@ class NEPH:
                 response = self.tcpip_comm(message, verbosity=verbosity)
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
-                raise Warning("Not implemented.")
+                warnings.warn("Not implemented.")
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -567,7 +592,7 @@ class NEPH:
                 response = self.tcpip_comm(message, verbosity=verbosity)        
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
-                raise Warning("Not implemented.")
+                warnings.warn("Not implemented.")
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -635,7 +660,7 @@ class NEPH:
                         items.append('')
                 data = dict(zip(parameters, items))
             else:
-                raise Warning("Not implemented.")
+                warnings.warn("Not implemented.")
             return data
         except Exception as err:
             if self._log:
@@ -650,7 +675,7 @@ class NEPH:
         Args:
             parameter_id (int): Parameter to set.
             value (int): Value to be set.
-            verify (bool, optional): Should the value be queried and echoed after setting? Defaults to True.
+            verify (bool, optional): Should the new value be queried and echoed after setting? Defaults to True.
             verbosity (int, optional): _description_. Defaults to 0.
         """
         try:
@@ -659,8 +684,8 @@ class NEPH:
                 payload = bytes([0,0,0,value])
                 message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
                 self.tcpip_comm(message=message, expect_response=False, verbosity=verbosity)
-                time.sleep(0.1)
                 if verify:
+                    time.sleep(0.1)
                     while response!=value:
                         response = self.get_values(parameters=[parameter_id], verbosity=verbosity)[parameter_id]
                         # print(f"{time.perf_counter()} {response}")
@@ -669,7 +694,7 @@ class NEPH:
                 else:
                     return response
             else:
-                raise Warning("Not implemented.")
+                warnings.warn("Not implemented.")
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -696,7 +721,7 @@ class NEPH:
                 response = self.tcpip_comm(message, verbosity=verbosity)
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
-                raise Warning("Not implemented.")
+                warnings.warn("Not implemented.")
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -737,7 +762,7 @@ class NEPH:
                 # while response:=self.tcpip_comm(message, verbosity=verbosity):
                 #     data.append(self._acoem_decode_logged_data(response=response, verbosity=verbosity))
             else:
-                raise Warning("Not implemented. For the legacy protocol, try 'get_all_data' or 'get_new_data'.")
+                warnings.warn("Not implemented. For the legacy protocol, try 'get_all_data' or 'get_new_data'.")
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -767,7 +792,7 @@ class NEPH:
                 response = self.tcpip_comm(message=f"VI{self.__serial_id}71\r".encode(), verbosity=verbosity).decode()
                 mapping = {'000': 0, '016': 2, '032': 1}
                 return mapping[response]
-                # raise Warning("Not implemented.")
+                # warnings.warn("Not implemented.")
             else:
                 raise ValueError("Protocol not recognized.")
         except Exception as err:
@@ -788,24 +813,9 @@ class NEPH:
         try:
             if self.__protocol=='acoem':
                 return self.set_value(parameter_id=4035, value=state, verify=verify, verbosity=verbosity)
-                # response = self.get_current_operation(verbosity=verbosity)
-                # # payload = bytes([0,0,0,state])
-                # # message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
-                # # response = self.tcpip_comm(message, expect_response=False, verbosity=verbosity)
-                # # wait for valve action to be completed by polling operating state
-                # if response!=state:
-                #     response = self.set_value(parameter_id=4035, value=state)
-                # # message = self._acoem_construct_message(command=4, parameter_id=parameter_id)
-                # while response!=[state]:
-                #     response = int(self.get_current_operation(verbosity=verbosity)[4035])
-                #     print(f"{time.localtime()} transitioning: {response}")
-                #     # response = self.tcpip_comm(message, verbosity=verbosity)
-                #     # response = self._acoem_bytes2int(response=response, verbosity=verbosity)
-                #     time.sleep(1)
-                # return state
             elif self.__protocol=='legacy':
                 # if self.get_instr_type()[0]==158:
-                raise Warning("Not implemented for NE-300.")
+                warnings.warn("Not implemented for NE-300.")
                 # else:
                 #     map_state = {
                 #         0: "0000", 
@@ -819,8 +829,8 @@ class NEPH:
                 #     #     response = self.get_values(parameters=[71], verbosity=verbosity)    # Could be 68 (major state) rather than 71 (DO span/zero measure mode)
                 #     #     # [k for k, v in inverse_map_state.items()]
                 #     #     time.sleep(1)
-                #     #     raise Warning(f"Incomplete implementation. Please expand and test. Call returned {response}.")
-                #     raise Warning(f"Incomplete implementation. Please expand and test. Call returned '{response}'.")
+                #     #     warnings.warn(f"Incomplete implementation. Please expand and test. Call returned {response}.")
+                #     warnings.warn(f"Incomplete implementation. Please expand and test. Call returned '{response}'.")
                 #     return state
             else:
                 raise ValueError("Protocol not recognized.")
@@ -925,7 +935,7 @@ class NEPH:
                 # get new dtm from instrument
                 dtm_set = self.get_values(parameters=[1])[1].strftime('%Y-%m-%d %H:%M:%S')
             else:
-                raise Warning("Not implemented.")
+                warnings.warn("Not implemented.")
                 # resp = self.tcpip_comm1(f"**{self.__serial_id}S{dtm.strftime('%H%M%S%d%m%y')}")
                 # msg = f"DateTime of instrument {self.__name} set to {dtm} ... {resp}"
                 # print(f"{dtm} {msg}")
@@ -955,6 +965,7 @@ class NEPH:
         dtm = now = datetime.datetime.now()
 
         # change operating state to ZERO
+        self._tcpip_comm_wait_for_line()
         resp = self.set_current_operation(state=1, verbosity=verbosity)
         if resp==1:
             data = f"Instrument switched to ZERO CHECK mode."
@@ -964,6 +975,7 @@ class NEPH:
         now = datetime.datetime.now()
         
         # change operating state to SPAN
+        self._tcpip_comm_wait_for_line()
         resp = self.set_current_operation(state=2, verbosity=verbosity)
         if resp==2:
             data = f"Instrument switched to SPAN CHECK mode."
@@ -972,6 +984,7 @@ class NEPH:
             time.sleep(1)
         
         # change operating state to AMBIENT
+        self._tcpip_comm_wait_for_line()        
         resp = self.set_current_operation(state=0, verbosity=verbosity)
         if resp==0:
             data = f"Instrument switched to AMBIENT mode."
@@ -1045,7 +1058,7 @@ class NEPH:
         """
         try:
             if self.__protocol=="acoem":
-                raise Warning("Not implemented. Use 'get_logged_data' with specified period instead.")
+                warnings.warn("Not implemented. Use 'get_logged_data' with specified period instead.")
             elif self.__protocol=='legacy':
                 response = self.tcpip_comm(message=f"***R\r".encode(), verbosity=verbosity).decode()
                 response = self.get_new_data(verbosity=verbosity)
@@ -1081,7 +1094,7 @@ class NEPH:
             parameters += add_params
         try:
             if self.__protocol=='acoem':
-                # raise Warning("Not implemented.")
+                # warnings.warn("Not implemented.")
                 data = self.get_values(parameters=parameters, verbosity=verbosity)
                 if strict:
                     if 1 in parameters:
@@ -1143,6 +1156,7 @@ class NEPH:
                 result = []
                 end = datetime.datetime.now(datetime.timezone.utc)
                 start = end - datetime.timedelta(minutes=self.__sampling_interval)
+                self._tcpip_comm_wait_for_line()            
                 data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
                 if verbosity>0:
                     print(data)
@@ -1224,6 +1238,7 @@ class NEPH:
     def print_ssp_bssp(self) -> None:
         """Retrieve current readings and print."""
         try:
+            self._tcpip_comm_wait_for_line()
             data = self.get_values(parameters=[2635000, 2635090, 2525000, 2525090, 2450000, 2450090])
             data = f"ssp|bssp (Mm-1) r: {data[2635000]:0.4f}|{data[2635090]:0.4f} g: {data[2525000]:0.4f}|{data[2525090]:0.4f} b: {data[2450000]:0.4f}|{data[2450090]:0.4f}"
             print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
