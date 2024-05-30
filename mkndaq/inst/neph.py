@@ -55,7 +55,7 @@ class NEPH:
             - config[name]['socket']['timeout']
             - config[name]['socket']['sleep']
             - config['logs']
-            - config[name]['sampling_interval']
+            - config[name]['get_data_interval']
             - config[name]['reporting_interval']
             - config[name]['zero_check_duration']
             - config[name]['span_check_duration']
@@ -101,7 +101,7 @@ class NEPH:
                 raise ValueError("Communication protocol not recognized.")
 
             # sampling, aggregation, reporting/storage
-            self.__sampling_interval = config[name]['sampling_interval']
+            self.__get_data_interval = config[name]['get_data_interval']
             self.__reporting_interval = config['reporting_interval']
 
             # zero and span check durations
@@ -142,6 +142,12 @@ class NEPH:
 
             # get dtm from instrument, then set date and time
             self.get_set_datetime(dtm=datetime.datetime.now())
+
+            # get logging config and save to file
+            logging_config = self.get_logging_config()
+            if self.__verbosity>0:
+                print(f"  - Currently logged parametzers: {logging_config}.")
+            self._logger.info(f"logging_config: {logging_config}")
 
         except Exception as err:
             if self._log:
@@ -471,7 +477,7 @@ class NEPH:
         return '\n'.join(result)
 
 
-    def _tcpip_comm_wait_for_line(self) -> None:                        
+    def tcpip_comm_wait_for_line(self) -> None:                        
         t0 = time.perf_counter()
         while self.__tcpip_line_is_busy:
             time.sleep(0.1)
@@ -540,10 +546,10 @@ class NEPH:
                     if verbosity>1:
                         print(f"response (bytes): {rcvd}")
                         print(f"time elapsed (s): {end - start:0.4f}")
-                return rcvd
 
                 # inform other callers tha line is free
                 self.__tcpip_line_is_busy = False
+                return rcvd
 
         except Exception as err:
             if self._log:
@@ -554,7 +560,7 @@ class NEPH:
             return b''
 
     
-    def get_instr_type(self, verbosity: int=0) -> list[int]:
+    def get_instr_type(self, verbosity: int=0) -> list:
         """A.3.2 Requests details on the type of analyser being communicated with.
 
         Args:
@@ -565,11 +571,13 @@ class NEPH:
         """
         try:
             if self.__protocol=='acoem':
-                message = self._acoem_construct_message(1)        
+                message = self._acoem_construct_message(1)
+                self.tcpip_comm_wait_for_line()       
                 response = self.tcpip_comm(message, verbosity=verbosity)
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
                 warnings.warn("Not implemented.")
+                return []
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -577,7 +585,7 @@ class NEPH:
             return []
 
 
-    def get_version(self, verbosity: int=0) -> list[int]:
+    def get_version(self, verbosity: int=0) -> list:
         """A.3.3 Requests the current firmware version running on the analyser.
 
         Args:
@@ -589,10 +597,12 @@ class NEPH:
         try:
             if self.__protocol=='acoem':
                 message = self._acoem_construct_message(1)
+                self.tcpip_comm_wait_for_line()
                 response = self.tcpip_comm(message, verbosity=verbosity)        
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
                 warnings.warn("Not implemented.")
+                return []
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -648,9 +658,10 @@ class NEPH:
                 msg_len = len(msg_data)
                 msg = bytes([2, self.__serial_id, 4, 3]) + (msg_len).to_bytes(2) + msg_data
                 msg += self._acoem_checksum(msg) + bytes([4])
+                self.tcpip_comm_wait_for_line()                
                 response = self.tcpip_comm(message=msg, verbosity=verbosity)
                 data = self._acoem_response2values(parameters=parameters, response=response, verbosity=verbosity)
-                # items = self._acoem_bytes2int(response=response, verbosity=verbosity)
+                return data
             elif self.__protocol=='legacy':
                 items = []
                 for p in parameters:
@@ -659,9 +670,10 @@ class NEPH:
                     else:
                         items.append('')
                 data = dict(zip(parameters, items))
+                return data
             else:
                 warnings.warn("Not implemented.")
-            return data
+                return dict()
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -679,10 +691,11 @@ class NEPH:
             verbosity (int, optional): _description_. Defaults to 0.
         """
         try:
-            response = -1
+            response = int()
             if self.__protocol=='acoem':
                 payload = bytes([0,0,0,value])
                 message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
+                self.tcpip_comm_wait_for_line()                
                 self.tcpip_comm(message=message, expect_response=False, verbosity=verbosity)
                 if verify:
                     time.sleep(0.1)
@@ -695,14 +708,15 @@ class NEPH:
                     return response
             else:
                 warnings.warn("Not implemented.")
+                return int()
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return -1
+            return int()
 
 
-    def get_logging_config(self, verbosity: int=0) -> list[int]:
+    def get_logging_config(self, verbosity: int=0) -> list:
         """
         A.3.7 Return the list of parameter IDs currently being logged. 
         It is sent with zero message data length.
@@ -722,11 +736,12 @@ class NEPH:
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
                 warnings.warn("Not implemented.")
+                return list()
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return []
+            return list()
 
 
     def get_logged_data(self, start: datetime.datetime, end: datetime.datetime, verbosity: int=0) -> list[dict]:
@@ -763,6 +778,7 @@ class NEPH:
                 #     data.append(self._acoem_decode_logged_data(response=response, verbosity=verbosity))
             else:
                 warnings.warn("Not implemented. For the legacy protocol, try 'get_all_data' or 'get_new_data'.")
+                return list(dict())
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -816,6 +832,7 @@ class NEPH:
             elif self.__protocol=='legacy':
                 # if self.get_instr_type()[0]==158:
                 warnings.warn("Not implemented for NE-300.")
+                return int()
                 # else:
                 #     map_state = {
                 #         0: "0000", 
@@ -936,6 +953,8 @@ class NEPH:
                 dtm_set = self.get_values(parameters=[1])[1].strftime('%Y-%m-%d %H:%M:%S')
             else:
                 warnings.warn("Not implemented.")
+                dtm_found = dict()
+                dtm_set = dict()
                 # resp = self.tcpip_comm1(f"**{self.__serial_id}S{dtm.strftime('%H%M%S%d%m%y')}")
                 # msg = f"DateTime of instrument {self.__name} set to {dtm} ... {resp}"
                 # print(f"{dtm} {msg}")
@@ -965,30 +984,40 @@ class NEPH:
         dtm = now = datetime.datetime.now()
 
         # change operating state to ZERO
-        self._tcpip_comm_wait_for_line()
+        data = f"Switching to ZERO CHECK mode ..."
+        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+        self.tcpip_comm_wait_for_line()
         resp = self.set_current_operation(state=1, verbosity=verbosity)
         if resp==1:
-            data = f"Instrument switched to ZERO CHECK mode."
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+            self._logger.info(f"Instrument switched to ZERO CHECK")
+        else:
+            self._logger.warning(f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'.")
         while dtm < now + datetime.timedelta(minutes=self.__zero_check_duration):
+            now = datetime.datetime.now()
             time.sleep(1)
-        now = datetime.datetime.now()
         
         # change operating state to SPAN
-        self._tcpip_comm_wait_for_line()
+        data = f"Switching to SPAN CHECK mode ..."
+        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+        self.tcpip_comm_wait_for_line()
         resp = self.set_current_operation(state=2, verbosity=verbosity)
         if resp==2:
-            data = f"Instrument switched to SPAN CHECK mode."
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+            self._logger.info(f"Instrument switched to SPAN CHECK")
+        else:
+            self._logger.warning(f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'.")
         while dtm < now + datetime.timedelta(minutes=self.__span_check_duration):
+            now = datetime.datetime.now()
             time.sleep(1)
         
         # change operating state to AMBIENT
-        self._tcpip_comm_wait_for_line()        
+        data = f"Switching to AMBIENT mode."
+        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+        self.tcpip_comm_wait_for_line()        
         resp = self.set_current_operation(state=0, verbosity=verbosity)
         if resp==0:
-            data = f"Instrument switched to AMBIENT mode."
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
+            self._logger.info(f"Instrument switched to AMBIENT mode")
+        else:
+            self._logger.warning(f"Instrument mode should be '0' (AMBIENT) but was returned as '{resp}'.")
         return
 
 
@@ -1028,6 +1057,7 @@ class NEPH:
         Returns:
             int: 0: ambient
         """
+        self.tcpip_comm_wait_for_line()
         return self.set_current_operation(state=0, verify=verify, verbosity=verbosity)
 
     
@@ -1066,11 +1096,12 @@ class NEPH:
                 return response
             else:
                 raise ValueError("Protocol not implemented.")
+            return str()
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return ''
+            return str()
 
 
     def get_current_data(self, add_params: list=[], strict: bool=False, sep: str=' ', verbosity: int=0) -> dict:
@@ -1128,13 +1159,14 @@ class NEPH:
             return dict()
 
 
-    def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
+    def get_new_data(self, sep: str=",", slack: int=30, save: bool=True, verbosity: int=0) -> str:
         """
-        For the acoem format: Retrieve all readings from (now - sampling_interval) until now.
+        For the acoem format: Retrieve all readings from (now - get_data_interval) until now.
         For the legacy format: Retrieve all readings from current cursor.
         
         Args:
             sep (str, optional): Separator to use for output and file, respectively. Defaults to ",".
+            slack (int, optional): Extends the beginning of the period by given mount of secondss. Defaults to 30.
             save (bool, optional): Should data be saved to file? Defaults to True.
             verbosity (int, optional): _description_. Defaults to 0.
 
@@ -1151,12 +1183,12 @@ class NEPH:
 
 
             if self.__protocol=='acoem':
-                if self.__sampling_interval is None:
-                    raise ValueError("'sampling_interval' cannot be None.")
+                if self.__get_data_interval is None:
+                    raise ValueError("'get_data_interval' cannot be None.")
                 result = []
                 end = datetime.datetime.now(datetime.timezone.utc)
-                start = end - datetime.timedelta(minutes=self.__sampling_interval)
-                self._tcpip_comm_wait_for_line()            
+                start = end - datetime.timedelta(minutes=self.__get_data_interval) - datetime.timedelta(seconds=slack)
+                self.tcpip_comm_wait_for_line()            
                 data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
                 if verbosity>0:
                     print(data)
@@ -1238,7 +1270,6 @@ class NEPH:
     def print_ssp_bssp(self) -> None:
         """Retrieve current readings and print."""
         try:
-            self._tcpip_comm_wait_for_line()
             data = self.get_values(parameters=[2635000, 2635090, 2525000, 2525090, 2450000, 2450090])
             data = f"ssp|bssp (Mm-1) r: {data[2635000]:0.4f}|{data[2635090]:0.4f} g: {data[2525000]:0.4f}|{data[2525090]:0.4f} b: {data[2450000]:0.4f}|{data[2450090]:0.4f}"
             print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
