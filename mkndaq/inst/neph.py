@@ -146,7 +146,7 @@ class NEPH:
             # get logging config and save to file
             logging_config = self.get_logging_config()
             if self.__verbosity>0:
-                print(f"  - Currently logged parametzers: {logging_config}.")
+                print(f"  - Currently logged parameters: {logging_config}.")
             self._logger.info(f"logging_config: {logging_config}")
 
         except Exception as err:
@@ -1186,8 +1186,9 @@ class NEPH:
                 if self.__get_data_interval is None:
                     raise ValueError("'get_data_interval' cannot be None.")
                 result = []
-                end = datetime.datetime.now(datetime.timezone.utc)
-                start = end - datetime.timedelta(minutes=self.__get_data_interval) - datetime.timedelta(seconds=slack)
+                # retrieve current time at minute resolution
+                end = datetime.datetime.now(datetime.timezone.utc).replace(second=0, microsecond=0)
+                start = end - datetime.timedelta(minutes=self.__get_data_interval) #- datetime.timedelta(seconds=slack)
                 self.tcpip_comm_wait_for_line()            
                 data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
                 if verbosity>0:
