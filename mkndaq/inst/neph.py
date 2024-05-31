@@ -5,7 +5,7 @@ Define a class NE300 facilitating communication with a Acoem NE-300 nephelometer
 """
 
 import os
-import datetime
+import datetime as dt
 import logging
 import shutil
 import socket
@@ -26,6 +26,8 @@ class NEPH:
     # __datadir = ""
     # __datafile = ""
     # __datafile_to_stage = None
+    # __datalog_interval = None
+    # __datalog_config = None
     # __logdir = None
     # __serial_id = None
     # __logfile = None
@@ -62,6 +64,8 @@ class NEPH:
             - config['staging']['path'])
             - config[name]['staging_zip']
             - config['protocol']
+            - config[name]['datalog']['parameters']
+            - config[name]['datalog']['interval']
         """
         colorama.init(autoreset=True)
 
@@ -100,6 +104,10 @@ class NEPH:
             else:
                 raise ValueError("Communication protocol not recognized.")
 
+            # data log
+            self.__datalog_config = config[name]['datalog']['parameters']
+            self.__datalog_interval = config[name]['datalog']['interval']
+
             # sampling, aggregation, reporting/storage
             self.__get_data_interval = config[name]['get_data_interval']
             self.__reporting_interval = config['reporting_interval']
@@ -134,20 +142,38 @@ class NEPH:
             # put instrument in ambient mode
             state = self.do_ambient(verbosity=verbosity)
             if state==0:
+                msg = "Instrument current operation: ambient."
                 if self.__verbosity>0:
-                    print(f"  - Instrument current operation: ambient.")
-                self._logger.info("Instrument current operation: ambient.")
+                    print(f"  - {msg}")
+                self._logger.info({msg})
             else:
-                warnings.warn(f"Could not verify {self.__name} measurement mode as 'ambient'.")
+                msg = f"Could not verify {self.__name} measurement mode as 'ambient'."
+                warnings.warn(msg)
+                self._logger.warn(msg)
 
             # get dtm from instrument, then set date and time
-            self.get_set_datetime(dtm=datetime.datetime.now())
+            dtm_found, dtm_set = self.get_set_datetime(dtm=dt.datetime.now(dt.timezone.utc))            
+            msg = f"dtm found: {dtm_found} > dtm set: {dtm_set}."
+            if verbosity>0:
+                print(f"  - {msg}")            
+            self._logger.info(msg)
 
-            # get logging config and save to file
-            logging_config = self.get_logging_config()
+            # set the logging config
+            logging_config = self.set_datalog_config(verbosity=verbosity)
+            msg = f"Logging config set to: {self.__datalog_config}."
             if self.__verbosity>0:
-                print(f"  - Currently logged parameters: {logging_config}.")
-            self._logger.info(f"logging_config: {logging_config}")
+                print(f"  - {msg}")
+            self._logger.info(msg)
+
+            # set datalog interval
+            datalog_interval = self.set_datalog_interval(verbosity=verbosity)
+            msg = f"Datalog interval set to {datalog_interval} seconds."
+            if self.__verbosity>0:
+                print(f"  - {msg}")
+            self._logger.info(msg)
+
+            # datetime to keep track of retrievals from datalog
+            self.__start_datalog = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
 
         except Exception as err:
             if self._log:
@@ -179,7 +205,7 @@ class NEPH:
             return b''
 
 
-    def _acoem_timestamp_to_datetime(self, timestamp: int) -> datetime.datetime:
+    def _acoem_timestamp_to_datetime(self, timestamp: int) -> dt.datetime:
         try:
             dtm = timestamp
             SS = dtm % 64
@@ -193,16 +219,16 @@ class NEPH:
             mm = dtm % 16
             yyyy = dtm // 16 + 2000
 
-            return datetime.datetime(yyyy, mm, dd, HH, MM, SS)
+            return dt.datetime(yyyy, mm, dd, HH, MM, SS)
 
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return datetime.datetime(1111, 1, 1)
+            return dt.datetime(1111, 1, 1)
 
 
-    def _acoem_datetime_to_timestamp(self, dtm: datetime.datetime=datetime.datetime.now()) -> bytes:
+    def _acoem_datetime_to_timestamp(self, dtm: dt.datetime=dt.datetime.now(dt.timezone.utc)) -> bytes:
         try:
             SS = bin(dtm.time().second)[2:].zfill(6)
             MM = bin(dtm.time().minute)[2:].zfill(6)
@@ -426,7 +452,7 @@ class NEPH:
         return error_map[error_code]
     
 
-    def _legacy_timestamp_to_date_time(self, fmt: str, dte: str, tme: str) -> datetime.datetime:
+    def _legacy_timestamp_to_date_time(self, fmt: str, dte: str, tme: str) -> dt.datetime:
         """Convert a legacy timestamp to datetime
 
         Args:
@@ -449,13 +475,13 @@ class NEPH:
                 fmt = "%Y-%m-%d"
             else:
                 raise ValueError("'fmt' not recognized.")
-            return datetime.datetime.strptime(f"{dte} {tme}", f"{fmt} %H:%M:%S")
+            return dt.datetime.strptime(f"{dte} {tme}", f"{fmt} %H:%M:%S")
 
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return datetime.datetime(1111, 1, 1, 1, 1, 1)
+            return dt.datetime(1111, 1, 1, 1, 1, 1)
         
 
     def _acoem_logged_data_to_string(self, data: list[dict], sep: str=',') -> str:
@@ -716,7 +742,7 @@ class NEPH:
             return int()
 
 
-    def get_logging_config(self, verbosity: int=0) -> list:
+    def get_datalog_config(self, verbosity: int=0) -> list:
         """
         A.3.7 Return the list of parameter IDs currently being logged. 
         It is sent with zero message data length.
@@ -744,7 +770,38 @@ class NEPH:
             return list()
 
 
-    def get_logged_data(self, start: datetime.datetime, end: datetime.datetime, verbosity: int=0) -> list[dict]:
+    def set_datalog_config(self, verbosity: int=0) -> list[int]:
+        """Pass datalog config to instrument. Verify configuration
+
+        Args:
+            verbosity (int, optional): _description_. Defaults to 0.
+
+        Returns:
+            list[int]: List of parameters logged.
+        """
+        try:
+            print("Not yet implemented.")
+            return list()
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+            return list()
+
+    
+    def set_datalog_interval(self, verbosity: int=0) -> int:
+        try:
+            datalog_interval = self.set_value(parameter_id=2002, value=self.__datalog_interval)
+            return datalog_interval
+
+        except Exception as err:
+            if self._log:
+                self._logger.error(err)
+            print(err)
+            return int()
+        
+
+    def get_logged_data(self, start: dt.datetime, end: dt.datetime, verbosity: int=0) -> list[dict]:
         """
         A.3.8 Requests all logged data over a specific date range.
 
@@ -897,7 +954,7 @@ class NEPH:
             return dict()
 
 
-    def get_datetime(self, verbosity: int=0) -> datetime.datetime:
+    def get_datetime(self, verbosity: int=0) -> dt.datetime:
         """Get date and time of instrument
 
         Parameters:
@@ -906,7 +963,7 @@ class NEPH:
         Returns:
             datetime.datetime: Date and time of instrument
         """
-        response = datetime.datetime(1111,1,1)
+        response = dt.datetime(int(), int(), int())
         try:
             if self.__protocol=="acoem":
                 msg = self._acoem_construct_message(4, 1)
@@ -929,8 +986,8 @@ class NEPH:
             return response
 
 
-    def get_set_datetime(self, dtm: datetime.datetime=datetime.datetime.now(), verbosity: int=1) -> None:
-        """Set date and time of instrument
+    def get_set_datetime(self, dtm: dt.datetime=dt.datetime.now(dt.timezone.utc), verbosity: int=0) -> tuple[dict, dict]:
+        """Get and then set date and time of instrument
 
         Parameters:
             dtm (datetime.datetime, optional): Date and time to be set. Defaults to time.gmtime().
@@ -947,33 +1004,28 @@ class NEPH:
                 # set dtm of instrument
                 payload = self._acoem_datetime_to_timestamp(dtm=dtm)
                 msg = self._acoem_construct_message(command=5, parameter_id=1, payload=payload)
-                self.tcpip_comm(message=msg, expect_response=False, verbosity=0)
+                self.tcpip_comm(message=msg, expect_response=False, verbosity=verbosity)
                 
                 # get new dtm from instrument
                 dtm_set = self.get_values(parameters=[1])[1].strftime('%Y-%m-%d %H:%M:%S')
+                return (dtm_found, dtm_set)
             else:
                 warnings.warn("Not implemented.")
-                dtm_found = dict()
-                dtm_set = dict()
+                return (dict(), dict())
                 # resp = self.tcpip_comm1(f"**{self.__serial_id}S{dtm.strftime('%H%M%S%d%m%y')}")
                 # msg = f"DateTime of instrument {self.__name} set to {dtm} ... {resp}"
                 # print(f"{dtm} {msg}")
                 # self._logger.info(msg)
-            
-            if verbosity>0:
-                msg = f"dtm found: {dtm_found} > dtm after set: {dtm_set}."
-                print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")            
-                self._logger.info(msg)
-            return
+
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-
+            return (dict(), dict())
 
     def do_zero_span_check(self, verbosity: int=0) -> None:
         """
-        Launch a zero check, followed by a span check.
+        Launch a zero check, followed by a span check. Finally, return to Ambient mode.
 
         Parameters:
             verbosity (int, optional): ...
@@ -981,43 +1033,40 @@ class NEPH:
         Returns:
             None
         """
-        dtm = now = datetime.datetime.now()
+        dtm = now = dt.datetime.now(dt.timezone.utc)
 
         # change operating state to ZERO
-        data = f"Switching to ZERO CHECK mode ..."
-        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
-        self.tcpip_comm_wait_for_line()
-        resp = self.set_current_operation(state=1, verbosity=verbosity)
+        msg = f"Switching to ZERO CHECK mode ..."
+        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
+        resp = self.do_zero(verbosity=verbosity)
         if resp==1:
             self._logger.info(f"Instrument switched to ZERO CHECK")
         else:
             self._logger.warning(f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'.")
-        while dtm < now + datetime.timedelta(minutes=self.__zero_check_duration):
-            now = datetime.datetime.now()
+        while dtm < now + dt.timedelta(minutes=self.__zero_check_duration):
+            now = dt.datetime.now(dt.timezone.utc)
             time.sleep(1)
         
         # change operating state to SPAN
-        data = f"Switching to SPAN CHECK mode ..."
-        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
-        self.tcpip_comm_wait_for_line()
-        resp = self.set_current_operation(state=2, verbosity=verbosity)
+        msg = f"Switching to SPAN CHECK mode ..."
+        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
+        resp = self.do_span(verbosity=verbosity)
         if resp==2:
             self._logger.info(f"Instrument switched to SPAN CHECK")
         else:
             self._logger.warning(f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'.")
-        while dtm < now + datetime.timedelta(minutes=self.__span_check_duration):
-            now = datetime.datetime.now()
+        while dtm < now + dt.timedelta(minutes=self.__span_check_duration):
+            now = dt.datetime.now(dt.timezone.utc)
             time.sleep(1)
         
         # change operating state to AMBIENT
-        data = f"Switching to AMBIENT mode."
-        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {data}")
-        self.tcpip_comm_wait_for_line()        
-        resp = self.set_current_operation(state=0, verbosity=verbosity)
+        msg = f"Switching to AMBIENT mode."
+        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
+        resp = self.do_ambient(verbosity=verbosity)
         if resp==0:
             self._logger.info(f"Instrument switched to AMBIENT mode")
         else:
-            self._logger.warning(f"Instrument mode should be '0' (AMBIENT) but was returned as '{resp}'.")
+            self._logger.warn(f"Instrument mode should be '0' (AMBIENT) but was returned as '{resp}'.")
         return
 
 
@@ -1031,6 +1080,7 @@ class NEPH:
         Returns:
             int: 2: span
         """
+        self.tcpip_comm_wait_for_line()
         return self.set_current_operation(state=2, verify=verify, verbosity=verbosity)
 
 
@@ -1044,6 +1094,7 @@ class NEPH:
         Returns:
             int: 1: zero
         """
+        self.tcpip_comm_wait_for_line()
         return self.set_current_operation(state=1, verify=verify, verbosity=verbosity)
     
 
@@ -1062,17 +1113,17 @@ class NEPH:
 
     
 
-    def get_status_word(self, verbosity: int=0) -> int:
-        """
-        Read the System status of the Aurora 3000 microprocessor board. The status word 
-        is the status of the nephelometer in hexadecimal converted to decimal.
+    # def get_status_word(self, verbosity: int=0) -> int:
+    #     """
+    #     Read the System status of the Aurora 3000 microprocessor board. The status word 
+    #     is the status of the nephelometer in hexadecimal converted to decimal.
 
-        Parameters:
+    #     Parameters:
     
-        Returns:
-            int: {<STATUS WORD>}
-        """
-        return int(self.tcpip_comm(f"VI{self.__serial_id}88\r".encode()).decode())
+    #     Returns:
+    #         int: {<STATUS WORD>}
+    #     """
+    #     return int(self.tcpip_comm(f"VI{self.__serial_id}88\r".encode()).decode())
 
 
     def get_all_data(self, verbosity: int=0) -> str:
@@ -1090,6 +1141,7 @@ class NEPH:
             if self.__protocol=="acoem":
                 warnings.warn("Not implemented. Use 'get_logged_data' with specified period instead.")
             elif self.__protocol=='legacy':
+                self.tcpip_comm_wait_for_line()
                 response = self.tcpip_comm(message=f"***R\r".encode(), verbosity=verbosity).decode()
                 response = self.get_new_data(verbosity=verbosity)
                 # response = self.tcpip_comm(message=f"***D\r".encode(), verbosity=verbosity).decode()
@@ -1132,12 +1184,7 @@ class NEPH:
                         data[1] = data[1].strftime(format=f"%d/%m/%Y{sep}%H:%M:%S")
                     response = sep.join([str(data[k]) for k, v in data.items()])
                     data = {99: response}
-                # dtm = self._acoem_timestamp_to_datetime(response[1])
-                # response[80] = dtm.strftime("%Y-%m-%d")
-                # response[81] = dtm.strftime("%H:%M:%S")
-                # response[1] = dtm
             elif self.__protocol=='legacy':
-                # response = self.get_values(parameters=parameters)
                 response = self.tcpip_comm(f"VI{self.__serial_id}99\r".encode(), verbosity=verbosity).decode()
                 response = response.replace(", ", ",")
                 if strict:
@@ -1147,8 +1194,6 @@ class NEPH:
                     response = response.split(',')
                     response = [response[0]] + [float(v) for v in response[1:]]
                     data = dict(zip(parameters, response))
-                # response.insert(2, datetime.datetime.strptime(f"{response[0]} {response[1]}", "%d/%m/%Y %H:%M:%S"))
-                # response = dict(zip(parameters, response))
             else:
                 raise ValueError("Protocol not recognized.")
             return data
@@ -1159,14 +1204,13 @@ class NEPH:
             return dict()
 
 
-    def get_new_data(self, sep: str=",", slack: int=30, save: bool=True, verbosity: int=0) -> str:
+    def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
         """
         For the acoem format: Retrieve all readings from (now - get_data_interval) until now.
         For the legacy format: Retrieve all readings from current cursor.
         
         Args:
             sep (str, optional): Separator to use for output and file, respectively. Defaults to ",".
-            slack (int, optional): Extends the beginning of the period by given mount of secondss. Defaults to 30.
             save (bool, optional): Should data be saved to file? Defaults to True.
             verbosity (int, optional): _description_. Defaults to 0.
 
@@ -1185,19 +1229,25 @@ class NEPH:
             if self.__protocol=='acoem':
                 if self.__get_data_interval is None:
                     raise ValueError("'get_data_interval' cannot be None.")
-                result = []
-                # retrieve current time at minute resolution
-                end = datetime.datetime.now(datetime.timezone.utc).replace(second=0, microsecond=0)
-                start = end - datetime.timedelta(minutes=self.__get_data_interval) #- datetime.timedelta(seconds=slack)
+                tmp = []
+
+                # define period ro retrieve and update state variable
+                start = self.__start_datalog
+                end = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
+                self.__start_datalog = end
+
+                # retrieve data
                 self.tcpip_comm_wait_for_line()            
                 data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
                 if verbosity>0:
                     print(data)
 
+                # prepare result
                 for d in data:
                     values = [str(d.pop('dtm'))] + [str(value) for key, value in d.items()]
-                    result.append(sep.join(values))
-                data = '\n'.join(result)
+                    tmp.append(sep.join(values))
+                data = '\n'.join(tmp)
+
             elif self.__protocol=='legacy':
                 data = self.tcpip_comm(f"***D\r".encode()).decode()
                 data = data.replace('\r\n\n', '\r\n').replace(", ", ",").replace(",", sep)
@@ -1210,6 +1260,7 @@ class NEPH:
             if save:
                 if self.__reporting_interval is None:
                     raise ValueError("'reporting_interval' cannot be None.")
+                
                 # generate the datafile name
                 self.__datafile = os.path.join(self.__datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
                                             "".join([self.__name, "-",
@@ -1221,15 +1272,15 @@ class NEPH:
                     fh.close()
 
                 if self.__staging:
-                    # stage data for transfer
                     self.stage_data_file()
+
             return data
         
         except Exception as err:
             if self._log:
                 self._logger.error(err)
             print(err)
-            return ''
+            return str()
 
 
     def stage_data_file(self) -> None:
@@ -1279,43 +1330,6 @@ class NEPH:
             if self._log:
                 self._logger.error(err)
             print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] produced error {err}.")
-
-
-    # def stage_log_file(self) -> None:
-    #     """Stage a file if it is no longer written to. This is determined by checking if the path 
-    #        of the file to be staged is different the path of the current (data)file.
-
-    #     Raises:
-    #         ValueError: _description_
-    #         ValueError: _description_
-    #         ValueError: _description_
-    #     """
-    #     try:
-    #         if self.__logfile is None:
-    #             raise ValueError("__logfile cannot be None.")
-    #         if self.__staging is None:
-    #             raise ValueError("__staging cannot be None.")
-    #         if self.__logdir is None:
-    #             raise ValueError("__logdir cannot be None.")
-
-    #         if self.__logfile_to_stage is None:
-    #             self.__logfile_to_stage = self.__logfile
-    #         elif self.__logfile_to_stage != self.__logfile:
-    #             root = os.path.join(self.__staging, self.__name, os.path.basename(self.__logdir))
-    #             os.makedirs(root, exist_ok=True)
-    #             if self.__zip:
-    #                 # create zip file
-    #                 archive = os.path.join(root, "".join([os.path.basename(self.__logfile_to_stage)[:-4], ".zip"]))
-    #                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    #                     zf.write(self.__logfile_to_stage, os.path.basename(self.__logfile_to_stage))
-    #             else:
-    #                 shutil.copyfile(self.__logfile_to_stage, os.path.join(root, os.path.basename(self.__logfile_to_stage)))
-    #             self.__logfile_to_stage = self.__logfile
-
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(err)
     
 
 # %%
