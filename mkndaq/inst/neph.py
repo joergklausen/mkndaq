@@ -12,7 +12,6 @@ import socket
 import struct
 import time
 import zipfile
-import timeit
 import warnings
 
 import colorama
@@ -160,7 +159,14 @@ class NEPH:
 
             # set the logging config
             logging_config = self.set_datalog_config(verbosity=verbosity)
-            msg = f"Logging config set to: {self.__datalog_config}."
+            msg = f"Logging config set to: {logging_config}."
+            if self.__verbosity>0:
+                print(f"  - {msg}")
+            self._logger.info(msg)
+
+            # get logging config
+            self.__datalog_config = self.get_datalog_config()[1:]
+            msg = f"Logging config reported by instrument: {self.__datalog_config}."
             if self.__verbosity>0:
                 print(f"  - {msg}")
             self._logger.info(msg)
@@ -780,8 +786,7 @@ class NEPH:
             list[int]: List of parameters logged.
         """
         try:
-            print("Not yet implemented.")
-            return list()
+            return ["'set_datalog_config' not yet implemented."]
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -1234,7 +1239,7 @@ class NEPH:
                 # define period ro retrieve and update state variable
                 start = self.__start_datalog
                 end = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
-                self.__start_datalog = end
+                self.__start_datalog = end + dt.timedelta(seconds=self.__datalog_interval)
 
                 # retrieve data
                 self.tcpip_comm_wait_for_line()            
@@ -1246,7 +1251,7 @@ class NEPH:
                 for d in data:
                     values = [str(d.pop('dtm'))] + [str(value) for key, value in d.items()]
                     tmp.append(sep.join(values))
-                data = '\n'.join(tmp)
+                data = '\n'.join(tmp) + '\n'
 
             elif self.__protocol=='legacy':
                 data = self.tcpip_comm(f"***D\r".encode()).decode()
