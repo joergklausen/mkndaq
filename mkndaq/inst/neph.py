@@ -7,6 +7,7 @@ Define a class NE300 facilitating communication with a Acoem NE-300 nephelometer
 import os
 import datetime as dt
 import logging
+import logging.handlers
 import shutil
 import socket
 import struct
@@ -76,11 +77,16 @@ class NEPH:
                 os.makedirs(logs, exist_ok=True)
                 logfile = f"{time.strftime('%Y%m%d')}.log"
                 self._logger = logging.getLogger(__name__)
-                logging.basicConfig(level=logging.DEBUG,
-                                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                                    datefmt='%y-%m-%d %H:%M:%S',
-                                    filename=str(os.path.join(logs, logfile)),
-                                    filemode='a')
+                # Create a rotating file handler
+                handler = logging.handlers.TimedRotatingFileHandler(logs, when='midnight', backupCount=5)                
+                formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+                handler.setFormatter(formatter)
+                self._logger.addHandler(handler)
+                # logging.basicConfig(level=logging.DEBUG,
+                #                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                #                     datefmt='%y-%m-%d %H:%M:%S',
+                #                     filename=str(os.path.join(logs, logfile)),
+                #                     filemode='a')
 
             # read instrument control properties for later use
             self.__name = name
@@ -411,11 +417,12 @@ class NEPH:
                 elif records[i][0]==0:
                     # data record
                     number_of_fields = int.from_bytes(records[i][12:16])
-                    values = [records[i][(16 +j*4):(16 + (j+1)*4)] for j in range(number_of_fields)]
+                    values = [records[i][(16 + j*4):(16 + (j+1)*4)] for j in range(number_of_fields)]
 
                     data = dict(zip(keys, values))
                     for k, v in data.items():
-                        data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else v#b''
+                        # data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else v
+                        data[k] = round(struct.unpack('>f', v)[0], 4) if (k>1000 and len(v)>0) else v
                     data['logging_interval'] = int.from_bytes(records[i][8:12])
                     data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8])).strftime('%Y-%m-%d %H:%M:%S')
                     if verbosity==1:
