@@ -73,12 +73,14 @@ class NEPH:
             # setup logging
             if 'logs' in config.keys():
                 self._log = True
-                logs = os.path.expanduser(config['logs'])
+                # logs = os.path.expanduser(config['logs'])
+                logs = config['logs']
                 os.makedirs(logs, exist_ok=True)
-                logfile = f"{time.strftime('%Y%m%d')}.log"
+                logfile = os.path.join(logs, f"{time.strftime('%Y%m%d')}.log")
                 self._logger = logging.getLogger(__name__)
+                self._logger.setLevel(logging.DEBUG)
                 # Create a rotating file handler
-                handler = logging.handlers.TimedRotatingFileHandler(logs, when='midnight', backupCount=5)                
+                handler = logging.handlers.TimedRotatingFileHandler(filename=logfile, when='midnight', backupCount=5)                
                 formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
                 handler.setFormatter(formatter)
                 self._logger.addHandler(handler)
@@ -380,11 +382,12 @@ class NEPH:
         return data
 
 
-    def _acoem_decode_logged_data(self, response: bytes, verbosity: int=0) -> list[dict]:
+    def _acoem_decode_logged_data(self, response: bytes, digits: int=5, verbosity: int=0) -> list[dict]:
         """Decode the binary response received from the instrument after sending command 7.
 
         Args:
             response (bytes): See A.3.8 in the manual for more information
+            digits (int, optional): (maximum) number of digits for floats
             verbosity (int, optional): _description_. Defaults to 0.
 
         Returns:
@@ -422,7 +425,7 @@ class NEPH:
                     data = dict(zip(keys, values))
                     for k, v in data.items():
                         # data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else v
-                        data[k] = round(struct.unpack('>f', v)[0], 4) if (k>1000 and len(v)>0) else v
+                        data[k] = round(struct.unpack('>f', v)[0], digits) if (k>1000 and len(v)>0) else v
                     data['logging_interval'] = int.from_bytes(records[i][8:12])
                     data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8])).strftime('%Y-%m-%d %H:%M:%S')
                     if verbosity==1:
