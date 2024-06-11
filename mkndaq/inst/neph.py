@@ -170,11 +170,11 @@ class NEPH:
             self._logger.info(msg)
 
             # set the logging config
-            logging_config = self.set_data_log_config(verify=False, verbosity=verbosity)
-            msg = f"Logging config set to: {logging_config}."
-            if self.__verbosity>0:
-                print(f"  - {msg}")
-            self._logger.info(msg)
+            # logging_config = self.set_data_log_config(verify=False, verbosity=verbosity)
+            # msg = f"Logging config set to: {logging_config}."
+            # if self.__verbosity>0:
+            #     print(f"  - {msg}")
+            # self._logger.info(msg)
 
             # get logging config
             self.__datalog_config = self.get_data_log_config()[1:]
@@ -739,16 +739,21 @@ class NEPH:
         try:
             response = int()
             if self.__protocol=='acoem':
-                payload = bytes([0,0,0,value])
+                # payload = bytes([0,0,0,value])
+                payload = (value).to_bytes(4)
                 message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
                 self.tcpip_comm_wait_for_line()                
                 self.tcpip_comm(message=message, expect_response=False, verbosity=verbosity)
                 if verify:
                     time.sleep(0.1)
+                    i = 0
                     while response!=value:
                         response = self.get_values(parameters=[parameter_id], verbosity=verbosity)[parameter_id]
                         # print(f"{time.perf_counter()} {response}")
                         time.sleep(0.1)
+                        i = i + 1
+                        if i > 100:
+                            break
                     return response
                 else:
                     return response
@@ -804,7 +809,7 @@ class NEPH:
             data_log_parameter_indexes = range(2004, 2036)
             data_log_parameters = iter(self.__data_log_parameters)
             for index in data_log_parameter_indexes:
-                self.set_value(index, next(data_log_parameters), verify=False)
+                self.set_value(index, next(data_log_parameters), verify=False, verbosity=2)
             data_log_wavelength_indexes = range(2037, 2069)            
             data_log_wavelengths = iter(self.__data_log_wavelengths)
             for index in data_log_wavelength_indexes:
