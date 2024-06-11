@@ -26,7 +26,7 @@ class NEPH:
     # __datadir = ""
     # __datafile = ""
     # __datafile_to_stage = None
-    # __datalog_interval = None
+    # __data_log_interval = None
     # __datalog_config = None
     # __logdir = None
     # __serial_id = None
@@ -64,8 +64,10 @@ class NEPH:
             - config['staging']['path'])
             - config[name]['staging_zip']
             - config['protocol']
-            - config[name]['datalog']['parameters']
-            - config[name]['datalog']['interval']
+            - config[name]['data_log']['parameters']
+            - config[name]['data_log']['wavelengths']
+            - config[name]['data_log']['angles']
+            - config[name]['data_log']['interval']
         """
         colorama.init(autoreset=True)
 
@@ -112,8 +114,10 @@ class NEPH:
                 raise ValueError("Communication protocol not recognized.")
 
             # data log
-            self.__datalog_config = config[name]['datalog']['parameters']
-            self.__datalog_interval = config[name]['datalog']['interval']
+            self.__data_log_parameters = config[name]['data_log']['parameters']
+            self.__data_log_wavelengths = config[name]['data_log']['wavelengths']
+            self.__data_log_angles = config[name]['data_log']['angles']
+            self.__data_log_interval = config[name]['data_log']['interval']
 
             # sampling, aggregation, reporting/storage
             self.__get_data_interval = config[name]['get_data_interval']
@@ -166,14 +170,14 @@ class NEPH:
             self._logger.info(msg)
 
             # set the logging config
-            logging_config = self.set_datalog_config(verbosity=verbosity)
+            logging_config = self.set_data_log_config(verify=False, verbosity=verbosity)
             msg = f"Logging config set to: {logging_config}."
             if self.__verbosity>0:
                 print(f"  - {msg}")
             self._logger.info(msg)
 
             # get logging config
-            self.__datalog_config = self.get_datalog_config()[1:]
+            self.__datalog_config = self.get_data_log_config()[1:]
             msg = f"Logging config reported by instrument: {self.__datalog_config}."
             if self.__verbosity>0:
                 print(f"  - {msg}")
@@ -655,7 +659,7 @@ class NEPH:
     def reset(self, verbosity: int=0) -> None:
         """
         A.3.4 Forces the analyser to do a full restart.
-        The payload must contain the letters REALLY exactly, as 6 4 byte words.
+        The payload must contain the letters REALLY exactly, as 6 4-byte words.
 
         Args:
             verbosity (int, optional): Verbosity for debugging purposes. Defaults to 0.
@@ -758,7 +762,7 @@ class NEPH:
             return int()
 
 
-    def get_datalog_config(self, verbosity: int=0) -> list:
+    def get_data_log_config(self, verbosity: int=0) -> list:
         """
         A.3.7 Return the list of parameter IDs currently being logged. 
         It is sent with zero message data length.
@@ -786,17 +790,33 @@ class NEPH:
             return list()
 
 
-    def set_datalog_config(self, verbosity: int=0) -> list[int]:
+    def set_data_log_config(self, verify: bool=False, verbosity: int=0) -> list[int]:
         """Pass datalog config to instrument. Verify configuration
 
         Args:
+            verify (bool, optional): Should the datalog configuration be queried and returned after setting it? Defaults to False.
             verbosity (int, optional): _description_. Defaults to 0.
 
         Returns:
             list[int]: List of parameters logged.
         """
         try:
-            return ["'set_datalog_config' not yet implemented."]
+            data_log_parameter_indexes = range(2004, 2036)
+            data_log_parameters = iter(self.__data_log_parameters)
+            for index in data_log_parameter_indexes:
+                self.set_value(index, next(data_log_parameters), verify=False)
+            data_log_wavelength_indexes = range(2037, 2069)            
+            data_log_wavelengths = iter(self.__data_log_wavelengths)
+            for index in data_log_wavelength_indexes:
+                self.set_value(index, next(data_log_wavelengths), verify=False)
+            data_log_angle_indexes = range(2070, 2102)
+            data_log_angles = iter(self.__data_log_angles)
+            for index in data_log_angle_indexes:
+                self.set_value(index, next(data_log_angles), verify=False)
+            if verify:
+                return self.get_data_log_config(verbosity=verbosity)
+            else:
+                return list()
         except Exception as err:
             if self._log:
                 self._logger.error(err)
@@ -806,7 +826,7 @@ class NEPH:
     
     def set_datalog_interval(self, verbosity: int=0) -> int:
         try:
-            datalog_interval = self.set_value(parameter_id=2002, value=self.__datalog_interval)
+            datalog_interval = self.set_value(parameter_id=2002, value=self.__data_log_interval)
             return datalog_interval
 
         except Exception as err:
@@ -1038,6 +1058,7 @@ class NEPH:
             print(err)
             return (dict(), dict())
 
+
     def do_zero_span_check(self, verbosity: int=0) -> None:
         """
         Launch a zero check, followed by a span check. Finally, return to Ambient mode.
@@ -1066,6 +1087,10 @@ class NEPH:
         msg = f"Switching to SPAN CHECK mode ..."
         print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
         resp = self.do_span(verbosity=verbosity)
+        
+        # open CO2 cylinder valve by setting digital out to HIGH
+        # resp2 = self.set_value(7005, 1)
+        # msg = f"CO2 cylinder valve 
         if resp==2:
             self._logger.info(f"Instrument switched to SPAN CHECK")
         else:
@@ -1249,7 +1274,7 @@ class NEPH:
                 # define period ro retrieve and update state variable
                 start = self.__start_datalog
                 end = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
-                self.__start_datalog = end + dt.timedelta(seconds=self.__datalog_interval)
+                self.__start_datalog = end + dt.timedelta(seconds=self.__data_log_interval)
 
                 # retrieve data
                 self.tcpip_comm_wait_for_line()            
