@@ -77,6 +77,26 @@ Update: Currently, data from /Data/sent are accessible as a netshare (mounted di
 #### Meteo
 Files are pushed by simple ftp to Minix and staged from there.
 
+#### Acoem NE-300
+Full control
+
+#### Aurora 3000
+n/a
+
+##### Firmware Release version: 1.39.000 (https://www.acoem.com/australasia/old-environmental-monitoring/aurora-firmware/)
+Release date: 14/08/2019
+Description of changes :
+- Improved timing and memory configuration to improve instrument stability
+- All readings from each measurement cycle can be logged. (i.e. every 3 seconds)
+- 1-minute data is now an average over the last clock minute (i.e. 12:50 to 12:51)
+- 5-minute data is the average of the last five one-minute averages
+- Sigmas, Measure Ratios or Counts can be Logged internally
+- Supports the Internal MFC Option
+- Supports Airodis 5.1.4 Demo version
+- No longer supports the Aurora Data Downloader. (!!)
+Note: When installing this new firmware Version, the Aurora 3000 may freeze for 20 minutes while it re configures the memory. Do not turn off.
+
+
 ### References
 - [0] https://realpython.com/pyinstaller-python/#customizing-your-builds
 - [1] https://itsfoss.com/share-folders-local-network-ubuntu-windows
