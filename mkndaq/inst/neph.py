@@ -255,7 +255,7 @@ class NEPH:
             mm = bin(dtm.date().month)[2:].zfill(4)
             yyyy = bin(dtm.date().year - 2000).zfill(6)
 
-            return (int(yyyy + mm + dd + HH + MM + SS, base=2)).to_bytes(4)
+            return (int(yyyy + mm + dd + HH + MM + SS, base=2)).to_bytes(4, byteorder='big')
 
         except Exception as err:
             if self._log:
@@ -304,11 +304,11 @@ class NEPH:
         """
         msg_data = bytes()
         if parameter_id>0:
-            msg_data = (parameter_id).to_bytes(4)
+            msg_data = (parameter_id).to_bytes(4, byteorder='big')
         if len(payload)>0:
             msg_data += payload
         msg_len = len(msg_data)
-        msg = bytes([2, self.__serial_id, command, 3]) + (msg_len).to_bytes(2) + msg_data
+        msg = bytes([2, self.__serial_id, command, 3]) + (msg_len).to_bytes(2, byteorder='big') + msg_data
         return msg + self._acoem_checksum(msg) + bytes([4])
     
 
@@ -323,13 +323,13 @@ class NEPH:
         Returns:
             list[int]: integers corresponding to the bytes returned. NB: The resulting integers may represent IEEE encoded floats, i.e., this conversion is only meaningful for certian responses.
         """
-        response_length = int(int.from_bytes(response[4:6]) / 4)
+        response_length = int(int.from_bytes(response[4:6], byteorder='big') / 4)
         if verbosity>1:
             print(f"response length : {response_length}")
         
         items = []
         for i in range(6, (response_length + 1) * 4 + 2, 4):
-            item = int.from_bytes(response[i:(i+4)])
+            item = int.from_bytes(response[i:(i+4)], byteorder='big')
 
             if verbosity>1:
                 print(f"response item{(i-2)/4:3.0f}: {item}")
@@ -350,7 +350,7 @@ class NEPH:
             dict: dictionary with parameters and corresponding values, decoded. Parameter 1 is decoded to datetime, the others to either int or float.
         """
         data = dict()
-        response_length = int(int.from_bytes(response[4:6]) / 4)
+        response_length = int(int.from_bytes(response[4:6], byteorder='big') / 4)
         if verbosity>1:
             print(f"response length : {response_length}")
 
@@ -366,7 +366,7 @@ class NEPH:
         # decode values
         for parameter, item in data_bytes.items():
             if parameter in [1, 2201]:
-                data[parameter] = self._acoem_timestamp_to_datetime(int.from_bytes(item))
+                data[parameter] = self._acoem_timestamp_to_datetime(int.from_bytes(item, byteorder='big'))
             elif ((parameter>1000 and parameter<5000) \
                   or (parameter>12000000 and parameter<13000000) \
                   or (parameter>14000000 and parameter<15000000) \
@@ -401,9 +401,9 @@ class NEPH:
         all = []
         if response[2] == 7:
             # command 7 (byte 3)
-            message_length = int(int.from_bytes(response[4:6]) / 4)
+            message_length = int(int.from_bytes(response[4:6], byteorder='big') / 4)
             response_body = response[6:-2]
-            fields_per_record = int.from_bytes(response_body[12:16])
+            fields_per_record = int.from_bytes(response_body[12:16], byteorder='big')
             items_per_record = fields_per_record + 4
             number_of_records = message_length // items_per_record
             if verbosity>1:
@@ -419,19 +419,18 @@ class NEPH:
             for i in range(number_of_records):
                 if records[i][0]==1:
                     # header record
-                    number_of_fields = int.from_bytes(records[i][12:16])
-                    keys = [int.from_bytes(records[i][(16 +j*4):(16 + (j+1)*4)]) for j in range(number_of_fields)]
+                    number_of_fields = int.from_bytes(records[i][12:16], byteorder='big')
+                    keys = [int.from_bytes(records[i][(16 +j*4):(16 + (j+1)*4)], byteorder='big') for j in range(number_of_fields)]
                 elif records[i][0]==0:
                     # data record
-                    number_of_fields = int.from_bytes(records[i][12:16])
+                    number_of_fields = int.from_bytes(records[i][12:16], byteorder='big')
                     values = [records[i][(16 + j*4):(16 + (j+1)*4)] for j in range(number_of_fields)]
 
                     data = dict(zip(keys, values))
                     for k, v in data.items():
-                        # data[k] = struct.unpack('>f', v)[0] if (k>1000 and len(v)>0) else v
                         data[k] = round(struct.unpack('>f', v)[0], digits) if (k>1000 and len(v)>0) else v
-                    data['logging_interval'] = int.from_bytes(records[i][8:12])
-                    data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8])).strftime('%Y-%m-%d %H:%M:%S')
+                    data['logging_interval'] = str(int.from_bytes(records[i][8:12], byteorder='big')
+                    data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8], byteorder='big')).strftime('%Y-%m-%d %H:%M:%S')
                     if verbosity==1:
                         print(data)
                     if verbosity>1:
