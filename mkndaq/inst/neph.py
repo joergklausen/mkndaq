@@ -429,7 +429,7 @@ class NEPH:
                     data = dict(zip(keys, values))
                     for k, v in data.items():
                         data[k] = round(struct.unpack('>f', v)[0], digits) if (k>1000 and len(v)>0) else v
-                    data['logging_interval'] = str(int.from_bytes(records[i][8:12], byteorder='big')
+                    data['logging_interval'] = int.from_bytes(records[i][8:12], byteorder='big')
                     data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8], byteorder='big')).strftime('%Y-%m-%d %H:%M:%S')
                     if verbosity==1:
                         print(data)
@@ -699,9 +699,9 @@ class NEPH:
             if self.__protocol=='acoem':
                 msg_data = b''
                 for p in parameters:
-                    msg_data += (p).to_bytes(4)
+                    msg_data += (p).to_bytes(4, byteorder='big')
                 msg_len = len(msg_data)
-                msg = bytes([2, self.__serial_id, 4, 3]) + (msg_len).to_bytes(2) + msg_data
+                msg = bytes([2, self.__serial_id, 4, 3]) + (msg_len).to_bytes(2, byteorder='big') + msg_data
                 msg += self._acoem_checksum(msg) + bytes([4])
                 self.tcpip_comm_wait_for_line()                
                 response = self.tcpip_comm(message=msg, verbosity=verbosity)
@@ -739,7 +739,7 @@ class NEPH:
             response = int()
             if self.__protocol=='acoem':
                 # payload = bytes([0,0,0,value])
-                payload = (value).to_bytes(4)
+                payload = (value).to_bytes(4, byteorder='big')
                 message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
                 self.tcpip_comm_wait_for_line()                
                 self.tcpip_comm(message=message, expect_response=False, verbosity=verbosity)
