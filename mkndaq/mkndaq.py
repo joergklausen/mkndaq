@@ -44,7 +44,8 @@ def main():
         description='Data acquisition and transfer for MKN Global GAW Station.',
         usage='mkndaq[.exe] [-s] -c')
     parser.add_argument('-c', '--configuration', type=str, help='path to configuration file', 
-                        default=os.path.expanduser('~dist/mkndaq.cfg'), required=False)
+                        default='dist/mkndaq.cfg', required=False)
+#                        default=os.path.expanduser('~dist\mkndaq.cfg'), required=False)
     parser.add_argument('-f', '--fetch', type=int, default=20,
                         help='interval in seconds to fetch and display current instrument data',
                         required=False)
@@ -76,7 +77,7 @@ def main():
 
     try:
         # initialize data transfer, set up remote folders
-        if cfg.get(['sftp'], None):
+        if cfg.get('sftp', None):
             sftp = SFTPClient(config=cfg)
             sftp.setup_remote_folders()
 
@@ -87,6 +88,12 @@ def main():
         # initialize instruments, get and set configurations and define schedules
         # NB: In case more instruments should be handled, the relevant calls need to be included here below.
         try:
+            if cfg.get('ne300', None):
+                from mkndaq.inst.neph import NEPH
+                ne300 = NEPH(name='ne300', config=cfg)
+                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
+                schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)                
+                schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
             if cfg.get('tei49c', None):
                 from mkndaq.inst.tei49c import TEI49C
                 tei49c = TEI49C(name='tei49c', config=cfg, simulate=simulate)
@@ -129,12 +136,6 @@ def main():
                 schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
                 schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
-            if cfg.get('ne300', None):
-                from mkndaq.inst.neph import NEPH
-                ne300 = NEPH(name='ne300', config=cfg)
-                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
-                schedule.every(cfg['ne300']['sampling_interval']).minutes.at(':00').do(run_threaded, ne300.get_new_data)
-                schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
 
         except Exception as err:
             if logs:
@@ -152,6 +153,11 @@ def main():
         schedule.every(cfg['reporting_interval']).minutes.at(':20').do(run_threaded, sftp.xfer_r)
 
         print("# Begin data acquisition and file transfer")
+
+        # align start with a 10' timestamp
+        while int(time.time()) % 10 > 0:
+            time.sleep(0.1)
+
         while True:
             schedule.run_pending()
             time.sleep(1)

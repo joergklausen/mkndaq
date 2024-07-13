@@ -280,7 +280,7 @@ class AE33:
                         cmd=f"FETCH Data {data_begin_read_id} {data_begin_read_id + chunk_size}"
                     else:
                         cmd=f"FETCH Data {data_begin_read_id} {maxid}"
-                    print(f"                    {cmd}")
+                    #print(f"                    {cmd}")
                     data = self.tcpip_comm(cmd, tidy=True)
                     data_begin_read_id += chunk_size + 1
                 # set data_begin_read_id
