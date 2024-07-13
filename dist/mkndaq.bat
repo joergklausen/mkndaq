@@ -1,5 +1,6 @@
 @echo off
-set a=c:/users/mkn/mkndaq
+rem set a=c:/users/mkn/mkndaq
+set a=c:/users/mkn/Documents/git/mkndaq/dist
 set b=mkndaq.exe
 set c=mkndaq.cfg
 set d=%a%/%b% -c %a%/%c%

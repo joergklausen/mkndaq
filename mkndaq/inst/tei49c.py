@@ -380,7 +380,7 @@ class TEI49C:
             o3 = self.serial_comm('O3').split()
             self.__serial.close()
 
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {o3[0]} {str(float(o3[1]))} {o3[2]}")
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
 
         except Exception as err:
             if self._log:

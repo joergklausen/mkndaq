@@ -501,9 +501,7 @@ class TEI49I:
                 o3 = self.serial_comm('O3').split()
             else:
                 o3 = self.tcpip_comm('O3').split()
-            print(colorama.Fore.GREEN + "%s [%s] %s %s %s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
-                                                        self.__name,
-                                                        o3[0], str(float(o3[1])), o3[2]))
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
 
         except Exception as err:
             if self._log:

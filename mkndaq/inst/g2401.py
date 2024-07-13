@@ -146,7 +146,7 @@ class G2401:
     def print_co2_ch4_co(self) -> None:
         try:
             conc = self.tcpip_comm("_Meas_GetConc").split(';')[0:3]
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] CO2 {conc[0]} ppm  CH4 {conc[1]} ppm  CO {conc[1]} ppm")
+            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] CO2 {conc[0]} ppm  CH4 {conc[1]} ppm  CO {conc[2]} ppm")
 
         except Exception as err:
             if self._log:

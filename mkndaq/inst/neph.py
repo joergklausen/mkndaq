@@ -63,7 +63,7 @@ class NEPH:
             - config[name]['span_check_duration']
             - config['staging']['path'])
             - config[name]['staging_zip']
-            - config['protocol']
+            - config[name]['protocol']
             - config[name]['data_log']['parameters']
             - config[name]['data_log']['wavelengths']
             - config[name]['data_log']['angles']
@@ -108,10 +108,10 @@ class NEPH:
             self.__tcpip_line_is_busy = False
 
             # configure comms protocol
-            if config[name]['protocol'] in ["acoem", "legacy"]:
-                self.__protocol = config[name]['protocol']
-            else:
-                raise ValueError("Communication protocol not recognized.")
+            #if config[name]['protocol'] in ["acoem", "legacy"]:
+            self.__protocol = config[name]['protocol']
+            #else:
+            #    raise ValueError("Communication protocol not recognized.")
 
             # data log
             self.__data_log_parameters = config[name]['data_log']['parameters']
@@ -136,6 +136,7 @@ class NEPH:
 
             # staging area for files to be transfered
             self.__staging = os.path.expanduser(config['staging']['path'])
+            os.makedirs(self.__staging, exist_ok=True)
             self.__datafile_to_stage = None
             self.__zip = config[name]['staging_zip']
 
@@ -312,7 +313,7 @@ class NEPH:
         return msg + self._acoem_checksum(msg) + bytes([4])
     
 
-    def _acoem_bytes2int(self, response: bytes, verbosity: int=0) -> list[int]:
+    def _acoem_bytes2int(self, response: bytes, verbosity: int=0) -> 'list[int]':
         """Convert byte response obtained from instrument into integers. 
     
 
@@ -338,7 +339,7 @@ class NEPH:
         return items
 
 
-    def _acoem_response2values(self, parameters: list[int], response: bytes, verbosity: int=0) -> dict:
+    def _acoem_response2values(self, parameters: 'list[int]', response: bytes, verbosity: int=0) -> dict:
         """Convert byte response obtained from instrument into integers, floats or datetime, depending on parameter.     
 
         Args:
@@ -386,7 +387,7 @@ class NEPH:
         return data
 
 
-    def _acoem_decode_logged_data(self, response: bytes, digits: int=5, verbosity: int=0) -> list[dict]:
+    def _acoem_decode_logged_data(self, response: bytes, digits: int=5, verbosity: int=0) -> 'list[dict]':
         """Decode the binary response received from the instrument after sending command 7.
 
         Args:
@@ -503,7 +504,7 @@ class NEPH:
             return dt.datetime(1111, 1, 1, 1, 1, 1)
         
 
-    def _acoem_logged_data_to_string(self, data: list[dict], sep: str=',') -> str:
+    def _acoem_logged_data_to_string(self, data: 'list[dict]', sep: str=',') -> str:
         """Convert data retrieved using the get_logged_data to a string format ready for saving.
 
         Args:
@@ -682,7 +683,7 @@ class NEPH:
             print(err)
     
 
-    def get_values(self, parameters: list[int], verbosity: int=0) -> dict:
+    def get_values(self, parameters: 'list[int]', verbosity: int=0) -> dict:
         """
         Requests the value of one or more instrument parameters.
         If the ACOEM protocol is used, cf. A.3.5 Get Values, with A.4 List of Aurora parameters.
@@ -794,7 +795,7 @@ class NEPH:
             return list()
 
 
-    def set_data_log_config(self, verify: bool=False, verbosity: int=0) -> list[int]:
+    def set_data_log_config(self, verify: bool=False, verbosity: int=0) -> 'list[int]':
         """Pass datalog config to instrument. Verify configuration
 
         Args:
@@ -840,7 +841,7 @@ class NEPH:
             return int()
         
 
-    def get_logged_data(self, start: dt.datetime, end: dt.datetime, verbosity: int=0) -> list[dict]:
+    def get_logged_data(self, start: dt.datetime, end: dt.datetime, verbosity: int=0) -> 'list[dict]':
         """
         A.3.8 Requests all logged data over a specific date range.
 
@@ -954,7 +955,7 @@ class NEPH:
             return 9
 
 
-    def get_id(self, verbosity: int=0) -> dict[str, str]:
+    def get_id(self, verbosity: int=0) -> 'dict[str, str]':
         """Get instrument type, s/w, firmware versions
 
         Parameters:
@@ -1025,7 +1026,7 @@ class NEPH:
             return response
 
 
-    def get_set_datetime(self, dtm: dt.datetime=dt.datetime.now(dt.timezone.utc), verbosity: int=0) -> tuple[dict, dict]:
+    def get_set_datetime(self, dtm: dt.datetime=dt.datetime.now(dt.timezone.utc), verbosity: int=0) -> 'tuple[dict, dict]':
         """Get and then set date and time of instrument
 
         Parameters:
@@ -1077,19 +1078,20 @@ class NEPH:
 
         # change operating state to ZERO
         msg = f"Switching to ZERO CHECK mode ..."
-        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
+        print(colorama.Fore.BLUE + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
         resp = self.do_zero(verbosity=verbosity)
         if resp==1:
             self._logger.info(f"Instrument switched to ZERO CHECK")
         else:
             self._logger.warning(f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'.")
-        while dtm < now + dt.timedelta(minutes=self.__zero_check_duration):
+        while now < dtm + dt.timedelta(minutes=self.__zero_check_duration):
             now = dt.datetime.now(dt.timezone.utc)
             time.sleep(1)
         
         # change operating state to SPAN
+        dtm = now = dt.datetime.now(dt.timezone.utc)
         msg = f"Switching to SPAN CHECK mode ..."
-        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
+        print(colorama.Fore.BLUE + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
         resp = self.do_span(verbosity=verbosity)
         
         # open CO2 cylinder valve by setting digital out to HIGH
@@ -1099,13 +1101,13 @@ class NEPH:
             self._logger.info(f"Instrument switched to SPAN CHECK")
         else:
             self._logger.warning(f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'.")
-        while dtm < now + dt.timedelta(minutes=self.__span_check_duration):
+        while now < dtm + dt.timedelta(minutes=self.__span_check_duration):
             now = dt.datetime.now(dt.timezone.utc)
             time.sleep(1)
         
         # change operating state to AMBIENT
         msg = f"Switching to AMBIENT mode."
-        print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
+        print(colorama.Fore.BLUE + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.__name}] {msg}")
         resp = self.do_ambient(verbosity=verbosity)
         if resp==0:
             self._logger.info(f"Instrument switched to AMBIENT mode")
