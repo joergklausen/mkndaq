@@ -30,7 +30,11 @@ def run_threaded(job_func):
 def main():
     """Read config file, set up instruments, and launch data acquisition."""
     colorama.init(autoreset=True)
-    version = 'v0.7.0'
+    with open('setup.py', 'r') as fh:
+        for line in fh:
+            if 'version=' in line:
+                version = line.split('version=')[1].split(',')[0].strip().strip("'\"")
+    # version = 'v0.7.0'
     print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
     print(f"Supports following instruments (depending on configuration):")
     print(f" - TEI49C, Thermo 49i")

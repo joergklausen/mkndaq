@@ -318,7 +318,7 @@ class SFTPClient:
             # localpath = re.sub(r'(/?\.?\\){1,2}', '/', localpath)
 
             if remotepath is None:
-                remotepath = '.'
+                remotepath = '.mkn'
 
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .xfer_r (source: {localpath}, target: {cls._sftphost}/{cls._sftpusr}/{remotepath})")
 
