@@ -17,6 +17,8 @@ import colorama
 
 from mkndaq.utils.configparser import config
 from mkndaq.utils.filetransfer import SFTPClient
+from mkndaq.utils.utils import setup_logging
+
 
 def run_threaded(job_func):
     """Set up threading and start job.
@@ -27,22 +29,9 @@ def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
     job_thread.start()
 
+
 def main():
     """Read config file, set up instruments, and launch data acquisition."""
-    colorama.init(autoreset=True)
-    with open('setup.py', 'r') as fh:
-        for line in fh:
-            if 'version=' in line:
-                version = line.split('version=')[1].split(',')[0].strip().strip("'\"")
-    # version = 'v0.7.0'
-    print(f"###  MKNDAQ ({version}) started on {time.strftime('%Y-%m-%d %H:%M')}")
-    print(f"Supports following instruments (depending on configuration):")
-    print(f" - TEI49C, Thermo 49i")
-    print(f" - aerosol (file transfer only)")
-    print(f" - Picarro G2401 (file transfer only)")
-    print(f" - Magee AE33")
-    print(f" - Acoem NE-300")
-
     # collect and interprete CLI arguments
     parser = argparse.ArgumentParser(
         description='Data acquisition and transfer for MKN Global GAW Station.',
@@ -53,66 +42,78 @@ def main():
     parser.add_argument('-f', '--fetch', type=int, default=20,
                         help='interval in seconds to fetch and display current instrument data',
                         required=False)
-    parser.add_argument('-s', '--simulate', action='store_true', default=False,
-                        help='simulate communication with instruments', required=False)
     args = parser.parse_args()
-    simulate = args.simulate
     fetch = args.fetch
     config_file = args.configuration
 
     # read config file
     cfg = config(config_file)
 
-    # setup logging
-    logs = os.path.expanduser(cfg['logs'])
-    os.makedirs(logs, exist_ok=True)
-    logfile = os.path.join(logs,
-                            '%s.log' % time.strftime('%Y%m%d'))
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                        datefmt='%y-%m-%d %H:%M:%S',
-                        filename=str(logfile),
-                        filemode='a')
-    logging.getLogger('schedule').setLevel(level=logging.ERROR)
-    logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
+    # # setup logging
+    # logs = os.path.expanduser(cfg['logs'])
+    # os.makedirs(logs, exist_ok=True)
+    # logfile = os.path.join(logs,
+    #                         '%s.log' % time.strftime('%Y%m%d'))
+    # logger = logging.getLogger(__name__)
+    # logging.basicConfig(level=logging.DEBUG,
+    #                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+    #                     datefmt='%y-%m-%d %H:%M:%S',
+    #                     filename=str(logfile),
+    #                     filemode='a')
+    # logging.getLogger('schedule').setLevel(level=logging.ERROR)
+    # logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
+    # logger.info("=== mkndaq (%s) started ===" % version)
 
-    logger.info("=== mkndaq (%s) started ===" % version)
+    # setup logging
+    logfile = os.path.join(os.path.expanduser(config['root']), config['logging']['file'])
+    logger = setup_logging(file=logfile)
+
+    colorama.init(autoreset=True)
+
+    # get version from setup.py
+    version = 'vx.y.z'
+    with open('setup.py', 'r') as fh:
+        for line in fh:
+            if 'version=' in line:
+                version = line.split('version=')[1].split(',')[0].strip().strip("'\"")
+    # version = 'v0.7.0'
+
+    # Inform user on what's going on
+    logger.info(f"==  MKNDAQ ({version}) started =====================")
+    logger.info(f"Instruments supported (depending on configuration):")
+    logger.info(f" - TEI49C, Thermo 49i")
+    logger.info(f" - aerosol (file transfer only)")
+    logger.info(f" - Picarro G2401 (file transfer only)")
+    logger.info(f" - Magee AE33")
+    logger.info(f" - Acoem NE-300")
 
     try:
         # initialize data transfer, set up remote folders
-        if cfg.get('sftp', None):
-            sftp = SFTPClient(config=cfg)
-            sftp.setup_remote_folders()
+        sftp = SFTPClient(config=cfg)
+        sftp.setup_remote_folders()
 
-            # stage most recent config file
-            print("%s Staging current config file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
-            sftp.stage_current_config_file(config_file)
+        # stage most recent config file
+        print("%s Staging current config file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        sftp.stage_current_config_file(config_file)
 
         # initialize instruments, get and set configurations and define schedules
         # NB: In case more instruments should be handled, the relevant calls need to be included here below.
         try:
-            if cfg.get('ne300', None):
-                from mkndaq.inst.neph import NEPH
-                ne300 = NEPH(name='ne300', config=cfg)
-                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
-                schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)                
-                schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
             if cfg.get('tei49c', None):
                 from mkndaq.inst.tei49c import TEI49C
-                tei49c = TEI49C(name='tei49c', config=cfg, simulate=simulate)
+                tei49c = TEI49C(name='tei49c', config=cfg)
                 schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49c.get_data)
                 schedule.every(6).hours.at(':00').do(run_threaded, tei49c.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
             if cfg.get('tei49i', None):
                 from mkndaq.inst.tei49i import TEI49I
-                tei49i = TEI49I(name='tei49i', config=cfg, simulate=simulate)
+                tei49i = TEI49I(name='tei49i', config=cfg)
                 schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i.get_data)
                 schedule.every().day.at('00:00').do(run_threaded, tei49i.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
             if cfg.get('tei49i_2', None):
                 from mkndaq.inst.tei49i import TEI49I
-                tei49i_2 = TEI49I(name='tei49i_2', config=cfg, simulate=simulate)
+                tei49i_2 = TEI49I(name='tei49i_2', config=cfg)
                 schedule.every(cfg['tei49i_2']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i_2.get_data)
                 schedule.every().day.at('00:00').do(run_threaded, tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(run_threaded, tei49i_2.print_o3)
@@ -140,11 +141,15 @@ def main():
                 schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
                 schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
+            if cfg.get('ne300', None):
+                from mkndaq.inst.neph import NEPH
+                ne300 = NEPH(name='ne300', config=cfg)
+                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
+                schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)                
+                schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
 
         except Exception as err:
-            if logs:
-                logger.error(err)
-            print(err)
+            logger.error(err)
 
         # stage most recent log file and define schedule
         print("%s Staging current log file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
@@ -167,9 +172,7 @@ def main():
             time.sleep(1)
 
     except Exception as err:
-        if logs:
-            logger.error(err)
-        print(err)
+        logger.error(err)
 
 
 if __name__ == '__main__':
