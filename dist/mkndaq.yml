@@ -94,7 +94,6 @@ tei49c:
     staging_zip: True
 
 tei49i:
-    type: TEI49I
     id: 49
     serial_number: 49I-B1NAA-12103910681
     socket:
@@ -128,8 +127,9 @@ tei49i:
         - set lrec format 0     # ASCII no labels
         - set save params
     get_data: lr00
-    data_header: pcdate pctime time date flags o3 hio3 cellai cellbi bncht lmpt o3lt flowa flowb pres
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+    reporting_inteval: 10
+    staging: staging/tei49i
     staging_zip: True
 
 ne300:
@@ -208,7 +208,7 @@ aerosol:
       
 
 # new entries for v0.8
-root: c:/users/mkn/Documents/mkndaq
+root: ~/Documents/mkndaq
 
 logging:
 # NB: specify file relative to root

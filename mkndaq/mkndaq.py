@@ -9,15 +9,15 @@ This relies on https://schedule.readthedocs.io/en/stable/index.html.
 """
 import os
 import argparse
-import logging
+# import logging
 import time
 import threading
 import schedule
 import colorama
 
-from mkndaq.utils.configparser import config
+# from mkndaq.utils.configparser import config
 from mkndaq.utils.filetransfer import SFTPClient
-from mkndaq.utils.utils import setup_logging
+from mkndaq.utils.utils import load_config, setup_logging
 
 
 def run_threaded(job_func):
@@ -32,13 +32,12 @@ def run_threaded(job_func):
 
 def main():
     """Read config file, set up instruments, and launch data acquisition."""
-    # collect and interprete CLI arguments
+    # collect and parse CLI arguments
     parser = argparse.ArgumentParser(
         description='Data acquisition and transfer for MKN Global GAW Station.',
-        usage='mkndaq[.exe] [-s] -c')
-    parser.add_argument('-c', '--configuration', type=str, help='path to configuration file', 
-                        default='dist/mkndaq.cfg', required=False)
-#                        default=os.path.expanduser('~dist\mkndaq.cfg'), required=False)
+        usage='python3 mkndaq.py|mkndaq.exe -c [-f]')
+    parser.add_argument('-c', '--configuration', type=str, help='full path to configuration file', 
+                        default='dist/mkndaq.yml', required=False)
     parser.add_argument('-f', '--fetch', type=int, default=20,
                         help='interval in seconds to fetch and display current instrument data',
                         required=False)
@@ -46,26 +45,12 @@ def main():
     fetch = args.fetch
     config_file = args.configuration
 
-    # read config file
-    cfg = config(config_file)
 
-    # # setup logging
-    # logs = os.path.expanduser(cfg['logs'])
-    # os.makedirs(logs, exist_ok=True)
-    # logfile = os.path.join(logs,
-    #                         '%s.log' % time.strftime('%Y%m%d'))
-    # logger = logging.getLogger(__name__)
-    # logging.basicConfig(level=logging.DEBUG,
-    #                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-    #                     datefmt='%y-%m-%d %H:%M:%S',
-    #                     filename=str(logfile),
-    #                     filemode='a')
-    # logging.getLogger('schedule').setLevel(level=logging.ERROR)
-    # logging.getLogger('paramiko.transport').setLevel(level=logging.ERROR)
-    # logger.info("=== mkndaq (%s) started ===" % version)
+    # load configuation
+    cfg = load_config(config_file=config_file)
 
     # setup logging
-    logfile = os.path.join(os.path.expanduser(config['root']), config['logging']['file'])
+    logfile = os.path.join(os.path.expanduser(str(cfg['root'])), cfg['logging']['file'])
     logger = setup_logging(file=logfile)
 
     colorama.init(autoreset=True)
@@ -76,7 +61,6 @@ def main():
         for line in fh:
             if 'version=' in line:
                 version = line.split('version=')[1].split(',')[0].strip().strip("'\"")
-    # version = 'v0.7.0'
 
     # Inform user on what's going on
     logger.info(f"==  MKNDAQ ({version}) started =====================")
@@ -93,7 +77,7 @@ def main():
         sftp.setup_remote_folders()
 
         # stage most recent config file
-        print("%s Staging current config file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        logger.info(f"Staging current config file {config_file}")
         sftp.stage_current_config_file(config_file)
 
         # initialize instruments, get and set configurations and define schedules
@@ -106,15 +90,17 @@ def main():
                 schedule.every(6).hours.at(':00').do(run_threaded, tei49c.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
             if cfg.get('tei49i', None):
-                from mkndaq.inst.tei49i import TEI49I
-                tei49i = TEI49I(name='tei49i', config=cfg)
-                schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i.get_data)
+                from mkndaq.inst.thermo import Thermo49i
+                tei49i = Thermo49i(name='tei49i', config=cfg)
+                tei49i.setup_schedules()
+                # schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i.accumulate_lr00)
                 schedule.every().day.at('00:00').do(run_threaded, tei49i.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
             if cfg.get('tei49i_2', None):
-                from mkndaq.inst.tei49i import TEI49I
-                tei49i_2 = TEI49I(name='tei49i_2', config=cfg)
-                schedule.every(cfg['tei49i_2']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i_2.get_data)
+                from mkndaq.inst.thermo import Thermo49i
+                tei49i_2 = Thermo49i(name='tei49i_2', config=cfg)
+                tei49i_2.setup_schedules()
+                # schedule.every(cfg['tei49i_2']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i_2.accumulate_lr00)
                 schedule.every().day.at('00:00').do(run_threaded, tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(run_threaded, tei49i_2.print_o3)
             if cfg.get('g2401', None):
@@ -141,27 +127,27 @@ def main():
                 schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
                 schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
-            if cfg.get('ne300', None):
-                from mkndaq.inst.neph import NEPH
-                ne300 = NEPH(name='ne300', config=cfg)
-                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
-                schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)                
-                schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
+            # if cfg.get('ne300', None):
+            #     from mkndaq.inst.neph import NEPH
+            #     ne300 = NEPH(name='ne300', config=cfg)
+            #     schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
+            #     schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)                
+            #     schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
 
         except Exception as err:
             logger.error(err)
 
         # stage most recent log file and define schedule
-        print("%s Staging current log file ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        logger.info("Staging current log file ...")
         sftp.stage_current_log_file()
         schedule.every().day.at('00:00').do(sftp.stage_current_log_file)
 
         # transfer any existing staged files and define schedule for data transfer
-        print("%s Transfering existing staged files ..." % time.strftime('%Y-%m-%d %H:%M:%S'))
+        logger.info("Transfering existing staged files ...")
         sftp.xfer_r()
         schedule.every(cfg['reporting_interval']).minutes.at(':20').do(run_threaded, sftp.xfer_r)
 
-        print("# Begin data acquisition and file transfer")
+        logger.info("Beginning data acquisition and file transfer")
 
         # align start with a 10' timestamp
         while int(time.time()) % 10 > 0:

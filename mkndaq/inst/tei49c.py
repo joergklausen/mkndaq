@@ -43,7 +43,6 @@ class TEI49C:
             - config[name]['sampling_interval']
             - config['reporting_interval']
             - config['data']
-            - config['logs']: default=True, write information to logfile
             - config['staging']['path']
             - config['staging']['zip']
         """
@@ -53,31 +52,32 @@ class TEI49C:
             # configure logging
             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
+            self.logger.info(f"[{self._name}] Initializing TEI49C (S/N: {self._serial_number})")
 
             # read instrument control properties for later use
             self._name = name
             self._id = config[name]['id'] + 128
             self._type = config[name]['type']
-            self.__serial_number = config[name]['serial_number']
-            self.__get_config = config[name]['get_config']
-            self.__set_config = config[name]['set_config']
-            self.__get_data = config[name]['get_data']
-            self.__data_header = config[name]['data_header']
+            self._serial_number = config[name]['serial_number']
+            self._get_config = config[name]['get_config']
+            self._set_config = config[name]['set_config']
+            self._get_data = config[name]['get_data']
+            self._data_header = config[name]['data_header']
 
             # configure serial port
             port = config[name]['port']
-            self.__serial = serial.Serial(port=port,
+            self._serial = serial.Serial(port=port,
                                         baudrate=config[port]['baudrate'],
                                         bytesize=config[port]['bytesize'],
                                         parity=config[port]['parity'],
                                         stopbits=config[port]['stopbits'],
                                         timeout=config[port]['timeout'])
-            if self.__serial.is_open:
-                self.__serial.close()
+            if self._serial.is_open:
+                self._serial.close()
 
             # sampling, aggregation, reporting/storage
             # self._sampling_interval = config[name]['sampling_interval']
-            self.__reporting_interval = config['reporting_interval']
+            self._reporting_interval = config['reporting_interval']
 
             # setup data directory
             data_path = os.path.expanduser(config['data'])
@@ -85,10 +85,10 @@ class TEI49C:
             os.makedirs(self._data_path, exist_ok=True)
 
             # staging area for files to be transfered
-            self.__staging = os.path.expanduser(config['staging']['path'])
-            self.__zip = config[name]['staging_zip']
+            self._staging = os.path.expanduser(config['staging']['path'])
+            self._file_to_stage = str()
+            self._zip = config[name]['staging_zip']
 
-            self.logger.info(f"Initialize TEI49C (name: {self._name}  S/N: {self.__serial_number})")
             self.get_config()
             self.set_config()
 
@@ -106,10 +106,10 @@ class TEI49C:
         id = bytes([self._id])
         try:
             rcvd = b''
-            self.__serial.write(id + (f"{cmd}\x0D").encode())
+            self._serial.write(id + (f"{cmd}\x0D").encode())
             time.sleep(0.5)
-            while self.__serial.in_waiting > 0:
-                rcvd = rcvd + self.__serial.read(1024)
+            while self._serial.in_waiting > 0:
+                rcvd = rcvd + self._serial.read(1024)
                 time.sleep(0.1)
 
             rcvd = rcvd.decode()
@@ -121,6 +121,7 @@ class TEI49C:
 
         except Exception as err:
             self.logger.error(err)
+            return str()
 
 
     def get_config(self) -> list:
@@ -130,20 +131,19 @@ class TEI49C:
         :return current configuration of instrument
 
         """
-        self.logger.info(f" .get_config (name={self._name})")
         cfg = []
         try:
-            self.__serial.open()
-            for cmd in self.__get_config:
+            self._serial.open()
+            for cmd in self._get_config:
                 cfg.append(self.serial_comm(cmd))
-            self.__serial.close()
-
-            self.logger.info(f"Current configuration of '{self._name}': {cfg}")
+            self._serial.close()
+            self.logger.info(f"[{self._name}] Configuration is: {cfg}")
 
             return cfg
 
         except Exception as err:
             self.logger.error(err)
+            return list()
 
 
     def set_datetime(self) -> None:
@@ -155,11 +155,9 @@ class TEI49C:
         try:
             dte = self.serial_comm(f"set date {time.strftime('%m-%d-%y')}")
             dte = self.serial_comm("date")
-            self.logger.info(f"Date of instrument {self._name} set and reported as: {dte}")
-
             tme = self.serial_comm(f"set time {time.strftime('%H:%M')}")
             tme = self.serial_comm("time")
-            self.logger.info(f"Time of instrument {self._name} set and reported as: {tme}")
+            self.logger.info(f"[{self._name}] Date and time set and reported as: {dte} {tme}")
         except Exception as err:
             self.logger.error(err)
 
@@ -170,22 +168,23 @@ class TEI49C:
 
         :return new configuration as returned from instrument
         """
-        self.logger.info(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .set_config (name={self._name})")
+        self.logger.info(f"[{self._name}] .set_config")
         cfg = []
         try:
-            self.__serial.open()
+            self._serial.open()
             self.set_datetime()
-            for cmd in self.__set_config:
+            for cmd in self._set_config:
                 cfg.append(self.serial_comm(cmd))
-            self.__serial.close()
+            self._serial.close()
             time.sleep(1)
 
-            self.logger.info(f"Configuration of '{self._name}' set to: {cfg}")
+            self.logger.info(f"[{self._name}] Configuration set to: {cfg}")
 
             return cfg
 
         except Exception as err:
             self.logger.error(err)
+            return list()
 
 
     def get_data(self, cmd=None, save=True):
@@ -198,60 +197,46 @@ class TEI49C:
         """
         try:
             dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-            self.logger.info(f"{dtm} .get_data (name={self._name}, save={save})")
+            self.logger.info(f"[{self._name}] .get_data (save={save})")
 
             if cmd is None:
-                cmd = self.__get_data
+                cmd = self._get_data
 
-            if self.__serial.is_open:
-                self.__serial.close()
-
-            self.__serial.open()
+            if self._serial.is_open:
+                self._serial.close()
+            self._serial.open()
             data = self.serial_comm(cmd)
-            self.__serial.close()
+            self._serial.close()
 
             if save:
                 # generate the datafile name
-                # self._data_file = os.path.join(self._data_path,
-                #                              "".join([self._name, "-",
-                #                                       datetimebin.dtbin(self.__reporting_interval), ".dat"]))
-                self._data_file = os.path.join(self._data_path, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-                                               f"{self._name}-{datetimebin.dtbin(self.__reporting_interval)}.dat")
+                _data_file = os.path.join(self._data_path, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
+                                               f"{self._name}-{datetimebin.dtbin(self._reporting_interval)}.dat")
 
-                os.makedirs(os.path.dirname(self._data_file), exist_ok=True)
-                if not os.path.exists(self._data_file):
+                os.makedirs(os.path.dirname(_data_file), exist_ok=True)
+                if not os.path.exists(_data_file):
                     # if file doesn't exist, create and write header
-                    with open(self._data_file, "at", encoding='utf8') as fh:
-                        fh.write(f"{self.__data_header}\n")
+                    with open(_data_file, "at", encoding='utf8') as fh:
+                        fh.write(f"{self._data_header}\n")
                         fh.close()
-                with open(self._data_file, "at", encoding='utf8') as fh:
+                with open(_data_file, "at", encoding='utf8') as fh:
                     # add data to file
                     fh.write(f"{dtm} {data}\n")
                     fh.close()
 
-                # stage data for transfer
-                # root = os.path.join(self.__staging, os.path.basename(self._data_path))
-                # os.makedirs(root, exist_ok=True)
-                # if self.__zip:
-                #     # create zip file
-                #     archive = os.path.join(root, "".join([os.path.basename(self._data_file)[:-4], ".zip"]))
-                #     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
-                #         fh.write(self._data_file, os.path.basename(self._data_file))
-                # else:
-                #     shutil.copyfile(self._data_file, os.path.join(root, os.path.basename(self._data_file)))
-                if self.__file_to_stage is None:
-                    self.__file_to_stage = self._data_file
-                elif self.__file_to_stage != self._data_file:
-                    root = os.path.join(self.__staging, os.path.basename(self._data_path))
+                if self._file_to_stage is None:
+                    self._file_to_stage = _data_file
+                elif self._file_to_stage != _data_file:
+                    root = os.path.join(self._staging, os.path.basename(self._data_path))
                     os.makedirs(root, exist_ok=True)
-                    if self.__zip:
+                    if self._zip:
                         # create zip file
-                        archive = os.path.join(root, "".join([os.path.basename(self.__file_to_stage)[:-4], ".zip"]))
+                        archive = os.path.join(root, "".join([os.path.basename(self._file_to_stage)[:-4], ".zip"]))
                         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                            zf.write(self.__file_to_stage, os.path.basename(self.__file_to_stage))
+                            zf.write(self._file_to_stage, os.path.basename(self._file_to_stage))
                     else:
-                        shutil.copyfile(self.__file_to_stage, os.path.join(root, os.path.basename(self.__file_to_stage)))
-                    self.__file_to_stage = self._data_file
+                        shutil.copyfile(self._file_to_stage, os.path.join(root, os.path.basename(self._file_to_stage)))
+                    self._file_to_stage = _data_file
 
             return data
 
@@ -261,22 +246,23 @@ class TEI49C:
 
     def get_o3(self) -> str:
         try:
-            self.__serial.open()
+            self._serial.open()
             o3 = self.serial_comm('O3')
-            self.__serial.close()
+            self._serial.close()
             return o3
 
         except Exception as err:
             self.logger.error(err)
+            return str()
 
 
     def print_o3(self) -> None:
         try:
-            self.__serial.open()
+            self._serial.open()
             o3 = self.serial_comm('O3').split()
-            self.__serial.close()
+            self._serial.close()
 
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
+            self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
 
         except Exception as err:
             self.logger.error(err)
@@ -290,18 +276,18 @@ class TEI49C:
         :return str response as decoded string
         """
         try:
+            data = str()
             data_file = str()
-            dtm = time.strftime('%Y-%m-%d %H:%M:%S')
 
             # lrec and srec capacity of logger
             CMD = ["lrec", "srec"]
             CAPACITY = capacity
 
-            self.logger.info("%s .get_all_rec (name=%s, save=%s)" % (dtm, self._name, save))
+            self.logger.info(f"[{self._name}] .get_all_rec (save={save})")
 
             # close potentially open port
-            if self.__serial.is_open:
-                self.__serial.close()
+            if self._serial.is_open:
+                self._serial.close()
 
             # retrieve data from instrument
             for i in [0, 1]:
@@ -309,46 +295,42 @@ class TEI49C:
                 retrieve = 10
                 if save:
                     # generate the datafile name
-                    datafile = os.path.join(self._data_path,
-                                            f"{self._name}_all_{CMD[i]}-{time.strftime('%Y%m%d%H%M00')}.dat")
+                    dtm = time.strftime('%Y%m%d%H%M%S')
+                    data_file = os.path.join(self._data_path,
+                                            f"{self._name}_all_{CMD[i]}-{dtm}.dat")
 
                 while index > 0:
                     if index < 10:
                         retrieve = index
                     cmd = f"{CMD[i]} {str(index)} {str(retrieve)}"
-                    print(cmd)
-                    self.__serial.open()
-                    data = self.serial_comm(cmd)
-                    self.__serial.close()
-
-                    if save:
-                        if not os.path.exists(data_file):
-                            # if file doesn't exist, create and write header
-                            with open(data_file, "at") as fh:
-                                fh.write(f"{self.__data_header}\n")
-                                fh.close()
-                        with open(data_file, "at") as fh:
-                            # add data to file
-                            fh.write(f"{data}\n")
-                            fh.close()
+                    self.logger.info(cmd)
+                    self._serial.open()
+                    data += f"{self.serial_comm(cmd)}\n"
+                    self._serial.close()
 
                     index = index - 10
 
-                # stage data for transfer
-                root = os.path.join(self.__staging, os.path.basename(self._data_path))
-                os.makedirs(root, exist_ok=True)
-                if self.__zip:
+                if save:
+                    if not os.path.exists(data_file):
+                        # if file doesn't exist, create and write header
+                        with open(data_file, "at") as fh:
+                            fh.write(f"{self._data_header}\n")
+                            fh.close()
+                    with open(data_file, "at") as fh:
+                        # add data to file
+                        fh.write(f"{data}\n")
+                        fh.close()
+
                     # create zip file
-                    archive = os.path.join(root, "".join([os.path.basename(data_file[:-4]), ".zip"]))
+                    archive = os.path.join(data_file.replace(".dat", ".zip"))
                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
                         fh.write(data_file, os.path.basename(data_file))
-                else:
-                    shutil.copyfile(data_file, os.path.join(root, os.path.basename(data_file)))
 
-            return
+            return data
 
         except Exception as err:
             self.logger.error(err)
+            return str()
 
 
 if __name__ == "__main__":
