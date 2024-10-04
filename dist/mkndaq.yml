@@ -88,7 +88,7 @@ tei49c:
         - set format 00
         - set lrec format 00 02
         - set save params
-    get_data: lrec
+    get_data: lrec              # warning: will be removed with v0.8.0
     data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     data_path: data/tei49c
@@ -149,19 +149,19 @@ ne300:
         port: 32783
         timeout: 5
         sleep: 0.5
-    data_log:                    
-        parameters: [1000000, 2000000, 3000000, 6000000, 7000000, 8000000, 
-                     11000000, 12000000, 13000000, 14000000, 15000000, 16000000, 
-                     17000000, 18000000, 19000000, 20000000, 21000000, 26000000, 
-                     5001, 5002, 5003, 5004, 5005, 5006, 
-                     5010, 6007, 6008, 6001, 6002, 6003, 
+    data_log:
+        parameters: [1000000, 2000000, 3000000, 6000000, 7000000, 8000000,
+                     11000000, 12000000, 13000000, 14000000, 15000000, 16000000,
+                     17000000, 18000000, 19000000, 20000000, 21000000, 26000000,
+                     5001, 5002, 5003, 5004, 5005, 5006,
+                     5010, 6007, 6008, 6001, 6002, 6003,
                      4035, 4036]
         wavelengths: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         interval: 60
     get_data_interval: 3 # minutes. logger retrieval interval
-    staging_zip: True  
-    verbosity: 2  # 0: silent, 1: medium, 2: full          
+    staging_zip: True
+    verbosity: 2  # 0: silent, 1: medium, 2: full
     zero_span_check_interval: 4380   # set this to 4380 (=73 hrs) for production
     zero_check_duration: 20 # set this to 30 for production
     span_check_duration: 20 # set this to 30 for production
@@ -214,7 +214,7 @@ aerosol:
     days_to_sync: 7                 # file synching from network drives to data directory
     staging_interval: 5             # minutes. How often should source be scanned and files staged?
     staging_zip: False
-      
+
 
 # new entries for v0.8
 root: ~/Documents/mkndaq
@@ -224,4 +224,3 @@ logging:
   file: mkndaq.log
   level_console: DEBUG
   level_file: ERROR
-

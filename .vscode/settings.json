@@ -1,4 +1,7 @@
 {
     "python.pythonPath": "/home/zue/users/jkl/venv/bin/python",
-    "python.analysis.typeCheckingMode": "basic"
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.extraPaths": [
+        "./mkndaq/tests/test_"
+    ]
 }

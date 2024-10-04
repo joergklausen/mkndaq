@@ -4,7 +4,7 @@
 import schedule
 import time
 
-from mkndaq.inst.tei49i import TEI49I
+from mkndaq.inst.thermo import Thermo49i
 from mkndaq.inst.g2401 import G2401
 
 def main():
@@ -40,13 +40,13 @@ def main():
            'g2401': {'type': 'G2401', 'serial_number': 'CFKADS2320',
                      'socket': {'host': '192.168.0.21', 'port': 51020, 'timeout': 5, 'sleep': 0.5},
                      'get_data': ['_Meas_GetBufferFirst', '_Instr_getStatus'],
-                     'netshare': '\\PICARRO-MI970\DataLog_User_Sync',
+                     'netshare': '\\PICARRO-MI970/DataLog_User_Sync',
                      'data_storage': 'hourly',
                      'sampling_interval': 5, 'aggregation_period': 600, 'reporting_interval': 600}
            }
 
     try:
-        tei49i = TEI49I(name='tei49i', config=cfg, simulate=False)
+        tei49i = Thermo49i(name='tei49i', config=cfg)
         g2401 = G2401('g2401', config=cfg)
 
         print("Called directly:", tei49i.get_o3())

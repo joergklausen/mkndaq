@@ -1,21 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Main driver for Windows 10. Initializes instruments and communication, then activates scheduled jobs for the main loop.
+Main driver. Initializes instruments and communication, then activates scheduled jobs for the main loop.
 
 This relies on https://schedule.readthedocs.io/en/stable/index.html.
 
 @author: joerg.klausen@meteoswiss.ch
 """
-import os
 import argparse
-# import logging
-import time
+import os
 import threading
-import schedule
-import colorama
+import time
 
-# from mkndaq.utils.configparser import config
+import colorama
+import schedule
+
 from mkndaq.utils.filetransfer import SFTPClient
 from mkndaq.utils.utils import load_config, setup_logging
 
@@ -36,7 +35,8 @@ def main():
     parser = argparse.ArgumentParser(
         description='Data acquisition and transfer for MKN Global GAW Station.',
         usage='python3 mkndaq.py|mkndaq.exe -c [-f]')
-    parser.add_argument('-c', '--configuration', type=str, help='full path to configuration file', 
+    parser.add_argument('-c', '--configuration', type=str,
+                        help='full path to configuration file',
                         default='dist/mkndaq.yml', required=False)
     parser.add_argument('-f', '--fetch', type=int, default=20,
                         help='interval in seconds to fetch and display current instrument data',
@@ -45,12 +45,12 @@ def main():
     fetch = args.fetch
     config_file = args.configuration
 
-
     # load configuation
     cfg = load_config(config_file=config_file)
 
     # setup logging
-    logfile = os.path.join(os.path.expanduser(str(cfg['root'])), cfg['logging']['file'])
+    logfile = os.path.join(os.path.expanduser(str(cfg['root'])),
+                           cfg['logging']['file'])
     logger = setup_logging(file=logfile)
 
     colorama.init(autoreset=True)
@@ -66,7 +66,7 @@ def main():
     # Inform user on what's going on
     logger.info(f"==  MKNDAQ ({version}) started =====================")
     logger.info(f"Instruments supported (depending on configuration):")
-    logger.info(f" - TEI49C, Thermo 49i")
+    logger.info(f" - TEI 49C, Thermo 49i")
     logger.info(f" - aerosol (file transfer only)")
     logger.info(f" - Picarro G2401 (file transfer only)")
     logger.info(f" - Magee AE33")
@@ -85,23 +85,21 @@ def main():
         # NB: In case more instruments should be handled, the relevant calls need to be included here below.
         try:
             if cfg.get('tei49c', None):
-                from mkndaq.inst.tei49c import TEI49C
-                tei49c = TEI49C(name='tei49c', config=cfg)
-                schedule.every(cfg['tei49c']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49c.get_data)
+                from mkndaq.inst.thermo import Thermo49C
+                tei49c = Thermo49C(name='tei49c', config=cfg)
+                tei49c.setup_schedules()
                 schedule.every(6).hours.at(':00').do(run_threaded, tei49c.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
             if cfg.get('tei49i', None):
                 from mkndaq.inst.thermo import Thermo49i
                 tei49i = Thermo49i(name='tei49i', config=cfg)
                 tei49i.setup_schedules()
-                # schedule.every(cfg['tei49i']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i.accumulate_lr00)
                 schedule.every().day.at('00:00').do(run_threaded, tei49i.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
             if cfg.get('tei49i_2', None):
                 from mkndaq.inst.thermo import Thermo49i
                 tei49i_2 = Thermo49i(name='tei49i_2', config=cfg)
                 tei49i_2.setup_schedules()
-                # schedule.every(cfg['tei49i_2']['sampling_interval']).minutes.at(':00').do(run_threaded, tei49i_2.accumulate_lr00)
                 schedule.every().day.at('00:00').do(run_threaded, tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(run_threaded, tei49i_2.print_o3)
             if cfg.get('g2401', None):
@@ -132,7 +130,7 @@ def main():
             #     from mkndaq.inst.neph import NEPH
             #     ne300 = NEPH(name='ne300', config=cfg)
             #     schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
-            #     schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)                
+            #     schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)
             #     schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
 
         except Exception as err:

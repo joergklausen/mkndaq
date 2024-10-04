@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "mkndaq"
+version = "0.8.0"
+description = "Data acquisition for MKN"
+authors = ["Jörg Klausen <jorg.klausen@meteoswiss.ch>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+schedule = "^1.2.2"
+colorama = "^0.4.6"
+serial = "^0.0.97"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
