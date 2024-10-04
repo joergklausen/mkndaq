@@ -61,7 +61,7 @@ COM4:
 
 # Instrument specification
 tei49c:
-    type: TEI49C
+    type: Thermo 49C
     id: 49
     serial_number: 49C-58106-318
     port: COM4
@@ -91,9 +91,13 @@ tei49c:
     get_data: lrec
     data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+    data_path: data/tei49c
+    staging_path: staging/tei49c
+    remote_path: tei49c
     staging_zip: True
 
 tei49i:
+    type: Thermo 49i
     id: 49
     serial_number: 49I-B1NAA-12103910681
     socket:
@@ -128,8 +132,10 @@ tei49i:
         - set save params
     get_data: lr00
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_inteval: 10
-    staging: staging/tei49i
+    reporting_interval: 10
+    data_path: data/tei49i
+    staging_path: staging/tei49i
+    remote_path: tei49i
     staging_zip: True
 
 ne300:
@@ -161,7 +167,7 @@ ne300:
     span_check_duration: 20 # set this to 30 for production
 
 g2401:
-    type: G2401
+    type: Picarro G2401
     serial_number: 3293-CFKADS2320
     socket:
         host: 192.168.4.102
@@ -172,6 +178,9 @@ g2401:
     days_to_sync: 7                 # file synching from network drives to data directory
     buckets: daily                  # Determines the expected directory structure and how files are found.
     staging_interval: 5             # minutes. How often should source be scanned and new files staged?
+    data_path: data/g2401
+    staging_path: staging/g2401
+    remote_path: g2401
     staging_zip: True
 
 ae33:

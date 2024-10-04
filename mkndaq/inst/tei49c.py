@@ -49,16 +49,17 @@ class TEI49C:
         colorama.init(autoreset=True)
 
         try:
+            self._name = name
+            self._serial_number = config[name]['serial_number']
+            
             # configure logging
             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
             self.logger.info(f"[{self._name}] Initializing TEI49C (S/N: {self._serial_number})")
 
             # read instrument control properties for later use
-            self._name = name
             self._id = config[name]['id'] + 128
-            self._type = config[name]['type']
-            self._serial_number = config[name]['serial_number']
+            # self._type = config[name]['type']
             self._get_config = config[name]['get_config']
             self._set_config = config[name]['set_config']
             self._get_data = config[name]['get_data']
@@ -79,15 +80,16 @@ class TEI49C:
             # self._sampling_interval = config[name]['sampling_interval']
             self._reporting_interval = config['reporting_interval']
 
-            # setup data directory
-            data_path = os.path.expanduser(config['data'])
-            self._data_path = os.path.join(data_path, self._name)
-            os.makedirs(self._data_path, exist_ok=True)
-
-            # staging area for files to be transfered
-            self._staging = os.path.expanduser(config['staging']['path'])
+            # configure saving, staging and archiving
+            root = os.path.expanduser(config['root'])
+            self.data_path = os.path.join(root, config[name]['data_path'])
+            self.staging_path = os.path.join(root, config[name]['staging_path'])
+            # self.archive_path = os.path.join(root, config[name]['archive'])
             self._file_to_stage = str()
             self._zip = config[name]['staging_zip']
+
+            # configure remote transfer
+            self.remote_path = config[name]['remote_path']
 
             self.get_config()
             self.set_config()
@@ -210,7 +212,7 @@ class TEI49C:
 
             if save:
                 # generate the datafile name
-                _data_file = os.path.join(self._data_path, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
+                _data_file = os.path.join(self.data_path, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
                                                f"{self._name}-{datetimebin.dtbin(self._reporting_interval)}.dat")
 
                 os.makedirs(os.path.dirname(_data_file), exist_ok=True)
@@ -227,7 +229,7 @@ class TEI49C:
                 if self._file_to_stage is None:
                     self._file_to_stage = _data_file
                 elif self._file_to_stage != _data_file:
-                    root = os.path.join(self._staging, os.path.basename(self._data_path))
+                    root = os.path.join(self.staging_path, os.path.basename(self.data_path))
                     os.makedirs(root, exist_ok=True)
                     if self._zip:
                         # create zip file
@@ -296,7 +298,7 @@ class TEI49C:
                 if save:
                     # generate the datafile name
                     dtm = time.strftime('%Y%m%d%H%M%S')
-                    data_file = os.path.join(self._data_path,
+                    data_file = os.path.join(self.data_path,
                                             f"{self._name}_all_{CMD[i]}-{dtm}.dat")
 
                 while index > 0:

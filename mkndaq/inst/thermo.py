@@ -28,19 +28,20 @@ class Thermo49i:
         colorama.init(autoreset=True)
 
         try:
+            self._name = name
+            self._serial_number = config[name]['serial_number']
+
             # configure logging
             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
+            self.logger.info(f"[{self._name}] Initializing Thermo 49i (S/N: {self._serial_number})")
 
             # read instrument control properties for later use
-            self._name = name
             self._id = config[name]['id'] + 128
-            self._serial_number = config[name]['serial_number']
             self._get_config = config[name]['get_config']
             self._set_config = config[name]['set_config']
             self._get_data = config[name]['get_data']
 
-            self.logger.info(f"Initialize Thermo 49i (name: {self._name}  S/N: {self._serial_number})")
 
             self._serial_com = config.get(name, {}).get('serial', None)
             if self._serial_com:
@@ -62,18 +63,17 @@ class Thermo49i:
                 self._socktout = config[name]['socket']['timeout']
                 self._socksleep = config[name]['socket']['sleep']
 
-            root = os.path.expanduser(config['root'])
-
             # configure data collection and reporting
             self._sampling_interval = config[name]['sampling_interval']
             self.reporting_interval = config[name]['reporting_interval']
-            if not (self.reporting_interval % 60)==0 and self.reporting_interval<=1440:
-                raise ValueError('reporting_interval must be a multiple of 60 and less or equal to 1440 minutes.')
+            if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
+                raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
                    
             # configure saving, staging and archiving
-            self.data_path = os.path.join(root, config[name]['data'])
-            self.staging_path = os.path.join(root, config[name]['staging'])
-            self.archive_path = os.path.join(root, config[name]['archive'])
+            root = os.path.expanduser(config['root'])
+            self.data_path = os.path.join(root, config[name]['data_path'])
+            self.staging_path = os.path.join(root, config[name]['staging_path'])
+            # self.archive_path = os.path.join(root, config[name]['archive'])
 
             # configure remote transfer
             self.remote_path = config[name]['remote_path']
@@ -90,7 +90,7 @@ class Thermo49i:
             # configure folders needed
             os.makedirs(self.data_path, exist_ok=True)
             os.makedirs(self.staging_path, exist_ok=True)
-            os.makedirs(self.archive_path, exist_ok=True)
+            # os.makedirs(self.archive_path, exist_ok=True)
 
             # configure data acquisition schedule
             schedule.every(int(self._sampling_interval)).minutes.at(':00').do(self.accumulate_lr00)

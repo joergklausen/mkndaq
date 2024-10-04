@@ -272,7 +272,7 @@ class SFTPClient:
             # sanitize remotepath
             remotepath = re.sub(r'(/?\.?\\){1,2}', '/', remotepath)
 
-            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .setup_remote_folders (source: {localpath}, target: {remotepath})")
+            self.logger.info(f".setup_remote_folders (source: {localpath}, target: {remotepath})")
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

@@ -61,6 +61,7 @@ def main():
         for line in fh:
             if 'version=' in line:
                 version = line.split('version=')[1].split(',')[0].strip().strip("'\"")
+                break
 
     # Inform user on what's going on
     logger.info(f"==  MKNDAQ ({version}) started =====================")
