@@ -197,6 +197,10 @@ ae33:
         - HELLO
     set_datetime: False             # Should date and time be set when initializing the instrument?
     sampling_interval: 1            # minutes. How often should data be requested from instrument?
+    reporting_interval: 10
+    data_path: data/ae33
+    staging_path: staging/ae33
+    remote_path: ae33
     staging_zip: True
 
 meteo:
