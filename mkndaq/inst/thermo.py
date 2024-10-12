@@ -245,8 +245,12 @@ class Thermo49C:
             self.data_file = str()
             if self._data:
                 # create appropriate file name and write mode
-                timestamp = datetime.now().strftime(self._file_timestamp_format)
-                data_file = os.path.join(self.data_path, f"{self._name}-{timestamp}.dat")
+                now = datetime.now()
+                timestamp = now.strftime(self._file_timestamp_format)
+                yyyy = now.strftime('%Y')
+                mm = now.strftime('%m')
+                dd = now.strftime('%d')
+                data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self._name}-{timestamp}.dat")
 
                 # configure file mode, open file and write to it
                 if os.path.exists(self.data_file):
@@ -824,8 +828,12 @@ class Thermo49i:
             self.data_file = str()
             if self._data:
                 # create appropriate file name and write mode
-                timestamp = datetime.now().strftime(self._file_timestamp_format)
-                data_file = os.path.join(self.data_path, f"49i-{timestamp}.dat")
+                now = datetime.now()
+                timestamp = now.strftime(self._file_timestamp_format)
+                yyyy = now.strftime('%Y')
+                mm = now.strftime('%m')
+                dd = now.strftime('%d')
+                data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self._name}-{timestamp}.dat")
 
                 # configure file mode, open file and write to it
                 if os.path.exists(self.data_file):

@@ -160,6 +160,10 @@ ne300:
         angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         interval: 60
     get_data_interval: 3 # minutes. logger retrieval interval
+    reporting_interval: 10
+    data_path: data/ne300
+    staging_path: staging/ne300
+    remote_path: ne300
     staging_zip: True
     verbosity: 2  # 0: silent, 1: medium, 2: full
     zero_span_check_interval: 4380   # set this to 4380 (=73 hrs) for production
@@ -184,7 +188,7 @@ g2401:
     staging_zip: True
 
 ae33:
-    type: AE33
+    type: Magee AE33
     id: 169
     serial_number: AE33-S10-01394
     MAC: C4-00-AD-D8-0A-AC
