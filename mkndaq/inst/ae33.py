@@ -462,7 +462,8 @@ class AE33:
             if data:
                 # create appropriate file name and write mode
                 file = os.path.join(path, yyyy, mm, dd, f"{self.name}-{timestamp}.{ext}")
-
+                os.makedirs(os.path.dirname(file), exist_ok=True)
+                
                 # configure file mode, open file and write to it
                 if os.path.exists(file):
                     mode = 'a'

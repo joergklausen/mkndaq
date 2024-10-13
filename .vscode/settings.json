@@ -3,5 +3,14 @@
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.extraPaths": [
         "./mkndaq/tests/test_"
-    ]
+    ],
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./mkndaq",
+        "-p",
+        "test_*.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true
 }

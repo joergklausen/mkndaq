@@ -4,18 +4,20 @@ Define a class NE300 facilitating communication with a Acoem NE-300 nephelometer
 @author: joerg.klausen@meteoswiss.ch
 """
 
-import os
 import datetime as dt
 import logging
-import logging.handlers
-import shutil
+# import logging.handlers
+import os
+# import shutil
 import socket
 import struct
 import time
-import zipfile
 import warnings
+import zipfile
+from datetime import datetime, timedelta, timezone
 
 import colorama
+import schedule
 
 # from mkndaq.utils import datetimebin
 
@@ -125,7 +127,7 @@ class NEPH:
             self.data_log_interval = config[name]['data_log']['interval']
 
             # sampling, aggregation, reporting/storage
-            self.get_data_interval = config[name]['get_data_interval']
+            self.sampling_interval = config[name]['sampling_interval']
             self.reporting_interval = config['reporting_interval']
 
             # zero and span check durations
@@ -136,18 +138,18 @@ class NEPH:
             # _data_path: path for measurement data
             # _log_path: path for instrument logs
             root = os.path.expanduser(config['root'])
-            self.data_path = os.path.join(root, config[name]['data_path'], 'data')
+            self.data_path = os.path.join(root, config[name]['data_path'])
             os.makedirs(self.data_path, exist_ok=True)
-            self.log_path = os.path.join(root, config[name]['data_path'], 'logs')
-            os.makedirs(self.log_path, exist_ok=True)
-            self._data_staging_path = os.path.join(root, config[name]['staging_path'], 'data')
-            os.makedirs(self._data_staging_path, exist_ok=True)
-            self._log_staging_path = os.path.join(root, config[name]['staging_path'], 'logs')
-            os.makedirs(self._log_staging_path, exist_ok=True)
+            # self.log_path = os.path.join(root, config[name]['data_path'], 'logs')
+            # os.makedirs(self.log_path, exist_ok=True)
+            self.staging_path = os.path.join(root, config[name]['staging_path'])
+            os.makedirs(self.staging_path, exist_ok=True)
+            # self._log_staging_path = os.path.join(root, config[name]['staging_path'], 'logs')
+            # os.makedirs(self._log_staging_path, exist_ok=True)
             self.zip = config[name]['staging_zip']
 
             # staging area for files to be transfered
-            self.__datafile_to_stage = None
+            # self.__datafile_to_stage = None
 
             self.verbosity = config[name]['verbosity']
 
@@ -166,7 +168,7 @@ class NEPH:
                 self.logger.warning(f"[{self.name}] Could not verify measurement mode as 'ambient'.")
 
             # get dtm from instrument, then set date and time
-            dtm_found, dtm_set = self.get_set_datetime(dtm=dt.datetime.now(dt.timezone.utc))            
+            dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
             self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.")            
 
             # set the logging config
@@ -185,7 +187,43 @@ class NEPH:
             self.logger.info(f"[{self.name}] Datalog interval set to {datalog_interval} seconds.")
 
             # datetime to keep track of retrievals from datalog
-            self._start_datalog = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
+            self._start_datalog = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+
+            # configure remote transfer
+            self.remote_path = config[name]['remote_path']
+
+            # initialize data response
+            self._data = str()
+
+            # initialize other stuff
+            self._file_timestamp_format = '%Y%m%d%H%M'
+            self.data_file = str()
+
+        except Exception as err:
+            print(err)
+            self.logger.error(err)
+
+
+    def setup_schedules(self):
+        try:
+            # configure data acquisition schedule
+            schedule.every(int(self.sampling_interval)).minutes.at(':00').do(self._accumulate_new_data)
+
+            # configure saving and staging schedules
+            if self.reporting_interval==10:
+                self._file_timestamp_format = '%Y%m%d%H%M'
+                # minutes = [f"{self.reporting_interval*n:02}" for n in range(6) if self.reporting_interval*n < 6]
+                # minutes = (0, 10, 20, 30, 40, 50)
+                for minute in range(6):
+                    schedule.every().hour.at(f"{minute}0:01").do(self._save_and_stage_data)
+            elif self.reporting_interval==60:
+                self._file_timestamp_format = '%Y%m%d%H'
+                # schedule.every().hour.at('00:01').do(self._save_and_stage_data)
+                schedule.every().hour.at('00:01').do(self._save_and_stage_data)
+            elif self.reporting_interval==1440:
+                self._file_timestamp_format = '%Y%m%d'
+                # schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
+                schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
 
         except Exception as err:
             self.logger.error(err)
@@ -213,7 +251,7 @@ class NEPH:
             return b''
 
 
-    def _acoem_timestamp_to_datetime(self, timestamp: int) -> dt.datetime:
+    def _acoem_timestamp_to_datetime(self, timestamp: int) -> datetime:
         try:
             dtm = timestamp
             SS = dtm % 64
@@ -227,14 +265,14 @@ class NEPH:
             mm = dtm % 16
             yyyy = dtm // 16 + 2000
 
-            return dt.datetime(yyyy, mm, dd, HH, MM, SS)
+            return datetime(yyyy, mm, dd, HH, MM, SS)
 
         except Exception as err:
             self.logger.error(err)
-            return dt.datetime(1111, 1, 1)
+            return datetime(1111, 1, 1)
 
 
-    def _acoem_datetime_to_timestamp(self, dtm: dt.datetime=dt.datetime.now(dt.timezone.utc)) -> bytes:
+    def _acoem_datetime_to_timestamp(self, dtm: datetime=datetime.now(timezone.utc)) -> bytes:
         try:
             SS = bin(dtm.time().second)[2:].zfill(6)
             MM = bin(dtm.time().minute)[2:].zfill(6)
@@ -457,7 +495,7 @@ class NEPH:
         return error_map[error_code]
     
 
-    def _legacy_timestamp_to_date_time(self, fmt: str, dte: str, tme: str) -> dt.datetime:
+    def _legacy_timestamp_to_date_time(self, fmt: str, dte: str, tme: str) -> datetime:
         """Convert a legacy timestamp to datetime
 
         Args:
@@ -480,11 +518,11 @@ class NEPH:
                 fmt = "%Y-%m-%d"
             else:
                 raise ValueError("'fmt' not recognized.")
-            return dt.datetime.strptime(f"{dte} {tme}", f"{fmt} %H:%M:%S")
+            return datetime.strptime(f"{dte} {tme}", f"{fmt} %H:%M:%S")
 
         except Exception as err:
             self.logger.error(err)
-            return dt.datetime(1111, 1, 1, 1, 1, 1)
+            return datetime(1111, 1, 1, 1, 1, 1)
         
 
     def _acoem_logged_data_to_string(self, data: 'list[dict]', sep: str=',') -> str:
@@ -806,7 +844,7 @@ class NEPH:
             return int()
         
 
-    def get_logged_data(self, start: dt.datetime, end: dt.datetime, verbosity: int=0) -> 'list[dict]':
+    def get_logged_data(self, start: datetime, end: datetime, verbosity: int=0) -> 'list[dict]':
         """
         A.3.8 Requests all logged data over a specific date range.
 
@@ -951,7 +989,7 @@ class NEPH:
             return dict()
 
 
-    def get_datetime(self, verbosity: int=0) -> dt.datetime:
+    def get_datetime(self, verbosity: int=0) -> datetime:
         """Get date and time of instrument
 
         Parameters:
@@ -960,7 +998,7 @@ class NEPH:
         Returns:
             datetime.datetime: Date and time of instrument
         """
-        response = dt.datetime(int(), int(), int())
+        # response = datetime()
         try:
             if self._protocol=="acoem":
                 msg = self._acoem_construct_message(4, 1)
@@ -981,7 +1019,7 @@ class NEPH:
             return response
 
 
-    def get_set_datetime(self, dtm: dt.datetime=dt.datetime.now(dt.timezone.utc), verbosity: int=0) -> 'tuple[dict, dict]':
+    def get_set_datetime(self, dtm: datetime=datetime.now(timezone.utc), verbosity: int=0) -> 'tuple[dict, dict]':
         """Get and then set date and time of instrument
 
         Parameters:
@@ -1027,7 +1065,7 @@ class NEPH:
         Returns:
             None
         """
-        dtm = now = dt.datetime.now(dt.timezone.utc)
+        dtm = now = datetime.now(timezone.utc)
 
         # change operating state to ZERO
         msg = f"Switching to ZERO CHECK mode ..."
@@ -1037,12 +1075,12 @@ class NEPH:
             self.logger.info(f"Instrument switched to ZERO CHECK")
         else:
             self.logger.warning(f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'.")
-        while now < dtm + dt.timedelta(minutes=self.zero_check_duration):
-            now = dt.datetime.now(dt.timezone.utc)
+        while now < dtm + timedelta(minutes=self.zero_check_duration):
+            now = datetime.now(timezone.utc)
             time.sleep(1)
         
         # change operating state to SPAN
-        dtm = now = dt.datetime.now(dt.timezone.utc)
+        dtm = now = datetime.now(timezone.utc)
         msg = f"Switching to SPAN CHECK mode ..."
         print(colorama.Fore.BLUE + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] {msg}")
         resp = self.do_span(verbosity=verbosity)
@@ -1054,8 +1092,8 @@ class NEPH:
             self.logger.info(f"Instrument switched to SPAN CHECK")
         else:
             self.logger.warning(f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'.")
-        while now < dtm + dt.timedelta(minutes=self.span_check_duration):
-            now = dt.datetime.now(dt.timezone.utc)
+        while now < dtm + timedelta(minutes=self.span_check_duration):
+            now = datetime.now(timezone.utc)
             time.sleep(1)
         
         # change operating state to AMBIENT
@@ -1199,7 +1237,7 @@ class NEPH:
             return dict()
 
 
-    def accumulate_new_data(self, sep: str=",", verbosity: int=0) -> None:
+    def _accumulate_new_data(self, sep: str=",", verbosity: int=0) -> None:
         """
         For the acoem format: Retrieve all readings from (now - get_data_interval) until now.
         For the legacy format: Retrieve all readings from current cursor.
@@ -1220,14 +1258,14 @@ class NEPH:
             self.logger.info(f"[{self.name}] .accumulate_new_data")
 
             if self._protocol=='acoem':
-                if self.get_data_interval is None:
+                if self.sampling_interval is None:
                     raise ValueError("'get_data_interval' cannot be None.")
                 tmp = []
 
                 # define period to retrieve and update state variable
                 start = self._start_datalog
-                end = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
-                self._start_datalog = end + dt.timedelta(seconds=self.data_log_interval)
+                end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+                self._start_datalog = end + timedelta(seconds=self.data_log_interval)
 
                 # retrieve data
                 self._tcpip_comm_wait_for_line()            
@@ -1273,6 +1311,102 @@ class NEPH:
             self.logger.error(err)
 
 
+    def _save_data(self) -> None:
+        try:
+            self.logger.debug(f"[{self.name}]: ._save_data")
+
+            now = datetime.now()
+            timestamp = now.strftime(self._file_timestamp_format)
+            yyyy = now.strftime('%Y')
+            mm = now.strftime('%m')
+            dd = now.strftime('%d')
+          
+            if self._data:
+                # create appropriate file name and write mode
+                self.data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
+                os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
+                # configure file mode, open file and write to it
+                if os.path.exists(self.data_file):
+                    mode = 'a'
+                    header = str()
+                else:
+                    mode = 'w'
+                    header = ','.join(str(n) for n in self.get_data_log_config())
+
+                with open(file=self.data_file, mode=mode) as fh:
+                    fh.write(header)
+                    fh.write(self._data)
+                    self.logger.info(f"[{self.name}] file saved: {self.data_file}")
+
+                # reset self._data
+                self._data = str()
+
+            return
+
+        except Exception as err:
+            self.logger.error(err)
+
+
+    def _stage_file(self):
+        """ Stage file, optionally as .zip archive.
+        """
+        try:
+            self.logger.debug(f"[{self.name}]: ._stage_file")
+
+            # if table=='Data':
+            #     file = self.data_file
+            #     ext = '.dat'
+            #     path = self.staging_path
+            # elif table=='Log':
+            #     file = self.log_file
+            #     ext = '.log'
+            #     path = self._log_staging_path
+            # else:
+            #     raise ValueError(f"not implemented")
+
+            # if file:
+            #     if self.zip:
+            #         file_staged = os.path.join(path, os.path.basename(file).replace(ext, '.zip'))
+            #         with zipfile.ZipFile(file_staged, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            #             zf.write(file, os.path.basename(file))
+            #     else:
+            #         file_staged = os.path.join(path, os.path.basename(file))
+            #         shutil.copy(src=file, dst=file_staged)
+            #     self.logger.info(f"[{self.name}] file staged: {file_staged}")
+            if self.data_file:
+                archive = os.path.join(self.staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    zf.write(self.data_file, os.path.basename(self.data_file))
+                    self.logger.info(f"file staged: {archive}")
+
+        except Exception as err:
+            self.logger.error(err)
+
+
+    def _save_and_stage_data(self):
+        try:
+            self.logger.info(f"[{self.name}]: ._save_and_stage_data")
+        
+            self._save_data()
+            self._stage_file()
+            return
+
+        except Exception as err:
+            self.logger.error(err)
+
+
+    def print_ssp_bssp(self) -> None:
+        """Retrieve current readings and print."""
+        try:
+            data = self.get_values(parameters=[2635000, 2635090, 2525000, 2525090, 2450000, 2450090])
+            data = f"ssp|bssp (Mm-1) r: {data[2635000]:0.4f}|{data[2635090]:0.4f} g: {data[2525000]:0.4f}|{data[2525090]:0.4f} b: {data[2450000]:0.4f}|{data[2450090]:0.4f}"
+            self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {data}")
+
+        except Exception as err:
+            self.logger.error(err)
+            # print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] produced error {err}.")
+    
+
     # def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
     #     """
     #     For the acoem format: Retrieve all readings from (now - get_data_interval) until now.
@@ -1296,14 +1430,14 @@ class NEPH:
 
 
     #         if self._protocol=='acoem':
-    #             if self.get_data_interval is None:
+    #             if self.sampling_interval is None:
     #                 raise ValueError("'get_data_interval' cannot be None.")
     #             tmp = []
 
     #             # define period ro retrieve and update state variable
     #             start = self._start_datalog
-    #             end = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
-    #             self._start_datalog = end + dt.timedelta(seconds=self.data_log_interval)
+    #             end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    #             self._start_datalog = end + timedelta(seconds=self.data_log_interval)
 
     #             # retrieve data
     #             self._tcpip_comm_wait_for_line()            
@@ -1383,18 +1517,6 @@ class NEPH:
     #     except Exception as err:
     #         self.logger.error(err)
 
-
-    def print_ssp_bssp(self) -> None:
-        """Retrieve current readings and print."""
-        try:
-            data = self.get_values(parameters=[2635000, 2635090, 2525000, 2525090, 2450000, 2450090])
-            data = f"ssp|bssp (Mm-1) r: {data[2635000]:0.4f}|{data[2635090]:0.4f} g: {data[2525000]:0.4f}|{data[2525090]:0.4f} b: {data[2450000]:0.4f}|{data[2450090]:0.4f}"
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] {data}")
-
-        except Exception as err:
-            self.logger.error(err)
-            # print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] produced error {err}.")
-    
 
 # %%
 if __name__ == "__main__":

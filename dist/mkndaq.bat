@@ -2,7 +2,7 @@
 rem set a=c:/users/mkn/mkndaq
 set a=c:/users/mkn/Documents/git/mkndaq/dist
 set b=mkndaq.exe
-set c=mkndaq.cfg
+set c=mkndaq.yml
 set d=%a%/%b% -c %a%/%c%
 set e=mkndaq-start.log
 set f=%a%/%e%

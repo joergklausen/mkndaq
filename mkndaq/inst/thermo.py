@@ -251,6 +251,7 @@ class Thermo49C:
                 mm = now.strftime('%m')
                 dd = now.strftime('%d')
                 data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self._name}-{timestamp}.dat")
+                os.makedirs(os.path.dirname(data_file), exist_ok=True)
 
                 # configure file mode, open file and write to it
                 if os.path.exists(self.data_file):
@@ -834,6 +835,7 @@ class Thermo49i:
                 mm = now.strftime('%m')
                 dd = now.strftime('%d')
                 data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self._name}-{timestamp}.dat")
+                os.makedirs(os.path.dirname(data_file), exist_ok=True)
 
                 # configure file mode, open file and write to it
                 if os.path.exists(self.data_file):

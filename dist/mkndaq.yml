@@ -1,6 +1,6 @@
 # metadata
-file: mkndaq.cfg
-version: 2024-08-21
+file: mkndaq.yml
+version: 2024-10-13
 
 # user home directory
 home: c:/users/mkn         # leave empty for linux systems
@@ -159,7 +159,7 @@ ne300:
         wavelengths: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         interval: 60
-    get_data_interval: 3 # minutes. logger retrieval interval
+    sampling_interval: 3 # minutes. logger retrieval interval
     reporting_interval: 10
     data_path: data/ne300
     staging_path: staging/ne300
