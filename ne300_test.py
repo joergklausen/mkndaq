@@ -25,7 +25,7 @@ cfg = {'ne300': {
                     'angles': [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,],
                     'interval': 60, 
                 },
-                'get_data_interval': 2, # minutes. logger retrieval interval
+                'get_data_interval': 5, # minutes. logger retrieval interval
                 'zero_span_check_interval': 1500,
                 'zero_check_duration': 30,
                 'span_check_duration': 0,
@@ -33,10 +33,10 @@ cfg = {'ne300': {
                 'verbosity': 2,  # 0: silent, 1: medium, 2: full          
             },
             'reporting_interval': 10,
-            'logs': 'mkndaq/logs',
-            'data': 'mkndaq/data',
+            'logs': 'c:/users/mkn/Documents/mkndaq/logs',
+            'data': 'c:/users/mkn/Documents/mkndaq/data',
             'staging': {
-                'path': 'mkndaq/staging',
+                'path': 'c:/users/mkn/Documents/mkndaq/staging',
             },
 }
 
