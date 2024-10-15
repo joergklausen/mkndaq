@@ -161,8 +161,8 @@ ne300:
         interval: 60
     sampling_interval: 3 # minutes. logger retrieval interval
     reporting_interval: 10
-    data_path: data/ne300
-    staging_path: staging/ne300
+    data_path: data/ne300-test
+    staging_path: staging/ne300-test
     remote_path: ne300
     staging_zip: True
     verbosity: 2  # 0: silent, 1: medium, 2: full

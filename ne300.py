@@ -36,6 +36,7 @@ logger.error('test error logging')
 logger.info("Logs written to {logfile}")
 
 ne300 = NEPH('ne300', cfg, verbosity=0)
+ne300.setup_schedules()
 
 def run_threaded(job_func):
     """Set up threading and start job.

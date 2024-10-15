@@ -1212,7 +1212,6 @@ class NEPH:
                 self.logger.info(f"[{self.name}] .accumulate_new_data from {start} to {end}")
                 self._tcpip_comm_wait_for_line()            
                 data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
-                self.logger.info(data)
 
                 # prepare result
                 for d in data:
@@ -1245,7 +1244,7 @@ class NEPH:
 
             #     if self.staging_path:
             #         self.stage_data_file()
-            self._data = data
+            self._data += data
 
             return 
         
@@ -1278,6 +1277,7 @@ class NEPH:
                 with open(file=self.data_file, mode=mode) as fh:
                     fh.write(header)
                     fh.write(self._data)
+                    self.logger.debug(self._data)
                     self.logger.info(f"[{self.name}] file saved: {self.data_file}")
 
                 # reset self._data
