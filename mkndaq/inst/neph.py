@@ -25,26 +25,6 @@ class NEPH:
     """
     Instrument of type Acoem NE-300 or Ecotech Aurora 3000 nephelometer with methods, attributes for interaction.
     """
-    # __datadir = ""
-    # __datafile = ""
-    # __datafile_to_stage = None
-    # __data_log_interval = None
-    # __datalog_config = None
-    # __logdir = None
-    # __serial_id = None
-    # __logfile = None
-    # __logfile_to_stage = None
-    # _log = None
-    # _logger = None
-    # __name = None
-    # __reporting_interval = None
-    # __sockaddr = ""
-    # __socksleep = None
-    # __socktout = None
-    # __staging = None
-    # __zip = False
-    # __protocol = None
-
     def __init__(self, name: str, config: dict, verbosity: int=0) -> None:
         """
         Initialize instrument class.
@@ -58,7 +38,6 @@ class NEPH:
             - config[name]['socket']['port']
             - config[name]['socket']['timeout']
             - config[name]['socket']['sleep']
-            - config['logs']
             - config[name]['get_data_interval']
             - config[name]['reporting_interval']
             - config[name]['zero_check_duration']
@@ -82,25 +61,8 @@ class NEPH:
             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
             self.logger.info(f"[{self.name}] Initializing {self.type} (S/N: {self.serial_number})")
-            # # setup logging
-            # if 'logs' in config.keys():
-            #     self._log = True
-            #     # logs = os.path.expanduser(config['logs'])
-            #     logs = config['logs']
-            #     os.makedirs(logs, exist_ok=True)
-            #     logfile = os.path.join(logs, f"{time.strftime('%Y%m%d')}.log")
-            #     self._logger = logging.getLogger(__name__)
-            #     self._logger.setLevel(logging.DEBUG)
-            #     # Create a rotating file handler
-            #     handler = logging.handlers.TimedRotatingFileHandler(filename=logfile, when='midnight', backupCount=5)                
-            #     formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
-            #     handler.setFormatter(formatter)
-            #     self._logger.addHandler(handler)
-                # logging.basicConfig(level=logging.DEBUG,
-                #                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                #                     datefmt='%y-%m-%d %H:%M:%S',
-                #                     filename=str(os.path.join(logs, logfile)),
-                #                     filemode='a')
+
+            self.verbosity = config[name]['verbosity']
 
             # read instrument control properties for later use
             self.serial_id = config[name]['serial_id']
@@ -115,16 +77,16 @@ class NEPH:
             self._tcpip_line_is_busy = False
 
             # configure comms protocol
-            #if config[name]['protocol'] in ["acoem", "legacy"]:
-            self._protocol = config[name]['protocol']
-            #else:
-            #    raise ValueError("Communication protocol not recognized.")
+            if config[name]['protocol'] in ["acoem", "aurora"]:
+                self._protocol = config[name]['protocol']
+            else:
+               raise ValueError("Communication protocol not recognized.")
 
             # data log
-            self.data_log_parameters = config[name]['data_log']['parameters']
-            self.data_log_wavelengths = config[name]['data_log']['wavelengths']
-            self.data_log_angles = config[name]['data_log']['angles']
-            self.data_log_interval = config[name]['data_log']['interval']
+            # self.data_log_parameters = config[name]['data_log']['parameters']
+            # self.data_log_wavelengths = config[name]['data_log']['wavelengths']
+            # self.data_log_angles = config[name]['data_log']['angles']
+            # self.data_log_interval = config[name]['data_log']['interval']
 
             # sampling, aggregation, reporting/storage
             self.sampling_interval = config[name]['sampling_interval']
@@ -134,24 +96,15 @@ class NEPH:
             self.zero_check_duration = config[name]['zero_check_duration']
             self.span_check_duration = config[name]['span_check_duration']
 
-            # configure saving, staging and archiving
-            # _data_path: path for measurement data
-            # _log_path: path for instrument logs
+            # configure saving, staging and remote path
             root = os.path.expanduser(config['root'])
             self.data_path = os.path.join(root, config[name]['data_path'])
             os.makedirs(self.data_path, exist_ok=True)
-            # self.log_path = os.path.join(root, config[name]['data_path'], 'logs')
-            # os.makedirs(self.log_path, exist_ok=True)
             self.staging_path = os.path.join(root, config[name]['staging_path'])
             os.makedirs(self.staging_path, exist_ok=True)
-            # self._log_staging_path = os.path.join(root, config[name]['staging_path'], 'logs')
-            # os.makedirs(self._log_staging_path, exist_ok=True)
-            self.zip = config[name]['staging_zip']
+            self.staging_zip = config[name]['staging_zip']
 
-            # staging area for files to be transfered
-            # self.__datafile_to_stage = None
-
-            self.verbosity = config[name]['verbosity']
+            self.remote_path = config[name]['remote_path']
 
             # retrieve instrument id
             id = self.get_id(verbosity=verbosity)
@@ -171,13 +124,6 @@ class NEPH:
             dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
             self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.")            
 
-            # set the logging config
-            # logging_config = self.set_data_log_config(verify=False, verbosity=verbosity)
-            # msg = f"Logging config set to: {logging_config}."
-            # if self.verbosity>0:
-            #     print(f"  - {msg}")
-            # self.logger.info(msg)
-
             # get logging config
             self._datalog_config = self.get_data_log_config()[1:]
             self.logger.info(f"[{self.name}] Logging config reported by instrument: {self._datalog_config}.")
@@ -189,14 +135,11 @@ class NEPH:
             # datetime to keep track of retrievals from datalog
             self._start_datalog = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 
-            # configure remote transfer
-            self.remote_path = config[name]['remote_path']
-
             # initialize data response
             self._data = str()
 
             # initialize other stuff
-            self._file_timestamp_format = '%Y%m%d%H%M'
+            self._file_timestamp_format = str()
             self.data_file = str()
 
         except Exception as err:
@@ -212,8 +155,6 @@ class NEPH:
             # configure saving and staging schedules
             if self.reporting_interval==10:
                 self._file_timestamp_format = '%Y%m%d%H%M'
-                # minutes = [f"{self.reporting_interval*n:02}" for n in range(6) if self.reporting_interval*n < 6]
-                # minutes = (0, 10, 20, 30, 40, 50)
                 for minute in range(6):
                     schedule.every().hour.at(f"{minute}0:01").do(self._save_and_stage_data)
             elif self.reporting_interval==60:
@@ -224,6 +165,8 @@ class NEPH:
                 self._file_timestamp_format = '%Y%m%d'
                 # schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
                 schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
+            else:
+                raise ValueError(f"A reporting interval of {self.reporting_interval} is not supported.")
 
         except Exception as err:
             self.logger.error(err)
@@ -495,8 +438,8 @@ class NEPH:
         return error_map[error_code]
     
 
-    def _legacy_timestamp_to_date_time(self, fmt: str, dte: str, tme: str) -> datetime:
-        """Convert a legacy timestamp to datetime
+    def _aurora_timestamp_to_date_time(self, fmt: str, dte: str, tme: str) -> datetime:
+        """Convert a aurora timestamp to datetime
 
         Args:
             fmt (str): date reporting format as string: D/M/Y, M/D/Y or Y-M-D (where D=Day, M=Month, Y=Year)
@@ -599,7 +542,7 @@ class NEPH:
                             if not data:
                                 break
                             rcvd += data
-                    elif self._protocol=='legacy':
+                    elif self._protocol=='aurora':
                         while not (rcvd.endswith(b'\r\n') or rcvd.endswith(b'\r\n\n')):
                             data = s.recv(1024)
                             rcvd += data
@@ -686,7 +629,7 @@ class NEPH:
             if self._protocol=='acoem':
                 payload = bytes([82, 69, 65, 76, 76, 89])
                 message = self._acoem_construct_message(command=1, payload=payload)
-            elif self._protocol=='legacy':
+            elif self._protocol=='aurora':
                 message = f"**B\r".encode()
             else:
                 raise ValueError('Protocol not recognized.')
@@ -700,7 +643,7 @@ class NEPH:
         """
         Requests the value of one or more instrument parameters.
         If the ACOEM protocol is used, cf. A.3.5 Get Values, with A.4 List of Aurora parameters.
-        If the legacy protocol s used, cf. B.7 Command VI, with Table 47 VI voltage input numbers.
+        If the aurora protocol s used, cf. B.7 Command VI, with Table 47 VI voltage input numbers.
 
         Args:
             parameters (list[int]): list of parameters to query
@@ -721,7 +664,7 @@ class NEPH:
                 response = self._tcpip_comm(message=msg, verbosity=verbosity)
                 data = self._acoem_response2values(parameters=parameters, response=response, verbosity=verbosity)
                 return data
-            elif self._protocol=='legacy':
+            elif self._protocol=='aurora':
                 items = []
                 for p in parameters:
                     if p in range(100):
@@ -802,41 +745,41 @@ class NEPH:
             return list()
 
 
-    def set_data_log_config(self, verify: bool=False, verbosity: int=0) -> 'list[int]':
-        """Pass datalog config to instrument. Verify configuration
+    # def set_data_log_config(self, verify: bool=False, verbosity: int=0) -> 'list[int]':
+    #     """Pass datalog config to instrument. Verify configuration
 
-        Args:
-            verify (bool, optional): Should the datalog configuration be queried and returned after setting it? Defaults to False.
-            verbosity (int, optional): _description_. Defaults to 0.
+    #     Args:
+    #         verify (bool, optional): Should the datalog configuration be queried and returned after setting it? Defaults to False.
+    #         verbosity (int, optional): _description_. Defaults to 0.
 
-        Returns:
-            list[int]: List of parameters logged.
-        """
-        try:
-            data_log_parameter_indexes = range(2004, 2036)
-            data_log_parameters = iter(self.data_log_parameters)
-            for index in data_log_parameter_indexes:
-                self.set_value(index, next(data_log_parameters), verify=False, verbosity=2)
-            data_log_wavelength_indexes = range(2037, 2069)            
-            data_log_wavelengths = iter(self.data_log_wavelengths)
-            for index in data_log_wavelength_indexes:
-                self.set_value(index, next(data_log_wavelengths), verify=False)
-            data_log_angle_indexes = range(2070, 2102)
-            data_log_angles = iter(self.data_log_angles)
-            for index in data_log_angle_indexes:
-                self.set_value(index, next(data_log_angles), verify=False)
-            if verify:
-                return self.get_data_log_config(verbosity=verbosity)
-            else:
-                return list()
-        except Exception as err:
-            self.logger.error(err)
-            return list()
+    #     Returns:
+    #         list[int]: List of parameters logged.
+    #     """
+    #     try:
+    #         data_log_parameter_indexes = range(2004, 2036)
+    #         data_log_parameters = iter(self.data_log_parameters)
+    #         for index in data_log_parameter_indexes:
+    #             self.set_value(index, next(data_log_parameters), verify=False, verbosity=2)
+    #         data_log_wavelength_indexes = range(2037, 2069)            
+    #         data_log_wavelengths = iter(self.data_log_wavelengths)
+    #         for index in data_log_wavelength_indexes:
+    #             self.set_value(index, next(data_log_wavelengths), verify=False)
+    #         data_log_angle_indexes = range(2070, 2102)
+    #         data_log_angles = iter(self.data_log_angles)
+    #         for index in data_log_angle_indexes:
+    #             self.set_value(index, next(data_log_angles), verify=False)
+    #         if verify:
+    #             return self.get_data_log_config(verbosity=verbosity)
+    #         else:
+    #             return list()
+    #     except Exception as err:
+    #         self.logger.error(err)
+    #         return list()
 
     
     def set_datalog_interval(self, verbosity: int=0) -> int:
         try:
-            datalog_interval = self.set_value(parameter_id=2002, value=self.data_log_interval)
+            datalog_interval = self.set_value(parameter_id=2002, value=self.sampling_interval)
             return datalog_interval
 
         except Exception as err:
@@ -877,7 +820,7 @@ class NEPH:
                 # while response:=self._tcpip_comm(message, verbosity=verbosity):
                 #     data.append(self._acoem_decode_logged_data(response=response, verbosity=verbosity))
             else:
-                warnings.warn("Not implemented. For the legacy protocol, try 'get_all_data' or 'accumulate_new_data'.")
+                warnings.warn("Not implemented. For the aurora protocol, try 'get_all_data' or 'accumulate_new_data'.")
                 return list(dict())
         except Exception as err:
             self.logger.error(err)
@@ -888,7 +831,7 @@ class NEPH:
         """
         Retrieves the operating state of the instrument. 
         If the ACOEM protocol is used, this requests Aurora parameter 4035 (cf.A.4 List of Aurora parameters).
-        If the legacy protocol is used, this requests Voltage input number 71 (cf. Appendix B.7 Command: VI).
+        If the aurora protocol is used, this requests Voltage input number 71 (cf. Appendix B.7 Command: VI).
 
         Args:
             verbosity (int, optional): _description_. Defaults to 0.
@@ -902,7 +845,7 @@ class NEPH:
                 # message = self._acoem_construct_message(command=4, parameter_id=parameter_id)
                 return self.get_values(parameters=[parameter_id], verbosity=verbosity)[parameter_id]
                 # return self._acoem_bytes2int(response=response, verbosity=verbosity)[0]
-            elif self._protocol=='legacy':
+            elif self._protocol=='aurora':
                 response = self._tcpip_comm(message=f"VI{self.serial_id}71\r".encode(), verbosity=verbosity).decode()
                 mapping = {'000': 0, '016': 2, '032': 1}
                 return mapping[response]
@@ -925,7 +868,7 @@ class NEPH:
         try:
             if self._protocol=='acoem':
                 return self.set_value(parameter_id=4035, value=state, verify=verify, verbosity=verbosity)
-            elif self._protocol=='legacy':
+            elif self._protocol=='aurora':
                 # if self.get_instr_type()[0]==158:
                 warnings.warn("Not implemented for NE-300.")
                 return int()
@@ -976,7 +919,7 @@ class NEPH:
                 id += f"Build: {version[0]} Branch: {version[1]}"
                 resp = {'id': id}
 
-            elif self._protocol=="legacy":
+            elif self._protocol=="aurora":
                 resp = {'id': self._tcpip_comm(message=f"ID{self.serial_id}\r".encode(), verbosity=verbosity).decode()}
             else:
                 raise ValueError("Communication protocol unknown")
@@ -1005,11 +948,11 @@ class NEPH:
                 response_bytes = self._tcpip_comm(message=msg, verbosity=verbosity)
                 response_int = self._acoem_bytes2int(response=response_bytes, verbosity=verbosity)[0]
                 response = self._acoem_timestamp_to_datetime(response_int)
-            elif self._protocol=='legacy':
+            elif self._protocol=='aurora':
                 fmt = self._tcpip_comm(message=f"VI{self.serial_id}64\r".encode(), verbosity=verbosity).decode()
                 dte = self._tcpip_comm(message=f"VI{self.serial_id}80\r".encode(), verbosity=verbosity).decode()
                 tme = self._tcpip_comm(message=f"VI{self.serial_id}81\r".encode(), verbosity=verbosity).decode()
-                response = self._legacy_timestamp_to_date_time(fmt, dte, tme)
+                response = self._aurora_timestamp_to_date_time(fmt, dte, tme)
             else:
                 raise ValueError("Protocol not recognized.")
             self.logger.info(f"get_datetime: {response}")
@@ -1166,7 +1109,7 @@ class NEPH:
     # def get_all_data(self, verbosity: int=0) -> str:
     #     """
     #     Rewind the pointer of the data logger to the first entry, then retrieve all data (cf. B.4 ***R, B.3 ***D). 
-    #     This only works with the legacy protocol (and doesn't work very well with the NE-300).
+    #     This only works with the aurora protocol (and doesn't work very well with the NE-300).
 
     #     Parameters:
     #         verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
@@ -1177,7 +1120,7 @@ class NEPH:
     #     try:
     #         if self._protocol=="acoem":
     #             warnings.warn("Not implemented. Use 'get_logged_data' with specified period instead.")
-    #         elif self._protocol=='legacy':
+    #         elif self._protocol=='aurora':
     #             self._tcpip_comm_wait_for_line()
     #             response = self._tcpip_comm(message=f"***R\r".encode(), verbosity=verbosity).decode()
     #             response = self.accumulate_new_data(verbosity=verbosity)
@@ -1194,13 +1137,13 @@ class NEPH:
     def get_current_data(self, add_params: list=[], strict: bool=False, sep: str=' ', verbosity: int=0) -> dict:
         """
         Retrieve latest near-real-time reading on one line.
-        With the legacy protocol, this uses the command 99 (cf. B.7 VI: 99), returning parameters [80,81,30,2,31,3,32,17,18,16,19,00,90].
+        With the aurora protocol, this uses the command 99 (cf. B.7 VI: 99), returning parameters [80,81,30,2,31,3,32,17,18,16,19,00,90].
         These are mapped to the corresponding Acoem parameters (cf. A.4 List of Aurora parametes) [1,1635000,1525000,1450000,1635090,1525090,1450090,5001,5004,5003,5002,4036,4035].
         Optionally, several more parameters can be retrieved, depending on the protocol.
 
         Parameters:
             add_params (list, optional): read more values and append to dictionary. Defaults to [].
-            strict (bool, optional): If True, the dictionary returned is {99: response}, where response is the <sep>-separated response of the VI<serial_id>99 legacy command. Defaults to False.
+            strict (bool, optional): If True, the dictionary returned is {99: response}, where response is the <sep>-separated response of the VI<serial_id>99 aurora command. Defaults to False.
             sep (str, optional): Separator applied if strict=True. Defaults to ' '.
             verbosity (int, optional): level of printed output, one of 0 (none), 1 (condensed), 2 (full). Defaults to 0.
 
@@ -1219,7 +1162,7 @@ class NEPH:
                         data[1] = data[1].strftime(format=f"%d/%m/%Y{sep}%H:%M:%S")
                     response = sep.join([str(data[k]) for k, v in data.items()])
                     data = {99: response}
-            elif self._protocol=='legacy':
+            elif self._protocol=='aurora':
                 response = self._tcpip_comm(f"VI{self.serial_id}99\r".encode(), verbosity=verbosity).decode()
                 response = response.replace(", ", ",")
                 if strict:
@@ -1240,7 +1183,7 @@ class NEPH:
     def _accumulate_new_data(self, sep: str=",", verbosity: int=0) -> None:
         """
         For the acoem format: Retrieve all readings from (now - get_data_interval) until now.
-        For the legacy format: Retrieve all readings from current cursor.
+        For the aurora format: Retrieve all readings from current cursor.
         
         Args:
             sep (str, optional): Separator to use for output and file, respectively. Defaults to ",".
@@ -1255,8 +1198,6 @@ class NEPH:
             nothing (but updates self._data)
         """
         try:
-            self.logger.info(f"[{self.name}] .accumulate_new_data")
-
             if self._protocol=='acoem':
                 if self.sampling_interval is None:
                     raise ValueError("'get_data_interval' cannot be None.")
@@ -1265,9 +1206,10 @@ class NEPH:
                 # define period to retrieve and update state variable
                 start = self._start_datalog
                 end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-                self._start_datalog = end + timedelta(seconds=self.data_log_interval)
+                self._start_datalog = end + timedelta(seconds=self.sampling_interval)
 
                 # retrieve data
+                self.logger.info(f"[{self.name}] .accumulate_new_data from {start} to {end}")
                 self._tcpip_comm_wait_for_line()            
                 data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
                 self.logger.info(data)
@@ -1278,7 +1220,7 @@ class NEPH:
                     tmp.append(sep.join(values))
                 data = '\n'.join(tmp) + '\n'
 
-            elif self._protocol=='legacy':
+            elif self._protocol=='aurora':
                 data = self._tcpip_comm(f"***D\r".encode()).decode()
                 data = data.replace('\r\n\n', '\r\n').replace(", ", ",").replace(",", sep)
             else:
@@ -1365,7 +1307,7 @@ class NEPH:
             #     raise ValueError(f"not implemented")
 
             # if file:
-            #     if self.zip:
+            #     if self.staging_zip:
             #         file_staged = os.path.join(path, os.path.basename(file).replace(ext, '.zip'))
             #         with zipfile.ZipFile(file_staged, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             #             zf.write(file, os.path.basename(file))
@@ -1410,7 +1352,7 @@ class NEPH:
     # def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
     #     """
     #     For the acoem format: Retrieve all readings from (now - get_data_interval) until now.
-    #     For the legacy format: Retrieve all readings from current cursor.
+    #     For the aurora format: Retrieve all readings from current cursor.
         
     #     Args:
     #         sep (str, optional): Separator to use for output and file, respectively. Defaults to ",".
@@ -1451,7 +1393,7 @@ class NEPH:
     #                 tmp.append(sep.join(values))
     #             data = '\n'.join(tmp) + '\n'
 
-    #         elif self._protocol=='legacy':
+    #         elif self._protocol=='aurora':
     #             data = self._tcpip_comm(f"***D\r".encode()).decode()
     #             data = data.replace('\r\n\n', '\r\n').replace(", ", ",").replace(",", sep)
     #         else:
@@ -1505,7 +1447,7 @@ class NEPH:
     #         elif self.__datafile_to_stage != self.__datafile:
     #             root = os.path.join(self.staging_path, self.name, os.path.basename(self.datadir))
     #             os.makedirs(root, exist_ok=True)
-    #             if self.zip:
+    #             if self.staging_zip:
     #                 # create zip file
     #                 archive = os.path.join(root, "".join([os.path.basename(self.__datafile_to_stage)[:-4], ".zip"]))
     #                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:

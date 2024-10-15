@@ -59,7 +59,7 @@ schedule.every(fetch).seconds.do(ne300.print_ssp_bssp)
 #     schedule.every().hour.at(f"{minute}0:01").do(ne300._save_and_stage_data)
 
 # show all schedules
-logger.info(f"Currently active jobs: {'\n'.join(str(item) for item in schedule.jobs)}")
+logger.info(f"Currently active jobs: {'; '.join(str(item) for item in schedule.jobs)}")
 
 # align start with a 10' timestamp
 while int(time.time()) % 10 > 0:
