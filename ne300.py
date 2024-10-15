@@ -33,6 +33,7 @@ logfile = os.path.join(os.path.expanduser(str(cfg['root'])),
                         cfg['logging']['file'])
 logger = setup_logging(file=logfile)
 logger.error('test error logging')
+logger.info("Logs written to {logfile}")
 
 ne300 = NEPH('ne300', cfg, verbosity=0)
 
@@ -48,17 +49,23 @@ def run_threaded(job_func):
 # limit logging from schedule
 logging.getLogger('schedule').setLevel(logging.CRITICAL)
 
+fetch = 40
+schedule.every(fetch).seconds.do(ne300.print_ssp_bssp)
+# schedule.every(cfg['ne300']['sampling_interval']).minutes.at(':10').do(run_threaded, ne300._accumulate_new_data)
+# # schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
+
+# # for this test driver, save data every 10'
+# for minute in range(6):
+#     schedule.every().hour.at(f"{minute}0:01").do(ne300._save_and_stage_data)
+
+# show all schedules
+logger.info(f"Currently active jobs: {'\n'.join(str(item) for item in schedule.jobs)}")
+
 # align start with a 10' timestamp
 while int(time.time()) % 10 > 0:
     time.sleep(0.1)
 
-fetch = 40
-schedule.every(fetch).seconds.do(ne300.print_ssp_bssp)
-schedule.every(cfg['ne300']['sampling_interval']).minutes.at(':10').do(run_threaded, ne300._accumulate_new_data)
-# schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
-for minute in range(6):
-    schedule.every().hour.at(f"{minute}0:01").do(ne300._save_and_stage_data)
-
+# run forever
 while True:
     schedule.run_pending()
     time.sleep(1)
