@@ -159,11 +159,11 @@ ne300:
         wavelengths: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         interval: 60
-    sampling_interval: 3 # minutes. logger retrieval interval
+    sampling_interval: 5 # minutes. logger retrieval interval
     reporting_interval: 10
     data_path: data/ne300-test
     staging_path: staging/ne300-test
-    remote_path: ne300
+    remote_path: ne300-test
     staging_zip: True
     verbosity: 2  # 0: silent, 1: medium, 2: full
     zero_span_check_interval: 4380   # set this to 4380 (=73 hrs) for production

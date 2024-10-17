@@ -7,6 +7,7 @@ import time
 import schedule
 
 from mkndaq.inst.neph import NEPH
+from mkndaq.utils.filetransfer import SFTPClient
 from mkndaq.utils.utils import load_config, setup_logging
 
 """Read config file, set up instruments, and launch data acquisition."""
@@ -38,6 +39,11 @@ logger.info("Logs written to {logfile}")
 ne300 = NEPH('ne300', cfg, verbosity=0)
 ne300.setup_schedules()
 
+sftp = SFTPClient(cfg)
+schedule.every(ne300.reporting_interval).minutes.do(sftp.xfer_r, 
+                                                    localpath=ne300.staging_path, 
+                                                    remotepath=ne300.remote_path)
+
 def run_threaded(job_func):
     """Set up threading and start job.
 
@@ -60,7 +66,7 @@ schedule.every(fetch).seconds.do(ne300.print_ssp_bssp)
 #     schedule.every().hour.at(f"{minute}0:01").do(ne300._save_and_stage_data)
 
 # show all schedules
-logger.info(f"Currently active jobs: {'; '.join(str(item) for item in schedule.jobs)}")
+logger.info(f"Currently active jobs: {'; '.join(str(item) for item in schedule.get_jobs())}")
 
 # align start with a 10' timestamp
 while int(time.time()) % 10 > 0:

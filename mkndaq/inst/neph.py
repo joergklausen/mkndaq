@@ -150,21 +150,21 @@ class NEPH:
     def setup_schedules(self):
         try:
             # configure data acquisition schedule
-            schedule.every(int(self.sampling_interval)).minutes.at(':00').do(self._accumulate_new_data)
+            schedule.every(int(self.sampling_interval)).minutes.at(':02').do(self._accumulate_new_data)
 
             # configure saving and staging schedules
             if self.reporting_interval==10:
                 self._file_timestamp_format = '%Y%m%d%H%M'
                 for minute in range(6):
-                    schedule.every().hour.at(f"{minute}0:01").do(self._save_and_stage_data)
+                    schedule.every().hour.at(f"{minute}0:05").do(self._save_and_stage_data)
             elif self.reporting_interval==60:
                 self._file_timestamp_format = '%Y%m%d%H'
                 # schedule.every().hour.at('00:01').do(self._save_and_stage_data)
-                schedule.every().hour.at('00:01').do(self._save_and_stage_data)
+                schedule.every().hour.at('00:05').do(self._save_and_stage_data)
             elif self.reporting_interval==1440:
                 self._file_timestamp_format = '%Y%m%d'
                 # schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
-                schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
+                schedule.every().day.at('00:00:05').do(self._save_and_stage_data)
             else:
                 raise ValueError(f"A reporting interval of {self.reporting_interval} is not supported.")
 
@@ -1272,7 +1272,7 @@ class NEPH:
                     header = str()
                 else:
                     mode = 'w'
-                    header = ','.join(str(n) for n in self.get_data_log_config())
+                    header = f"{','.join(str(n) for n in self.get_data_log_config())}\n"
 
                 with open(file=self.data_file, mode=mode) as fh:
                     fh.write(header)
