@@ -13,7 +13,7 @@ def main():
     """Test suite for sftp."""
     config_file = input("Enter full path to config file or <Enter> for default: ")
     if config_file == "":
-        config_file = os.path.expanduser("~/Public/git/mkndaq/dist/mkndaq.cfg")
+        config_file = os.path.expanduser("~/Public/git/mkndaq/dist/mkndaq.yml")
     config = configparser.config(config_file)
 
     sftp = SFTPClient(config)

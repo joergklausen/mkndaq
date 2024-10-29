@@ -156,15 +156,15 @@ class NEPH:
             if self.reporting_interval==10:
                 self._file_timestamp_format = '%Y%m%d%H%M'
                 for minute in range(6):
-                    schedule.every().hour.at(f"{minute}0:05").do(self._save_and_stage_data)
+                    schedule.every(1).hour.at(f"{minute}0:05").do(self._save_and_stage_data)
             elif self.reporting_interval==60:
                 self._file_timestamp_format = '%Y%m%d%H'
                 # schedule.every().hour.at('00:01').do(self._save_and_stage_data)
-                schedule.every().hour.at('00:05').do(self._save_and_stage_data)
+                schedule.every(1).hour.at('00:05').do(self._save_and_stage_data)
             elif self.reporting_interval==1440:
                 self._file_timestamp_format = '%Y%m%d'
                 # schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
-                schedule.every().day.at('00:00:05').do(self._save_and_stage_data)
+                schedule.every(1).day.at('00:00:05').do(self._save_and_stage_data)
             else:
                 raise ValueError(f"A reporting interval of {self.reporting_interval} is not supported.")
 
