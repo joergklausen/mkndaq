@@ -21,16 +21,6 @@ class METEO:
     Meteo data are generated from a number of instruments and pushed via ftp to local directory.
     These data files are moved locally and staged for transfer.
     """
-
-    _log = None
-    _zip = None
-    _staging = None
-    _datadir = None
-    _name = None
-    _logger = None
-    _source = None
-
-    @classmethod
     def __init__(self, name: str, config: dict) -> None:
         """
         Constructor
@@ -46,26 +36,24 @@ class METEO:
         print("# Initialize METEO")
 
         try:
-            # setup logging
-            logdir = os.path.expanduser(config['logs'])
-            os.makedirs(logdir, exist_ok=True)
-            logfile = '%s.log' % time.strftime('%Y%m%d')
-            logfile = os.path.join(logdir, logfile)
-            self._logger = logging.getLogger(__name__)
-            logging.basicConfig(level=logging.DEBUG,
-                                format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                                datefmt='%y-%m-%d %H:%M:%S',
-                                filename=str(logfile),
-                                filemode='a')
+            self.name = name
+
+            # configure logging
+            _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
+            self.logger = logging.getLogger(f"{_logger}.{__name__}")
+            self.logger.info(f"[{self.name}] Initializing METEO")
 
             # read instrument control properties for later use
             self._name = name
             self._type = config[name]['type']
 
             # setup data directory
-            datadir = os.path.expanduser(config['data'])
-            self._datadir = os.path.join(datadir, name)
-            os.makedirs(self._datadir, exist_ok=True)
+            root = os.path.expanduser(config['root'])
+            self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
+            self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
+            # datadir = os.path.expanduser(config['data'])
+            # self._datadir = os.path.join(datadir, name)
+            os.makedirs(self.data_path, exist_ok=True)
 
             # source of data files
             self._source = config[name]['source']
@@ -73,17 +61,23 @@ class METEO:
             # interval to fetch and stage data files
             self._staging_interval = config[name]['staging_interval']
 
+            # reporting/storage
+            self.reporting_interval = config['name']['reporting_interval']
+            if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
+                raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
+
             # staging area for files to be transfered
             self._staging = os.path.expanduser(config['staging']['path'])
             os.makedirs(self._staging, exist_ok=True)
             self._zip = config[name]['staging_zip']
 
-        except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+            # configure remote transfer
+            self.remote_path = config[name]['remote_path']
 
-    @classmethod
+        except Exception as err:
+            self.logger.error(err)
+
+
     def store_and_stage_files(self):
         """
         Fetch data files from local source and move to datadir. Zip files and place in staging area.
@@ -114,16 +108,14 @@ class METEO:
 
                     # move to data storage location
                     # shutil.move(os.path.join(self._source, file), os.path.join(self._datadir, file))
-                    target = os.path.join(self._datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"))
+                    target = os.path.join(self.data_path, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"))
                     os.makedirs(target, exist_ok=True)
                     shutil.move(os.path.join(self._source, file), os.path.join(target, file))
 
         except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+            self.logger.error(err)
 
-    @classmethod
+
     def print_meteo(self) -> None:
         try:
             files = os.listdir(self._source)
@@ -136,11 +128,9 @@ class METEO:
                        data['zzzztttt'], data['tre200s0'], data['uor200s0']))
 
         except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
+            self.logger.error(err)
 
-    @classmethod
+
     def extract_short_bulletin(self, file) -> dict:
         """
         Read file and extract meteo data.
@@ -157,13 +147,10 @@ class METEO:
                     data = fh.readline().split()
                 data = dict(zip(header, data))
             else:
-                data = None
+                data = dict()
 
             return data
 
         except Exception as err:
-            if self._log:
-                self._logger.error(err)
-            print(err)
-
-# %%
+            self.logger.error(err)
+            return dict()

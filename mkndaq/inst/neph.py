@@ -6,9 +6,7 @@ Define a class NE300 facilitating communication with a Acoem NE-300 nephelometer
 
 import datetime as dt
 import logging
-# import logging.handlers
 import os
-# import shutil
 import socket
 import struct
 import time
@@ -90,7 +88,7 @@ class NEPH:
 
             # sampling, aggregation, reporting/storage
             self.sampling_interval = config[name]['sampling_interval']
-            self.reporting_interval = config['reporting_interval']
+            self.reporting_interval = config[name]['reporting_interval']
 
             # zero and span check durations
             self.zero_check_duration = config[name]['zero_check_duration']
@@ -98,9 +96,9 @@ class NEPH:
 
             # configure saving, staging and remote path
             root = os.path.expanduser(config['root'])
-            self.data_path = os.path.join(root, config[name]['data_path'])
+            self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
             os.makedirs(self.data_path, exist_ok=True)
-            self.staging_path = os.path.join(root, config[name]['staging_path'])
+            self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
             os.makedirs(self.staging_path, exist_ok=True)
             self.staging_zip = config[name]['staging_zip']
 

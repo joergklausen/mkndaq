@@ -62,15 +62,22 @@ class G2401:
             # days up to present for which files should be synched to data directory
             self._days_to_sync = config[name]['days_to_sync']
 
-
             # setup data directory
             root = os.path.expanduser(config['root'])
-            self.data_path = os.path.join(root, config[name]['data_path'])
+            self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
             os.makedirs(self.data_path, exist_ok=True)
 
             # staging area for files to be transfered
-            self.staging_path = os.path.join(root, config[name]['staging_path'])
+            self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
             self._zip = config[name]['staging_zip']
+
+            # sampling, aggregation, reporting/storage
+            self.reporting_interval = config['name']['reporting_interval']
+            if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
+                raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
+
+            # configure remote transfer
+            self.remote_path = config[name]['remote_path']
 
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}")

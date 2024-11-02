@@ -1,6 +1,10 @@
-import os
 import logging
+import os
+import shutil
+import zipfile
+
 import yaml
+
 
 def load_config(config_file: str) -> dict:
     """
@@ -22,6 +26,7 @@ def load_config(config_file: str) -> dict:
     except Exception as err:
         print(err)
         return config
+
 
 def setup_logging(file: str) -> logging.Logger:
     """Setup the main logging device
@@ -61,3 +66,37 @@ def setup_logging(file: str) -> logging.Logger:
     except Exception as err:
         print(err)
         return logger
+    
+
+def copy_file(source: str, target: str, logger: logging.Logger, zip: bool=True):
+    """Copy a file from source to target, optionally compressing it.
+
+    Args:
+        source (str): Full file path of source
+        target (str): directory path of target
+        logger (logging.Logger): Logger to emit success and/or error to
+        zip (bool): Should target file be zipped? Defaults to True.
+    """
+    try:
+        if os.path.exists(source):
+            os.makedirs(target, exist_ok=True)
+
+            if zip:
+                # extract file extension, i.e., everything after the last dot in the file name
+                ext = f".{os.path.basename(source).rsplit('.', 1)[-1]}"
+
+                archive = os.path.join(target, os.path.basename(source).replace(ext, '.zip'))
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    zf.write(source, os.path.basename(source))
+            else:
+                shutil.copy(src=source, dst=target)    
+
+            logger.debug(f"{source} copied to {target}.")
+
+    except Exception as err:
+        if logger:
+            logger.error(err)
+        else:
+            print(err)
+
+

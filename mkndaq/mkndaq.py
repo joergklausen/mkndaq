@@ -14,9 +14,10 @@ import time
 
 import colorama
 import schedule
+import shutil
 
-from mkndaq.utils.filetransfer import SFTPClient
-from mkndaq.utils.utils import load_config, setup_logging
+from mkndaq.utils.sftp import SFTPClient
+from mkndaq.utils.utils import load_config, setup_logging, copy_file
 
 
 def run_threaded(job_func):
@@ -31,55 +32,58 @@ def run_threaded(job_func):
 
 def main():
     """Read config file, set up instruments, and launch data acquisition."""
-    # collect and parse CLI arguments
-    parser = argparse.ArgumentParser(
-        description='Data acquisition and transfer for MKN Global GAW Station.',
-        usage='python3 mkndaq.py|mkndaq.exe -c [-f]')
-    parser.add_argument('-c', '--configuration', type=str,
-                        help='full path to configuration file',
-                        default='dist/mkndaq.yml', required=False)
-    parser.add_argument('-f', '--fetch', type=int, default=20,
-                        help='interval in seconds to fetch and display current instrument data',
-                        required=False)
-    args = parser.parse_args()
-    fetch = args.fetch
-    config_file = args.configuration
-
-    # load configuation
-    cfg = load_config(config_file=config_file)
-
-    # setup logging
-    logfile = os.path.join(os.path.expanduser(str(cfg['root'])),
-                           cfg['logging']['file'])
-    logger = setup_logging(file=logfile)
-
-    colorama.init(autoreset=True)
-
-    # get version from setup.py
-    version = 'vx.y.z'
-    with open('setup.py', 'r') as fh:
-        for line in fh:
-            if 'version=' in line:
-                version = line.split('version=')[1].split(',')[0].strip().strip("'\"")
-                break
-
-    # Inform user on what's going on
-    logger.info(f"==  MKNDAQ ({version}) started =====================")
-    logger.info(f"Instruments supported (depending on configuration):")
-    logger.info(f" - TEI 49C, Thermo 49i")
-    logger.info(f" - aerosol (file transfer only)")
-    logger.info(f" - Picarro G2401 (file transfer only)")
-    logger.info(f" - Magee AE33")
-    logger.info(f" - Acoem NE-300")
-
     try:
+        # collect and parse CLI arguments
+        parser = argparse.ArgumentParser(
+            description='Data acquisition and transfer for MKN Global GAW Station.',
+            usage='python3 mkndaq.py|mkndaq.exe -c [-f]')
+        parser.add_argument('-c', '--configuration', type=str,
+                            help='full path to configuration file',
+                            default='dist/mkndaq.yml', required=False)
+        parser.add_argument('-f', '--fetch', type=int, default=20,
+                            help='interval in seconds to fetch and display current instrument data',
+                            required=False)
+        args = parser.parse_args()
+        fetch = args.fetch
+        config_file = args.configuration
+
+        # load configuation
+        cfg = load_config(config_file=config_file)
+
+        # setup logging
+        logfile = os.path.join(os.path.expanduser(str(cfg['root'])),
+                            cfg['logging']['file'])
+        logger = setup_logging(file=logfile)
+
+        colorama.init(autoreset=True)
+
+        # get version from setup.py
+        version = 'vx.y.z'
+        with open('setup.py', 'r') as fh:
+            for line in fh:
+                if 'version=' in line:
+                    version = line.split('version=')[1].split(',')[0].strip().strip("'\"")
+                    break
+
+        # Inform user on what's going on
+        logger.info(f"mkndaq, ==  MKNDAQ ({version}) started =====================")
+        # logger.info(f"mkndaq, Instruments supported (depending on configuration):")
+        # logger.info(f"mkndaq,  - TEI 49C, Thermo 49i")
+        # logger.info(f"mkndaq,  - aerosol (file transfer only)")
+        # logger.info(f"mkndaq,  - Picarro G2401 (file transfer only)")
+        # logger.info(f"mkndaq,  - Magee AE33")
+        # logger.info(f"mkndaq,  - Acoem NE-300")
+
         # initialize data transfer, set up remote folders
         sftp = SFTPClient(config=cfg)
         sftp.setup_remote_folders()
 
+        # setup staging
+        staging = os.path.join(os.path.expanduser(cfg['root']), cfg['staging'])
+
         # stage most recent config file
-        logger.info(f"Staging current config file {config_file}")
-        sftp.stage_current_config_file(config_file)
+        logger.info(f"mkndaq, Staging current config file {config_file}")
+        copy_file(source=config_file, target=staging, logger=logger)
 
         # initialize instruments, get and set configurations and define schedules
         # NB: In case more instruments should be handled, the relevant calls need to be included here below.
@@ -88,18 +92,30 @@ def main():
                 from mkndaq.inst.thermo import Thermo49C
                 tei49c = Thermo49C(name='tei49c', config=cfg)
                 tei49c.setup_schedules()
+                remote_path = os.path.join(sftp.remote_path, tei49c.remote_path)
+                sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
+                                            remote_path=remote_path,
+                                            interval=tei49c.reporting_interval)  
                 schedule.every(6).hours.at(':00').do(run_threaded, tei49c.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
             if cfg.get('tei49i', None):
                 from mkndaq.inst.thermo import Thermo49i
                 tei49i = Thermo49i(name='tei49i', config=cfg)
                 tei49i.setup_schedules()
+                remote_path = os.path.join(sftp.remote_path, tei49i.remote_path)
+                sftp.setup_transfer_schedules(local_path=tei49i.staging_path,
+                                            remote_path=remote_path,
+                                            interval=tei49i.reporting_interval)  
                 schedule.every().day.at('00:00').do(run_threaded, tei49i.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
             if cfg.get('tei49i_2', None):
                 from mkndaq.inst.thermo import Thermo49i
                 tei49i_2 = Thermo49i(name='tei49i_2', config=cfg)
                 tei49i_2.setup_schedules()
+                remote_path = os.path.join(sftp.remote_path, tei49i_2.remote_path)
+                sftp.setup_transfer_schedules(local_path=tei49i_2.staging_path,
+                                            remote_path=remote_path,
+                                            interval=tei49i_2.reporting_interval)  
                 schedule.every().day.at('00:00').do(run_threaded, tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(run_threaded, tei49i_2.print_o3)
             if cfg.get('g2401', None):
@@ -107,24 +123,33 @@ def main():
                 g2401 = G2401('g2401', config=cfg)
                 g2401.store_and_stage_files()
                 schedule.every(cfg['g2401']['staging_interval']).minutes.do(run_threaded, g2401.store_and_stage_files)
+                remote_path = os.path.join(sftp.remote_path, g2401.remote_path)
+                sftp.setup_transfer_schedules(local_path=g2401.staging_path,
+                                            remote_path=remote_path,
+                                            interval=g2401.reporting_interval)  
                 schedule.every(fetch).seconds.do(run_threaded, g2401.print_co2_ch4_co)
             if cfg.get('meteo', None):
                 from mkndaq.inst.meteo import METEO
                 meteo = METEO('meteo', config=cfg)
                 meteo.store_and_stage_files()
+                remote_path = os.path.join(sftp.remote_path, meteo.remote_path)
+                sftp.setup_transfer_schedules(local_path=meteo.staging_path,
+                                            remote_path=remote_path,
+                                            interval=meteo.reporting_interval)  
                 schedule.every(cfg['meteo']['staging_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
                 schedule.every(cfg['meteo']['staging_interval']).minutes.do(run_threaded, meteo.print_meteo)
-            if cfg.get('aerosol', None):
-                from mkndaq.inst.aerosol import AEROSOL
-                aerosol = AEROSOL('aerosol', config=cfg)
-                aerosol.store_and_stage_files()
-                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(run_threaded, aerosol.store_and_stage_files)
-                schedule.every(cfg['aerosol']['staging_interval']).minutes.do(run_threaded, aerosol.print_aerosol)
+            # if cfg.get('aerosol', None):
+            #     from mkndaq.inst.aerosol import AEROSOL
+            #     aerosol = AEROSOL('aerosol', config=cfg)
+            #     aerosol.store_and_stage_files()
+            #     schedule.every(cfg['aerosol']['staging_interval']).minutes.do(run_threaded, aerosol.store_and_stage_files)
+            #     schedule.every(cfg['aerosol']['staging_interval']).minutes.do(run_threaded, aerosol.print_aerosol)
             if cfg.get('ae33', None):
                 from mkndaq.inst.ae33 import AE33
                 ae33 = AE33(name='ae33', config=cfg)
-                schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
-                schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
+                ae33.setup_schedules()
+                # schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
+                # schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
             # if cfg.get('ne300', None):
             #     from mkndaq.inst.neph import NEPH
@@ -136,21 +161,34 @@ def main():
         except Exception as err:
             logger.error(err)
 
-        # stage most recent log file and define schedule
-        logger.info("Staging current log file ...")
-        sftp.stage_current_log_file()
-        schedule.every().day.at('00:00').do(sftp.stage_current_log_file)
+        # transfer most recent log file and define schedule
+        logger.info(f"mkndaq, Staging current log file {logfile}")
+        copy_file(source=logfile, target=staging, logger=logger)
+        schedule.every().day.at('00:00').do(copy_file, source=logfile, target=staging, logger=logger)
 
-        # transfer any existing staged files and define schedule for data transfer
-        logger.info("Transfering existing staged files ...")
-        sftp.xfer_r()
-        schedule.every(cfg['reporting_interval']).minutes.at(':20').do(run_threaded, sftp.xfer_r)
+        # # transfer any existing staged files and define schedule for data transfer
+        # logger.info("mkndaq, Transfering existing staged files ...")
+        # sftp.xfer_r()
+        # # schedule.every(cfg['reporting_interval']).minutes.at(':20').do(run_threaded, sftp.xfer_r)
 
-        logger.info("Beginning data acquisition and file transfer")
+        # list all jobs
+        logger.info(schedule.get_jobs())
 
-        # align start with a 10' timestamp
-        while int(time.time()) % 10 > 0:
-            time.sleep(0.1)
+        logger.info("mkndaq, Beginning data acquisition and file transfer")
+
+        # align start with a multiple-of-minute timestamp
+        n = 5
+        dt = int(time.time()) % (n * 60)
+        logger.info(f"Waiting {dt:>4} seconds before start ...")
+        
+        while dt > 0:
+            print(f"Waiting {dt:>4} seconds before start ...", end="\r")
+            time.sleep(1)
+            dt -= 1
+
+        # # align start with a 10' timestamp
+        # while int(time.time()) % 10 > 0:
+        #     time.sleep(0.1)
 
         while True:
             schedule.run_pending()

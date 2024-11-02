@@ -75,14 +75,14 @@ class Thermo49C:
 
             # sampling, aggregation, reporting/storage
             self.sampling_interval = config[name]['sampling_interval']
-            self.reporting_interval = config['reporting_interval']
+            self.reporting_interval = config['name']['reporting_interval']
             if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
                 raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
 
             # configure saving, staging and archiving
             root = os.path.expanduser(config['root'])
-            self.data_path = os.path.join(root, config[name]['data_path'])
-            self.staging_path = os.path.join(root, config[name]['staging_path'])
+            self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
+            self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
             # self.archive_path = os.path.join(root, config[name]['archive'])
             self._file_to_stage = str()
             self._zip = config[name]['staging_zip']
@@ -122,6 +122,8 @@ class Thermo49C:
             elif self.reporting_interval==1440:
                 self._file_timestamp_format = '%Y%m%d'
                 schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
+            else:
+                raise ValueError("unsupported reporting_interval.")
 
         except Exception as err:
             self.logger.error(err)
@@ -494,8 +496,8 @@ class Thermo49i:
 
             # configure saving, staging and archiving
             root = os.path.expanduser(config['root'])
-            self.data_path = os.path.join(root, config[name]['data_path'])
-            self.staging_path = os.path.join(root, config[name]['staging_path'])
+            self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
+            self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
             # self.archive_path = os.path.join(root, config[name]['archive'])
 
             # configure remote transfer
@@ -530,6 +532,8 @@ class Thermo49i:
             elif self.reporting_interval==1440:
                 self._file_timestamp_format = '%Y%m%d'
                 schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
+            else:
+                raise ValueError("unsupported reporting_interval.")
 
         except Exception as err:
             self.logger.error(err)

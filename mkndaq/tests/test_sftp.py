@@ -6,15 +6,15 @@
 """
 
 import os
-from mkndaq.utils import configparser
-from mkndaq.utils.filetransfer import SFTPClient
+from mkndaq.utils.utils import load_config
+from mkndaq.utils.sftp import SFTPClient
 
 def main():
     """Test suite for sftp."""
     config_file = input("Enter full path to config file or <Enter> for default: ")
     if config_file == "":
-        config_file = os.path.expanduser("~/Public/git/mkndaq/dist/mkndaq.yml")
-    config = configparser.config(config_file)
+        config_file = os.path.expanduser("dist/mkndaq.yml")
+    config = load_config(config_file)
 
     sftp = SFTPClient(config)
 
@@ -24,7 +24,7 @@ def main():
     choice = input(menu)
     if choice == '1':
         # test connection to sftp server
-        remotepath = '.'
+        # remote_path = '.'
         if sftp.is_alive():
             print("SFTP server is alive.")
         else:
@@ -32,11 +32,11 @@ def main():
 
     if choice == '2':
         # transfer files in folder(s)
-        localpath = os.path.expanduser("~/Public/git/mkndaq/mkndaq/tests/data")
-        remotepath = '.'
-        sftp.setup_remote_folders(localpath=localpath)
-        print("Transfering folder %s > %s" % (localpath, remotepath))
-        sftp.xfer_r(localpath=localpath, remotepath=remotepath)
+        local_path = os.path.expanduser("~/Public/git/mkndaq/mkndaq/tests/data")
+        remote_path = '.'
+        sftp.setup_remote_folders(local_path=local_path)
+        print("Transfering folder %s > %s" % (local_path, remote_path))
+        sftp.transfer_files(local_path=local_path, remote_path=remote_path)
 
 
 if __name__ == "__main__":

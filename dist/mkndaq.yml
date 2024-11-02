@@ -1,12 +1,29 @@
 # metadata
 file: mkndaq.yml
-version: 2024-10-13
+version: 2024-11-03
+
+# new entries for v0.8
+root: ~/Documents/mkndaq
+
+# data directory, relative to root
+data: data
+
+# log directory, relative to root
+logging:
+  file: mkndaq.log      # NB: specify path relative to root
+  level_console: DEBUG
+  level_file: ERROR
+
+# staging area for transfer, relative to root
+staging: staging
+    # path: ~/Documents/mkndaq/staging
+    # zip: True   # Zip files for staging? Legacy default value, see each instrument for specific setting. warning: will be depracated in future
 
 # user home directory
-home: c:/users/mkn         # leave empty for linux systems
+# home: c:/users/mkn         # leave empty for linux systems  warning: will be depracated in future
 
 # file transfer
-reporting_interval: 10      # minutes. How often should data be reported? Determines the file name.
+# reporting_interval: 10      # minutes. How often should data be reported? Determines the file name. warning: will be depracated in future
 sftp:
     host: sftp.meteoswiss.ch
     usr: gaw_kenya
@@ -19,15 +36,7 @@ sftp:
 #     key: ~/.ssh/dxs_key.txt
 
 # logfiles
-logs: ~/Documents/mkndaq/logs
-
-# data directory
-data: ~/Documents/mkndaq/data
-
-# staging area for transfer
-staging:
-    path: ~/Documents/mkndaq/staging
-    zip: True   # Zip files for staging? Legacy default value, see each instrument for specific setting
+# logs: ~/Documents/mkndaq/logs
 
 # Serial interface configuration
 COM1:
@@ -91,10 +100,11 @@ tei49c:
     get_data: lrec              # warning: will be removed with v0.8.0
     data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    data_path: data/tei49c
-    staging_path: staging/tei49c
-    remote_path: tei49c
+    reporting_interval: 10
+    data_path: tei49c
+    staging_path: tei49c
     staging_zip: True
+    remote_path: tei49c
 
 tei49i:
     type: Thermo 49i
@@ -133,10 +143,10 @@ tei49i:
     get_data: lr00
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     reporting_interval: 10
-    data_path: data/tei49i
-    staging_path: staging/tei49i
-    remote_path: tei49i
+    data_path: tei49i
+    staging_path: tei49i
     staging_zip: True
+    remote_path: tei49i
 
 ne300:
     type: NE300
@@ -161,10 +171,10 @@ ne300:
         interval: 60
     sampling_interval: 5 # minutes. logger retrieval interval
     reporting_interval: 10
-    data_path: data/ne300-test
-    staging_path: staging/ne300-test
-    remote_path: ne300-test
+    data_path: ne300-test
+    staging_path: ne300-test
     staging_zip: True
+    remote_path: ne300-test
     verbosity: 2  # 0: silent, 1: medium, 2: full
     zero_span_check_interval: 4380   # set this to 4380 (=73 hrs) for production
     zero_check_duration: 20 # set this to 30 for production
@@ -181,11 +191,11 @@ g2401:
     netshare: DataLog_User_Sync
     days_to_sync: 7                 # file synching from network drives to data directory
     buckets: daily                  # Determines the expected directory structure and how files are found.
-    staging_interval: 5             # minutes. How often should source be scanned and new files staged?
-    data_path: data/g2401
-    staging_path: staging/g2401
-    remote_path: g2401
+    reporting_interval: 10             # minutes. How often should source be scanned and new files staged?
+    data_path: g2401
+    staging_path: g2401
     staging_zip: True
+    remote_path: g2401
 
 ae33:
     type: Magee AE33
@@ -202,33 +212,26 @@ ae33:
     set_datetime: False             # Should date and time be set when initializing the instrument?
     sampling_interval: 1            # minutes. How often should data be requested from instrument?
     reporting_interval: 10
-    data_path: data/ae33
-    staging_path: staging/ae33
-    remote_path: ae33
+    data_path: ae33
+    staging_path: ae33
     staging_zip: True
+    remote_path: ae33
 
 meteo:
     type: METEO
     source: c:/ftproot/meteo        # directory where data can be found
+    data_path: meteo
+    staging_path: meteo
     staging_interval: 5             # minutes. How often should source be scanned and files staged?
+    reporting_interval: 10
     staging_zip: False
 
-aerosol:
-    type: AEROSOL
-    socket:
-        host: 192.168.1.105
-    netshare: psi-sent              # directory where data can be found
-    buckets: None                   # None|hourly|daily. Determines the directory structure and how files are found.
-    days_to_sync: 7                 # file synching from network drives to data directory
-    staging_interval: 5             # minutes. How often should source be scanned and files staged?
-    staging_zip: False
-
-
-# new entries for v0.8
-root: ~/Documents/mkndaq
-
-logging:
-# NB: specify file relative to root
-  file: mkndaq.log
-  level_console: DEBUG
-  level_file: ERROR
+# aerosol:
+#     type: AEROSOL
+#     socket:
+#         host: 192.168.1.105
+#     netshare: psi-sent              # directory where data can be found
+#     buckets: None                   # None|hourly|daily. Determines the directory structure and how files are found.
+#     days_to_sync: 7                 # file synching from network drives to data directory
+#     staging_interval: 5             # minutes. How often should source be scanned and files staged?
+#     staging_zip: False

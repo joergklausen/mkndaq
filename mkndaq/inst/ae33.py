@@ -127,18 +127,19 @@ class AE33:
             self.reporting_interval = config[name]['reporting_interval']
 
             # configure saving, staging and archiving
-            # _data_path: path for measurement data
-            # _log_path: path for instrument logs
             root = os.path.expanduser(config['root'])
-            self.data_path = os.path.join(root, config[name]['data_path'], 'data')
+            self.data_path = os.path.join(root, config['data'], config[name]['data_path'], 'data')
             os.makedirs(self.data_path, exist_ok=True)
-            self.log_path = os.path.join(root, config[name]['data_path'], 'logs')
+            self.log_path = os.path.join(root, config['data'], config[name]['data_path'], 'logs')
             os.makedirs(self.log_path, exist_ok=True)
-            self._data_staging_path = os.path.join(root, config[name]['staging_path'], 'data')
-            os.makedirs(self._data_staging_path, exist_ok=True)
-            self._log_staging_path = os.path.join(root, config[name]['staging_path'], 'logs')
-            os.makedirs(self._log_staging_path, exist_ok=True)
+            self._staging_path_data = os.path.join(root, config['staging'], config[name]['staging_path'], 'data')
+            os.makedirs(self._staging_path_data, exist_ok=True)
+            self._staging_path_logs = os.path.join(root, config['staging'], config[name]['staging_path'], 'logs')
+            os.makedirs(self._staging_path_logs, exist_ok=True)
             self.zip = config[name]['staging_zip']
+
+            # configure remote transfer
+            self.remote_path = config[name]['remote_path']
 
             # initialize data, logs response
             self._data = str()
@@ -525,11 +526,11 @@ class AE33:
             if table=='Data':
                 file = self.data_file
                 ext = '.dat'
-                path = self._data_staging_path
+                path = self._staging_path_data
             elif table=='Log':
                 file = self.log_file
                 ext = '.log'
-                path = self._log_staging_path
+                path = self._staging_path_logs
             else:
                 raise ValueError(f"not implemented")
 
@@ -683,7 +684,7 @@ class AE33:
     #     """
     #     try:
     #         if self.data_file:
-    #             archive = os.path.join(self._data_staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
+    #             archive = os.path.join(self._staging_path_data, os.path.basename(self.data_file).replace('.dat', '.zip'))
     #             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
     #                 zf.write(self.data_file, os.path.basename(self.data_file))
     #                 self.logger.info(f"[{self.name}] file staged: {archive}")
