@@ -72,7 +72,7 @@ class G2401:
             self._zip = config[name]['staging_zip']
 
             # sampling, aggregation, reporting/storage
-            self.reporting_interval = config['name']['reporting_interval']
+            self.reporting_interval = config[name]['reporting_interval']
             if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
                 raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
 
@@ -126,7 +126,7 @@ class G2401:
     def print_co2_ch4_co(self) -> None:
         try:
             conc = self.tcpip_comm("_Meas_GetConc").split(';')[0:3]
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self._name}] CO2 {conc[0]} ppm  CH4 {conc[1]} ppm  CO {conc[2]} ppm")
+            self.logger.info(colorama.Fore.GREEN + f"[{self._name}] CO2 {conc[0]} ppm  CH4 {conc[1]} ppm  CO {conc[2]} ppm")
 
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}")

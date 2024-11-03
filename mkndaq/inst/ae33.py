@@ -144,6 +144,7 @@ class AE33:
             # initialize data, logs response
             self._data = str()
             self._log = str()
+            self._data_begin_read_id = int()
 
             self.get_config()
 
@@ -284,7 +285,7 @@ class AE33:
         :return (err, cfg) configuration or errors, if any.
 
         """
-        print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} .get_config (name={self.name})")
+        self.logger.info(f"[{self.name}]  .get_config")
         cfg = []
         try:
             for cmd in self._get_config:
@@ -575,7 +576,7 @@ class AE33:
             msg = f"Tape advances remaining: {tape_adv_remaining}"
             if int(tape_adv_remaining) < 10:
                 msg += " ATTENTION: Get ready to change change!"
-            print(colorama.Fore.GREEN + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] BC: {data[44]} ng/m3 UVPM: {data[29]} ng/m3 ({msg})")
+            self.logger.info(colorama.Fore.GREEN + f"[{self.name}] BC: {data[44]} ng/m3 UVPM: {data[29]} ng/m3 ({msg})")
 
         except Exception as err:
             self.logger.error(err)

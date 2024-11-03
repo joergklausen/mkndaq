@@ -75,7 +75,7 @@ class Thermo49C:
 
             # sampling, aggregation, reporting/storage
             self.sampling_interval = config[name]['sampling_interval']
-            self.reporting_interval = config['name']['reporting_interval']
+            self.reporting_interval = config[name]['reporting_interval']
             if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
                 raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
 
@@ -207,7 +207,7 @@ class Thermo49C:
             self._serial.open()
             self.set_datetime()
             for cmd in self._set_config:
-                cfg.append(self.serial_comm(cmd))
+                cfg.append(f"{cmd}: {self.serial_comm(cmd)}")
             self._serial.close()
             time.sleep(1)
 
@@ -372,7 +372,8 @@ class Thermo49C:
             o3 = self.serial_comm('O3').split()
             self._serial.close()
 
-            self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
+            # self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
+            self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()} {o3[1]} {o3[2]}")
 
         except Exception as err:
             self.logger.error(err)
@@ -682,9 +683,9 @@ class Thermo49i:
         try:
             for cmd in self._set_config:
                 if self._serial_com:
-                    cfg.append(self.serial_comm(cmd))
+                    cfg.append(f"{cmd}: {self.serial_comm(cmd)}")
                 else:
-                    cfg.append(self.tcpip_comm(cmd))
+                    cfg.append(f"{cmd}: {self.tcpip_comm(cmd)}")
                 time.sleep(1)
 
             self.logger.info(f"{self._name}: Configuration set to: {cfg}")
@@ -821,10 +822,14 @@ class Thermo49i:
                 o3 = self.serial_comm('o3').split()
             else:
                 o3 = self.tcpip_comm('o3').split()
-            self.logger.info(colorama.Fore.GREEN + f"{self._name}: {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
+            # self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
+            if len(o3)==2:
+                self.logger.info(colorama.Fore.GREEN + f"[{self._name}] O3 {float(o3[0]):0.1f} {o3[1]}")
+            if len(o3)==3:
+                self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()}  {float(o3[1]):0.1f} {o3[2]}")
 
         except Exception as err:
-            self.logger.error(colorama.Fore.RED + f"{err}")
+            self.logger.error(colorama.Fore.RED + f"print_o3: {err}")
 
 
     def _save_data(self) -> None:

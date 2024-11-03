@@ -1,7 +1,7 @@
-# metadata
 file: mkndaq.yml
 version: 2024-11-03
 
+# metadata
 # new entries for v0.8
 root: ~/Documents/mkndaq
 
@@ -16,17 +16,12 @@ logging:
 
 # staging area for transfer, relative to root
 staging: staging
-    # path: ~/Documents/mkndaq/staging
-    # zip: True   # Zip files for staging? Legacy default value, see each instrument for specific setting. warning: will be depracated in future
-
-# user home directory
-# home: c:/users/mkn         # leave empty for linux systems  warning: will be depracated in future
 
 # file transfer
-# reporting_interval: 10      # minutes. How often should data be reported? Determines the file name. warning: will be depracated in future
 sftp:
     host: sftp.meteoswiss.ch
     usr: gaw_kenya
+    remote: '.'
     key: ~/.ssh/private-open-ssh-4096-mkn.ppk
     proxy:
         socks5:             # proxy url (leave empty if no proxy is used)
@@ -222,10 +217,10 @@ meteo:
     source: c:/ftproot/meteo        # directory where data can be found
     data_path: meteo
     staging_path: meteo
-    staging_interval: 5             # minutes. How often should source be scanned and files staged?
     reporting_interval: 10
     staging_zip: False
-
+    remote_path: meteo
+#    staging_interval: 5             # minutes. How often should source be scanned and files staged?
 # aerosol:
 #     type: AEROSOL
 #     socket:

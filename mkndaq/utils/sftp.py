@@ -46,7 +46,7 @@ class SFTPClient:
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
             self.schedule_logger = logging.getLogger(f"{_logger}.schedule")
             self.schedule_logger.setLevel(level=logging.DEBUG)
-            self.logger.info("sftp, Initialize SFTPClient")
+            self.logger.info("Initialize SFTPClient")
 
             # sftp connection settings
             self.host = config['sftp']['host']
@@ -62,11 +62,11 @@ class SFTPClient:
                                     config['sftp']['proxy']['port']), sockslib.Socks.SOCKS5)
 
             # configure local source
-            self.local_path = os.path.join(os.path.expanduser(config['root']), config['sftp']['local_path'])
-            self.local_path = re.sub(r'(/?\.?\\){1,2}', '/', self.local_path)
+            self.local_path = os.path.join(os.path.expanduser(config['root']), config['staging'])
+            # self.local_path = re.sub(r'(/?\.?\\){1,2}', '/', self.local_path)
 
             # configure remote destination
-            self.remote_path = config['sftp']['remote_path']
+            self.remote_path = config['sftp']['remote']
 
         except Exception as err:
             self.logger.error(err)
@@ -91,7 +91,7 @@ class SFTPClient:
             return False
 
 
-    def list_local_files(self, local_path: str=str()) -> list[str]:
+    def list_local_files(self, local_path: str=str()) -> list:
         """Establish list of local files.
 
         Args:
@@ -141,7 +141,7 @@ class SFTPClient:
             return False
         
 
-    def list_remote_items(self, remote_path: str='.') -> list[str]:
+    def list_remote_items(self, remote_path: str='.') -> list:
         try:
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -175,7 +175,7 @@ class SFTPClient:
             # sanitize remote_path
             remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
 
-            self.logger.info(f"sftp, .setup_remote_folders (local_path: {local_path}, remote_path: {remote_path})")
+            self.logger.info(f".setup_remote_folders (local_path: {local_path}, remote_path: {remote_path})")
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -187,6 +187,7 @@ class SFTPClient:
                         try:
                             sftp.mkdir(root, mode=16877)
                         except OSError as err:
+                            # [todo] check if remote items exists, adapt error message accordingly ...
                             self.logger.error(f"Could not create '{root}', error: {err}. Maybe path exists already?")
                             pass
                     sftp.close()
@@ -205,7 +206,7 @@ class SFTPClient:
         try:
             if os.path.exists(local_path):
                 remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
-                msg = f"sftp, .put_file {local_path} > {remote_path}"
+                msg = f".put_file {local_path} > {remote_path}"
                 with paramiko.SSHClient() as ssh:
                     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                     ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
@@ -261,7 +262,7 @@ class SFTPClient:
             if not remote_path:
                 remote_path = self.remote_path
 
-            self.logger.debug(f"sftp, .transfer_all_files (local path: {local_path}, remote path: {remote_path})")
+            self.logger.debug(f".transfer_all_files (local path: {local_path}, remote path: {remote_path})")
 
             # localitem = None
             # remoteitem = None
@@ -373,7 +374,7 @@ if __name__ == "__main__":
 #             self.schedule_logger = logging.getLogger(f"{_logger}.schedule")
 #             self.schedule_logger.setLevel(level=logging.DEBUG)
             
-#             self.logger.info("sftp, Initialize SFTPClient")
+#             self.logger.info("Initialize SFTPClient")
 
 #             # sftp connection settings
 #             self.host = config['sftp']['host']
@@ -503,7 +504,7 @@ if __name__ == "__main__":
 #             # sanitize remote_path
 #             remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
 
-#             self.logger.info(f"sftp, .setup_remote_folders (local_path: {local_path}, remote_path: {remote_path})")
+#             self.logger.info(f".setup_remote_folders (local_path: {local_path}, remote_path: {remote_path})")
 
 #             with paramiko.SSHClient() as ssh:
 #                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -533,7 +534,7 @@ if __name__ == "__main__":
 #         try:
 #             if os.path.exists(local_path):
 #                 remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
-#                 msg = f"sftp, .put_file {local_path} > {remote_path}"
+#                 msg = f".put_file {local_path} > {remote_path}"
 #                 with paramiko.SSHClient() as ssh:
 #                     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 #                     ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
@@ -589,7 +590,7 @@ if __name__ == "__main__":
 #             if remote_path is None:
 #                 remote_path = self.remote_path
 
-#             self.logger.debug(f"sftp, .transfer_all_files (local path: {local_path}, remote path: {remote_path})")
+#             self.logger.debug(f".transfer_all_files (local path: {local_path}, remote path: {remote_path})")
 
 #             # localitem = None
 #             # remoteitem = None

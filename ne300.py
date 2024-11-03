@@ -7,7 +7,7 @@ import time
 import schedule
 
 from mkndaq.inst.neph import NEPH
-from mkndaq.utils.filetransfer import SFTPClient
+from mkndaq.utils.sftp import SFTPClient
 from mkndaq.utils.utils import load_config, setup_logging
 
 """Read config file, set up instruments, and launch data acquisition."""
@@ -40,9 +40,9 @@ ne300 = NEPH('ne300', cfg, verbosity=0)
 ne300.setup_schedules()
 
 sftp = SFTPClient(cfg)
-schedule.every(ne300.reporting_interval).minutes.do(sftp.xfer_r, 
-                                                    localpath=ne300.staging_path, 
-                                                    remotepath=ne300.remote_path)
+schedule.every(ne300.reporting_interval).minutes.do(sftp.transfer_files, 
+                                                    local_path=ne300.staging_path, 
+                                                    remote_path=ne300.remote_path)
 
 def run_threaded(job_func):
     """Set up threading and start job.

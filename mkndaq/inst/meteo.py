@@ -59,15 +59,15 @@ class METEO:
             self._source = config[name]['source']
 
             # interval to fetch and stage data files
-            self._staging_interval = config[name]['staging_interval']
+            # self._staging_interval = config[name]['staging_interval']
 
             # reporting/storage
-            self.reporting_interval = config['name']['reporting_interval']
+            self.reporting_interval = config[name]['reporting_interval']
             if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
                 raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
 
             # staging area for files to be transfered
-            self._staging = os.path.expanduser(config['staging']['path'])
+            self._staging = os.path.join(root, os.path.expanduser(config['staging']), self._name)
             os.makedirs(self._staging, exist_ok=True)
             self._zip = config[name]['staging_zip']
 
@@ -85,26 +85,26 @@ class METEO:
         :return: None
         """
         try:
-            print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
+            # print("%s .store_and_stage_files (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
 
             # get data file from local source
             files = os.listdir(self._source)
 
             if files:
                 # staging location for transfer
-                stage = os.path.join(self._staging, self._name)
-                os.makedirs(stage, exist_ok=True)
+                # stage = os.path.join(self._staging, self._name)
+                # os.makedirs(stage, exist_ok=True)
 
                 # store and stage data files
                 for file in files:
                     # stage file
                     if self._zip:
                         # create zip file
-                        archive = os.path.join(stage, "".join([file[:-4], ".zip"]))
+                        archive = os.path.join(self._staging, "".join([file[:-4], ".zip"]))
                         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
                             fh.write(os.path.join(self._source, file), file)
                     else:
-                        shutil.copyfile(os.path.join(self._source, file), os.path.join(stage, file))
+                        shutil.copyfile(os.path.join(self._source, file), os.path.join(self._staging, file))
 
                     # move to data storage location
                     # shutil.move(os.path.join(self._source, file), os.path.join(self._datadir, file))

@@ -14,7 +14,6 @@ import time
 
 import colorama
 import schedule
-import shutil
 
 from mkndaq.utils.sftp import SFTPClient
 from mkndaq.utils.utils import load_config, setup_logging, copy_file
@@ -66,23 +65,17 @@ def main():
                     break
 
         # Inform user on what's going on
-        logger.info(f"mkndaq, ==  MKNDAQ ({version}) started =====================")
-        # logger.info(f"mkndaq, Instruments supported (depending on configuration):")
-        # logger.info(f"mkndaq,  - TEI 49C, Thermo 49i")
-        # logger.info(f"mkndaq,  - aerosol (file transfer only)")
-        # logger.info(f"mkndaq,  - Picarro G2401 (file transfer only)")
-        # logger.info(f"mkndaq,  - Magee AE33")
-        # logger.info(f"mkndaq,  - Acoem NE-300")
+        logger.info(f"==  MKNDAQ ({version}) started =====================")
 
         # initialize data transfer, set up remote folders
         sftp = SFTPClient(config=cfg)
-        sftp.setup_remote_folders()
+        # sftp.setup_remote_folders()
 
         # setup staging
         staging = os.path.join(os.path.expanduser(cfg['root']), cfg['staging'])
 
         # stage most recent config file
-        logger.info(f"mkndaq, Staging current config file {config_file}")
+        logger.info(f"Staging current config file {config_file}")
         copy_file(source=config_file, target=staging, logger=logger)
 
         # initialize instruments, get and set configurations and define schedules
@@ -122,7 +115,7 @@ def main():
                 from mkndaq.inst.g2401 import G2401
                 g2401 = G2401('g2401', config=cfg)
                 g2401.store_and_stage_files()
-                schedule.every(cfg['g2401']['staging_interval']).minutes.do(run_threaded, g2401.store_and_stage_files)
+                schedule.every(cfg['g2401']['reporting_interval']).minutes.do(run_threaded, g2401.store_and_stage_files)
                 remote_path = os.path.join(sftp.remote_path, g2401.remote_path)
                 sftp.setup_transfer_schedules(local_path=g2401.staging_path,
                                             remote_path=remote_path,
@@ -136,8 +129,8 @@ def main():
                 sftp.setup_transfer_schedules(local_path=meteo.staging_path,
                                             remote_path=remote_path,
                                             interval=meteo.reporting_interval)  
-                schedule.every(cfg['meteo']['staging_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
-                schedule.every(cfg['meteo']['staging_interval']).minutes.do(run_threaded, meteo.print_meteo)
+                schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
+                schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.print_meteo)
             # if cfg.get('aerosol', None):
             #     from mkndaq.inst.aerosol import AEROSOL
             #     aerosol = AEROSOL('aerosol', config=cfg)
@@ -148,13 +141,26 @@ def main():
                 from mkndaq.inst.ae33 import AE33
                 ae33 = AE33(name='ae33', config=cfg)
                 ae33.setup_schedules()
+                remote_path = os.path.join(sftp.remote_path, ae33.remote_path)
+                sftp.setup_transfer_schedules(local_path=ae33._staging_path_data,
+                                            remote_path=os.path.join(remote_path, 'data'),
+                                            interval=ae33.reporting_interval)  
+                sftp.setup_transfer_schedules(local_path=ae33._staging_path_logs,
+                                            remote_path=os.path.join(remote_path, 'logs'),
+                                            interval=ae33.reporting_interval)  
                 # schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
                 # schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
-            # if cfg.get('ne300', None):
-            #     from mkndaq.inst.neph import NEPH
-            #     ne300 = NEPH(name='ne300', config=cfg)
-            #     schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
+            if cfg.get('ne300', None):
+                from mkndaq.inst.neph import NEPH
+                ne300 = NEPH(name='ne300', config=cfg)
+                ne300 = NEPH('ne300', cfg, verbosity=0)
+                ne300.setup_schedules()
+                remote_path = os.path.join(sftp.remote_path, ne300.remote_path)
+                sftp.setup_transfer_schedules(local_path=ne300.staging_path,
+                                            remote_path=remote_path,
+                                            interval=ne300.reporting_interval)  
+                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
             #     schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)
             #     schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
 
@@ -162,7 +168,7 @@ def main():
             logger.error(err)
 
         # transfer most recent log file and define schedule
-        logger.info(f"mkndaq, Staging current log file {logfile}")
+        logger.info(f"Staging current log file {logfile}")
         copy_file(source=logfile, target=staging, logger=logger)
         schedule.every().day.at('00:00').do(copy_file, source=logfile, target=staging, logger=logger)
 
@@ -174,8 +180,6 @@ def main():
         # list all jobs
         logger.info(schedule.get_jobs())
 
-        logger.info("mkndaq, Beginning data acquisition and file transfer")
-
         # align start with a multiple-of-minute timestamp
         n = 5
         dt = int(time.time()) % (n * 60)
@@ -185,6 +189,7 @@ def main():
             print(f"Waiting {dt:>4} seconds before start ...", end="\r")
             time.sleep(1)
             dt -= 1
+        logger.info("Beginning data acquisition and file transfer ...")
 
         # # align start with a 10' timestamp
         # while int(time.time()) % 10 > 0:
