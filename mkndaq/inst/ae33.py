@@ -145,6 +145,7 @@ class AE33:
             self._data = str()
             self._log = str()
             self._data_begin_read_id = int()
+            self._log_begin_read_id = int()
 
             self.get_config()
 
