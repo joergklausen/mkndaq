@@ -383,7 +383,6 @@ class AE33:
                 ext = self.table_ext_dict['Data']
 
                 # reset attributes
-                self.data_file = str()
                 self._data = str()
             elif table=='Log':
                 path = self.log_path
@@ -396,8 +395,6 @@ class AE33:
             else:
                 raise ValueError(f"[{self.name}] '{table}' not implemented")
 
-            file = str()
-            
             if data:
                 # create appropriate file name and write mode
                 file = os.path.join(path, yyyy, mm, dd, f"{self.name}-{timestamp}.{ext}")
@@ -416,6 +413,8 @@ class AE33:
                     fh.write(data)
                     self.logger.info(f"[{self.name}] file saved: {file}")
 
+                self._data_file_to_stage = file
+
             return
 
         except Exception as err:
@@ -431,7 +430,7 @@ class AE33:
             self.logger.debug(f"[{self.name}] ._stage_file {table}")
 
             if table=='Data':
-                file = self.data_file
+                file = self._data_file_to_stage
                 ext = self.table_ext_dict[table]
                 path = self._staging_path_data
             elif table=='Log':
@@ -440,6 +439,7 @@ class AE33:
                 path = self._staging_path_logs
             else:
                 raise ValueError(f"[{self.name}] '{table}' not implemented")
+            self.logger.debug(f"[{self.name}] _stage_file: table {table}, file {file}, ext {ext}, path {path}")
 
             if file:
                 if self.zip:
@@ -451,13 +451,15 @@ class AE33:
                     shutil.copy(src=file, dst=file_staged)
                 self.logger.info(f"[{self.name}] file staged: {file_staged}")
 
+            self._data_file_to_stage = str()
+
         except Exception as err:
-            self.logger.error(f"[{self.name}] {err}")
+            self.logger.error(f"[{self.name}] _stage_file {err}")
 
 
     def _save_and_stage_data(self):
         try:
-            self.logger.debug(f"[{self.name}] ._save_and_stage_data")
+            self.logger.debug(f"[{self.name}] _save_and_stage_data")
         
             self._save_data('Data')
             self._stage_file('Data')
