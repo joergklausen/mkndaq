@@ -88,7 +88,6 @@ tei49c:
         - set format 00
         - set lrec format 00 02
         - set save params
-    get_data: lrec              # warning: will be removed with v0.8.0
     data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     reporting_interval: 10
@@ -96,6 +95,7 @@ tei49c:
     staging_path: tei49c
     staging_zip: True
     remote_path: tei49c
+    # get_data: lrec              # warning: will be removed with v0.8.0
 
 tei49i:
     type: Thermo 49i
@@ -160,16 +160,16 @@ ne300:
         wavelengths: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         interval: 60
-    sampling_interval: 5 # minutes. logger retrieval interval
+    sampling_interval: 5            # minutes. logger retrieval interval
     reporting_interval: 10
-    data_path: ne300-test
-    staging_path: ne300-test
+    data_path: ne300
+    staging_path: ne300
     staging_zip: True
-    remote_path: ne300-test
-    verbosity: 2  # 0: silent, 1: medium, 2: full
-    zero_span_check_interval: 4380   # set this to 4380 (=73 hrs) for production
-    zero_check_duration: 20 # set this to 30 for production
-    span_check_duration: 20 # set this to 30 for production
+    remote_path: ne300
+    verbosity: 2                    # 0: silent, 1: medium, 2: full
+    zero_span_check_interval: 4380  # set this to 4380 (=73 hrs) for production
+    zero_check_duration: 20         # set this to 30 for production
+    span_check_duration: 20         # set this to 30 for production
 
 g2401:
     type: Picarro G2401
@@ -182,7 +182,7 @@ g2401:
     netshare: DataLog_User_Sync
     days_to_sync: 7                 # file synching from network drives to data directory
     buckets: daily                  # Determines the expected directory structure and how files are found.
-    reporting_interval: 10             # minutes. How often should source be scanned and new files staged?
+    reporting_interval: 10          # minutes. How often should source be scanned and new files staged?
     data_path: g2401
     staging_path: g2401
     staging_zip: True
