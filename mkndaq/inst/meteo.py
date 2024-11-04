@@ -55,7 +55,8 @@ class METEO:
 
             # source of data files
             self.source = config[name]['source']
-
+            self.pattern = config[name]['pattern']
+            
             # interval to fetch and stage data files
             # self.staging_interval = config[name]['staging_interval']
 
@@ -118,7 +119,7 @@ class METEO:
             files = os.listdir(self.source)
             if len(files)>0:
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {files}")
-                file = max([x for x in files if "VMSW" in x])
+                file = max([x for x in files if self.pattern in x])
 
                 data = self.extract_short_bulletin(os.path.join(self.source, file))
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] zzzztttt: {data['zzzztttt']} tre200s0: {data['tre200s0']} uor200s0: {data['uor200s0']}")

@@ -211,6 +211,7 @@ ae33:
 meteo:
     type: METEO
     source: c:/ftproot/meteo        # directory where data can be found
+    pattern: VRXA00
     data_path: meteo
     staging_path: meteo
     reporting_interval: 10
