@@ -47,13 +47,13 @@ class Thermo49C:
         colorama.init(autoreset=True)
 
         try:
-            self._name = name
-            self._serial_number = config[name]['serial_number']
+            self.name = name
+            self.serial_number = config[name]['serial_number']
 
             # configure logging
             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
-            self.logger.info(f"[{self._name}] Initializing TEI49C (S/N: {self._serial_number})")
+            self.logger.info(f"[{self.name}] Initializing TEI49C (S/N: {self.serial_number})")
 
             # read instrument control properties for later use
             self._id = config[name]['id'] + 128
@@ -76,7 +76,7 @@ class Thermo49C:
             self.sampling_interval = config[name]['sampling_interval']
             self.reporting_interval = config[name]['reporting_interval']
             if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
-                raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
+                raise ValueError(f"[{self.name}] reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.")
 
             # configure saving, staging and archiving
             root = os.path.expanduser(config['root'])
@@ -122,7 +122,7 @@ class Thermo49C:
                 self._file_timestamp_format = '%Y%m%d'
                 schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
             else:
-                raise ValueError("unsupported reporting_interval.")
+                raise ValueError(f"[{self.name}] unsupported reporting_interval.")
 
         except Exception as err:
             self.logger.error(err)
@@ -169,7 +169,7 @@ class Thermo49C:
             for cmd in self._get_config:
                 cfg.append(self.serial_comm(cmd))
             self._serial.close()
-            self.logger.info(f"[{self._name}] Configuration is: {cfg}")
+            self.logger.info(f"[{self.name}] Configuration is: {cfg}")
 
             return cfg
 
@@ -189,7 +189,7 @@ class Thermo49C:
             dte = self.serial_comm("date")
             tme = self.serial_comm(f"set time {time.strftime('%H:%M')}")
             tme = self.serial_comm("time")
-            self.logger.info(f"[{self._name}] Date and time set and reported as: {dte} {tme}")
+            self.logger.info(f"[{self.name}] Date and time set and reported as: {dte} {tme}")
         except Exception as err:
             self.logger.error(err)
 
@@ -200,7 +200,7 @@ class Thermo49C:
 
         :return new configuration as returned from instrument
         """
-        self.logger.info(f"[{self._name}] .set_config")
+        self.logger.info(f"[{self.name}] .set_config")
         cfg = []
         try:
             self._serial.open()
@@ -210,7 +210,7 @@ class Thermo49C:
             self._serial.close()
             time.sleep(1)
 
-            self.logger.info(f"[{self._name}] Configuration set to: {cfg}")
+            self.logger.info(f"[{self.name}] Configuration set to: {cfg}")
 
             return cfg
 
@@ -232,7 +232,7 @@ class Thermo49C:
             self._serial.close()
 
             self._data += f"{dtm} {_}\n"
-            self.logger.info(f"{self._name}: {_[:60]}[...]")
+            self.logger.debug(f"[{self.name}] {_[:60]}[...]")
 
             return
 
@@ -251,7 +251,7 @@ class Thermo49C:
                 yyyy = now.strftime('%Y')
                 mm = now.strftime('%m')
                 dd = now.strftime('%d')
-                data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self._name}-{timestamp}.dat")
+                data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
                 os.makedirs(os.path.dirname(data_file), exist_ok=True)
 
                 # configure file mode, open file and write to it
@@ -265,7 +265,7 @@ class Thermo49C:
                 with open(file=data_file, mode=mode) as fh:
                     fh.write(header)
                     fh.write(self._data)
-                    self.logger.info(f"file saved: {data_file}")
+                    self.logger.info(f"[{self.name}] file saved: {data_file}")
 
                 # reset self._data
                 self._data = str()
@@ -310,15 +310,10 @@ class Thermo49C:
 
     def print_o3(self) -> None:
         try:
-            self._serial.open()
-            o3 = self.serial_comm('O3').split()
-            self._serial.close()
-
-            # self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
-            self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()} {o3[1]} {o3[2]}")
-
+            o3 = self.get_o3().split()
+            self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}")
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
 
 
     def get_all_rec(self, capacity=[1790, 4096], save=True) -> str:
@@ -336,7 +331,7 @@ class Thermo49C:
             CMD = ["lrec", "srec"]
             CAPACITY = capacity
 
-            self.logger.info(f"[{self._name}] .get_all_rec (save={save})")
+            self.logger.info(f"[{self.name}] .get_all_rec (save={save})")
 
             # close potentially open port
             if self._serial.is_open:
@@ -350,7 +345,7 @@ class Thermo49C:
                     # generate the datafile name
                     dtm = time.strftime('%Y%m%d%H%M%S')
                     data_file = os.path.join(self.data_path,
-                                            f"{self._name}_all_{CMD[i]}-{dtm}.dat")
+                                            f"{self.name}_all_{CMD[i]}-{dtm}.dat")
 
                 while index > 0:
                     if index < 10:
@@ -397,13 +392,13 @@ class Thermo49i:
         colorama.init(autoreset=True)
 
         try:
-            self._name = name
-            self._serial_number = config[name]['serial_number']
+            self.name = name
+            self.serial_number = config[name]['serial_number']
 
             # configure logging
             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
-            self.logger.info(f"[{self._name}] Initializing Thermo 49i (S/N: {self._serial_number})")
+            self.logger.info(f"[{self.name}] Initializing Thermo 49i (S/N: {self.serial_number})")
 
             # read instrument control properties for later use
             self._id = config[name]['id'] + 128
@@ -434,7 +429,7 @@ class Thermo49i:
             self.sampling_interval = config[name]['sampling_interval']
             self.reporting_interval = config[name]['reporting_interval']
             if not (self.reporting_interval==10 or (self.reporting_interval % 60)==0) and self.reporting_interval<=1440:
-                raise ValueError('reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.')
+                raise ValueError(f"[{self.name}] reporting_interval must be 10 or a multiple of 60 and less or equal to 1440 minutes.")
 
             # configure saving, staging and archiving
             root = os.path.expanduser(config['root'])
@@ -475,7 +470,7 @@ class Thermo49i:
                 self._file_timestamp_format = '%Y%m%d'
                 schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
             else:
-                raise ValueError("unsupported reporting_interval.")
+                raise ValueError(f"[{self.name}] unsupported reporting_interval.")
 
         except Exception as err:
             self.logger.error(err)
@@ -579,7 +574,7 @@ class Thermo49i:
                 else:
                     cfg.append(self.tcpip_comm(cmd))
 
-            self.logger.info(f"{self._name}: Configuration read as: {cfg}")
+            self.logger.info(f"[{self.name}] Configuration read as: {cfg}")
 
             return cfg
 
@@ -600,14 +595,14 @@ class Thermo49i:
                 dte = self.serial_comm(cmd)
             else:
                 dte = self.tcpip_comm(cmd)
-            self.logger.info(f"{self._name}: Date set to: {dte}")
+            self.logger.info(f"[{self.name}] Date set to: {dte}")
 
             cmd = f"set time {time.strftime('%H:%M:%S')}"
             if self._serial_com:
                 tme = self.serial_comm(cmd)
             else:
                 tme = self.tcpip_comm(cmd)
-            self.logger.info(f"{self._name}: Time set to: {tme}")
+            self.logger.info(f"[{self.name}] Time set to: {tme}")
 
         except Exception as err:
             self.logger.error(err)
@@ -619,7 +614,7 @@ class Thermo49i:
 
         :return (err, cfg) configuration set or errors, if any.
         """
-        print("%s .set_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self._name))
+        print("%s .set_config (name=%s)" % (time.strftime('%Y-%m-%d %H:%M:%S'), self.name))
         cfg = []
         try:
             for cmd in self._set_config:
@@ -629,7 +624,7 @@ class Thermo49i:
                     cfg.append(f"{cmd}: {self.tcpip_comm(cmd)}")
                 time.sleep(1)
 
-            self.logger.info(f"{self._name}: Configuration set to: {cfg}")
+            self.logger.info(f"[{self.name}] Configuration set to: {cfg}")
 
             return cfg
 
@@ -649,7 +644,7 @@ class Thermo49i:
             else:
                 _ = self.tcpip_comm('lr00')
             self._data += f"{dtm} {_}\n"
-            self.logger.info(f"{self._name}: {_[:60]}[...]")
+            self.logger.debug(f"[{self.name}] {_[:60]}[...]")
 
             return
 
@@ -679,7 +674,7 @@ class Thermo49i:
                 # generate the datafile name
                 dtm = datetime.now().strftime('%Y%m%d%H%M%S')
                 file = os.path.join(self.data_path,
-                                    f"{self._name}_all_lrec-{dtm}.dat")
+                                    f"{self.name}_all_lrec-{dtm}.dat")
 
             # get current lrec format, then set lrec format
             if self._serial_com:
@@ -759,18 +754,14 @@ class Thermo49i:
 
     def print_o3(self) -> None:
         try:
-            if self._serial_com:
-                o3 = self.serial_comm('o3').split()
-            else:
-                o3 = self.tcpip_comm('o3').split()
-            # self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
+            o3 = self.get_o3().split()
             if len(o3)==2:
-                self.logger.info(colorama.Fore.GREEN + f"[{self._name}] O3 {float(o3[0]):0.1f} {o3[1]}")
+                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
             if len(o3)==3:
-                self.logger.info(colorama.Fore.GREEN + f"[{self._name}] {o3[0].upper()}  {float(o3[1]):0.1f} {o3[2]}")
+                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()}  {float(o3[1]):0.1f} {o3[2]}")
 
         except Exception as err:
-            self.logger.error(colorama.Fore.RED + f"print_o3: {err}")
+            self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
 
 
     def _save_data(self) -> None:
@@ -784,7 +775,7 @@ class Thermo49i:
                 yyyy = now.strftime('%Y')
                 mm = now.strftime('%m')
                 dd = now.strftime('%d')
-                data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self._name}-{timestamp}.dat")
+                data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
                 os.makedirs(os.path.dirname(data_file), exist_ok=True)
 
                 # configure file mode, open file and write to it
@@ -798,7 +789,7 @@ class Thermo49i:
                 with open(file=data_file, mode=mode) as fh:
                     fh.write(header)
                     fh.write(self._data)
-                    self.logger.info(f"file saved: {data_file}")
+                    self.logger.info(f"[{self.name}] file saved: {data_file}")
 
                 # reset self._data
                 self._data = str()
