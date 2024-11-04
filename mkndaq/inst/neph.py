@@ -1251,7 +1251,7 @@ class NEPH:
 
     def _save_data(self) -> None:
         try:
-            self.logger.debug(f"[{self.name}]: ._save_data")
+            self.logger.debug(f"[{self.name}] _save_data")
 
             now = datetime.now()
             timestamp = now.strftime(self._file_timestamp_format)
@@ -1277,9 +1277,8 @@ class NEPH:
                     # self.logger.debug(f"[{self.name}] {self._data}")
                     self.logger.info(f"[{self.name}] file saved: {self.data_file}")
 
-                # reset self._data
-                self._data = str()
-
+                    # reset self._data
+                    self._data = str()
             return
 
         except Exception as err:
@@ -1316,7 +1315,9 @@ class NEPH:
                 archive = os.path.join(self.staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                     zf.write(self.data_file, os.path.basename(self.data_file))
-                    self.logger.info(f"file staged: {archive}")
+                    self.logger.info(f"file staged: {archive}")            
+                    # reset
+                    self.data_file = str()
 
         except Exception as err:
             self.logger.error(err)
