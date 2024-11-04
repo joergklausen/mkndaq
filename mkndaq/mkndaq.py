@@ -175,7 +175,7 @@ def main():
         logger.info(schedule.get_jobs())
 
         # align start with a multiple-of-minute timestamp
-        n = 10
+        n = 1
 
         # Countdown to the next full 10 minutes
         seconds_left = seconds_to_next_n_minutes()
