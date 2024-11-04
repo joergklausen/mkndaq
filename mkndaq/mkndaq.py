@@ -178,7 +178,7 @@ def main():
         n = 1
 
         # Countdown to the next full 10 minutes
-        seconds_left = seconds_to_next_n_minutes()
+        seconds_left = seconds_to_next_n_minutes(n)
         while seconds_left > 0:
             print(f"Time remaining: {seconds_left} seconds", end="\r")
             time.sleep(1)

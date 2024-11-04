@@ -101,7 +101,7 @@ def copy_file(source: str, target: str, logger: logging.Logger, zip: bool=True):
             print(err)
 
 
-def seconds_to_next_n_minutes():
+def seconds_to_next_n_minutes(n: int):
     # Get the current time in seconds since the epoch
     now = time.time()
     
@@ -109,7 +109,7 @@ def seconds_to_next_n_minutes():
     minutes = int(now // 60) % 60
     seconds = int(now % 60)
     
-    # Calculate remaining time to the next 10-minute mark
-    minutes_to_next_10 = 10 - (minutes % 10)
-    remaining_seconds = (minutes_to_next_10 * 60) - seconds
+    # Calculate remaining time to the next n-minute mark
+    minutes_to_next_n_minutes = n - (minutes % n)
+    remaining_seconds = (minutes_to_next_n_minutes * 60) - seconds
     return remaining_seconds
