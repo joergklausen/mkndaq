@@ -99,8 +99,10 @@ class AE33:
         """
         colorama.init(autoreset=True)
 
+        self.name = name
+        self.table_ext_dict = {'Data': 'dat',
+                               'Log': 'log'}
         try:
-            self.name = name
             self.type = config[name]['type']
             self.serial_number = config[name]['serial_number']
             self._tables = ('Data', 'Log')
@@ -111,9 +113,7 @@ class AE33:
             self.logger.info(f"[{self.name}] Initializing {self.type} (S/N: {self.serial_number})")
 
             # read instrument control properties for later use
-            # self.type = config[name]['type']
             self._get_config = config[name]['get_config']
-            # self.__set_config = config[name]['set_config']
             self._set_datetime = config[name]['set_datetime']
 
             # configure tcp/ip
@@ -310,9 +310,10 @@ class AE33:
         :return str response as decoded string
         """
         try:
-            if not table in self._tables:
-                raise ValueError(f"'table' must be one of {self._tables}")
-            self.logger.info(f"[{self.name}]: ._accumulate_new_data {table}")
+            # if not table in self._tables:
+            if not table in self.table_ext_dict.keys():
+                raise ValueError(f"[{self.name}] 'table' must be one of {self.table_ext_dict.keys()}")
+            self.logger.info(f"[{self.name}] ._accumulate_new_data {table}")
 
             # read the latest records from the table
             _ = ""
@@ -347,7 +348,7 @@ class AE33:
                             self._log += _
                     else:
                         raise ValueError(f"not implemented")                    
-                    self.logger.info(f"{self.name}: {_[:60]}[...]")
+                    self.logger.debug(f"[{self.name}] {_[:60]}[...]")
 
                     begin_read_id += chunk_size + 1
 
@@ -357,81 +358,18 @@ class AE33:
                 elif table=='Log':
                     self._log_begin_read_id = maxid + 1
                 else:
-                    raise ValueError(f"not implemented")
+                    raise ValueError(f"[{self.name}] not implemented")
                 return
 
         except Exception as err:
-            self.logger.error(err)
-
-
-    # def _save_data(self) -> None:
-    #     try:
-    #         now = datetime.now()
-    #         timestamp = now.strftime(self._file_timestamp_format)
-    #         yyyy = now.strftime('%Y')
-    #         mm = now.strftime('%m')
-    #         dd = now.strftime('%d')
-
-    #         data_file = str()
-    #         self.data_file = str()
-            
-    #         if self._data:
-    #             # create appropriate file name and write mode
-    #             data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
-
-    #             # configure file mode, open file and write to it
-    #             if os.path.exists(self.data_file):
-    #                 mode = 'a'
-    #                 header = str()
-    #             else:
-    #                 mode = 'w'
-    #                 header = str()
-
-    #             with open(file=data_file, mode=mode) as fh:
-    #                 fh.write(header)
-    #                 fh.write(self._data)
-    #                 self.logger.info(f"[{self.name}] file saved: {data_file}")
-
-    #             # reset self._data
-    #             self._data = str()
-
-    #         self.data_file = data_file
-
-    #         log_file = str()
-    #         self.log_file = str()
-    #         if self._log:
-    #             # create appropriate file name and write mode
-    #             log_file = os.path.join(self.log_path, yyyy, mm, dd, f"{self.name}-{timestamp}.log")
-
-    #             # configure file mode, open file and write to it
-    #             if os.path.exists(self.log_file):
-    #                 mode = 'a'
-    #                 header = str()
-    #             else:
-    #                 mode = 'w'
-    #                 header = str()
-
-    #             with open(file=log_file, mode=mode) as fh:
-    #                 fh.write(header)
-    #                 fh.write(self._log)
-    #                 self.logger.info(f"[{self.name}] file saved: {log_file}")
-
-    #             # reset self._data
-    #             self._log = str()
-
-    #         self.log_file = log_file
-
-    #         return
-
-    #     except Exception as err:
-    #         self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def _save_data(self, table: str) -> None:
         try:
-            if not table in self._tables:
-                raise ValueError(f"'table' must be one of {self._tables}")
-            self.logger.debug(f"[{self.name}]: ._save_data {table}")
+            if not table in self.table_ext_dict.keys():
+                raise ValueError(f"[{self.name}] 'table' must be one of {self.table_ext_dict.keys()}")
+            self.logger.debug(f"[{self.name}] ._save_data {table}")
 
             now = datetime.now()
             timestamp = now.strftime(self._file_timestamp_format)
@@ -442,25 +380,23 @@ class AE33:
             if table=='Data':
                 path = self.data_path
                 data = self._data
-                ext = '.dat'
+                ext = self.table_ext_dict['Data']
 
                 # reset attributes
                 self.data_file = str()
                 self._data = str()
-            
             elif table=='Log':
                 path = self.log_path
                 data = self._log
-                ext = '.log'
+                ext = self.table_ext_dict['Log']
 
                 # reset attributes
                 self.log_file = str()
                 self._log = str()
             else:
-                raise ValueError(f"not implemented")
+                raise ValueError(f"[{self.name}] '{table}' not implemented")
 
             file = str()
-            # self.data_file = str()
             
             if data:
                 # create appropriate file name and write mode
@@ -480,37 +416,6 @@ class AE33:
                     fh.write(data)
                     self.logger.info(f"[{self.name}] file saved: {file}")
 
-            
-            #     # reset self._data
-            #     self._data = str()
-
-
-            # self.data_file = data_file
-
-            # log_file = str()
-            # self.log_file = str()
-            # if self._log:
-            #     # create appropriate file name and write mode
-            #     log_file = os.path.join(self.log_path, yyyy, mm, dd, f"{self.name}-{timestamp}.log")
-
-            #     # configure file mode, open file and write to it
-            #     if os.path.exists(self.log_file):
-            #         mode = 'a'
-            #         header = str()
-            #     else:
-            #         mode = 'w'
-            #         header = str()
-
-            #     with open(file=log_file, mode=mode) as fh:
-            #         fh.write(header)
-            #         fh.write(self._log)
-            #         self.logger.info(f"[{self.name}] file saved: {log_file}")
-
-            #     # reset self._data
-            #     self._log = str()
-
-            # self.log_file = log_file
-
             return
 
         except Exception as err:
@@ -521,24 +426,24 @@ class AE33:
         """ Stage file, optionally as .zip archive.
         """
         try:
-            if not table in self._tables:
-                raise ValueError(f"'table' must be one of {self._tables}")
-            self.logger.info(f"[{self.name}]: .stage_file {table}")
+            if not table in self.table_ext_dict.keys():
+                raise ValueError(f"[{self.name}] 'table' must be one of {self.table_ext_dict.keys()}")
+            self.logger.debug(f"[{self.name}] ._stage_file {table}")
 
             if table=='Data':
                 file = self.data_file
-                ext = '.dat'
+                ext = self.table_ext_dict[table]
                 path = self._staging_path_data
             elif table=='Log':
                 file = self.log_file
-                ext = '.log'
+                ext = self.table_ext_dict[table]
                 path = self._staging_path_logs
             else:
-                raise ValueError(f"not implemented")
+                raise ValueError(f"[{self.name}] '{table}' not implemented")
 
             if file:
                 if self.zip:
-                    file_staged = os.path.join(path, os.path.basename(file).replace(ext, '.zip'))
+                    file_staged = os.path.join(path, os.path.basename(file).replace(ext, 'zip'))
                     with zipfile.ZipFile(file_staged, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                         zf.write(file, os.path.basename(file))
                 else:
@@ -547,12 +452,12 @@ class AE33:
                 self.logger.info(f"[{self.name}] file staged: {file_staged}")
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def _save_and_stage_data(self):
         try:
-            self.logger.info(f"[{self.name}]: ._save_and_stage_data")
+            self.logger.debug(f"[{self.name}] ._save_and_stage_data")
         
             self._save_data('Data')
             self._stage_file('Data')
@@ -576,7 +481,7 @@ class AE33:
             tape_adv_remaining = self.tape_advances_remaining()
             msg = f"Tape advances remaining: {tape_adv_remaining}"
             if int(tape_adv_remaining) < 10:
-                msg += " ATTENTION: Get ready to change change!"
+                msg += " ATTENTION: Get ready to change tape!"
             self.logger.info(colorama.Fore.GREEN + f"[{self.name}] BC: {data[44]} ng/m3 UVPM: {data[29]} ng/m3 ({msg})")
 
         except Exception as err:
@@ -593,241 +498,6 @@ class AE33:
         except Exception as err:
             self.logger.error(err)
             return str()
-
-
-    # def _accumulate_new_data(self, sep="|") -> None:
-    #     """
-    #     Retrieve all records from table data that have not been read.
-
-    #     :param str sep: item separator. Defaults to True.
-    #     :param bln save: Should data be saved to file? Default=True
-    #     :return str response as decoded string
-    #     """
-    #     try:
-    #         # dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-    #         self.logger.info(f"[{self.name}]: ._accumulate_new_data_data")
-
-    #         # read the latest records from the Data table
-    #         data = ""
-    #         maxid = int(self._tcpip_comm(cmd="MAXID Data", tidy=True))
-
-    #         # get data_begin_read_id
-    #         if self._data_begin_read_id:
-    #             data_begin_read_id = self._data_begin_read_id
-    #         else:
-    #             # if we don't know where to start, we start at the beginning
-    #             minid = int(self._tcpip_comm(cmd="MINID Data", tidy=True))
-
-    #             # limit the number of records to download to 1440 (1 day)
-    #             if maxid - minid > 1440:
-    #                 minid = maxid - 1440
-    #             data_begin_read_id = minid
-
-    #         if data_begin_read_id < maxid:
-    #             chunk_size = 1000
-    #             while data_begin_read_id < maxid:
-    #                 if (maxid - data_begin_read_id) > chunk_size:
-    #                     cmd=f"FETCH Data {data_begin_read_id} {data_begin_read_id + chunk_size}"
-    #                 else:
-    #                     cmd=f"FETCH Data {data_begin_read_id} {maxid}"
-    #                 data = self._tcpip_comm(cmd, tidy=True)
-
-    #                 self._data += data
-    #                 self.logger.info(f"{self.name}: {data[:60]}[...]")
-
-    #                 data_begin_read_id += chunk_size + 1
-
-    #             # set data_begin_read_id
-    #             self._data_begin_read_id = maxid + 1
-    #             return
-
-    #     except Exception as err:
-    #         self.logger.error(err)
-
-
-    # def _save_data(self) -> None:
-    #     try:
-    #         data_file = str()
-    #         self.data_file = str()
-    #         if self._data:
-    #             # create appropriate file name and write mode
-    #             now = datetime.now()
-    #             timestamp = now.strftime(self._file_timestamp_format)
-    #             yyyy = now.strftime('%Y')
-    #             mm = now.strftime('%m')
-    #             dd = now.strftime('%d')
-    #             data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
-
-    #             # configure file mode, open file and write to it
-    #             if os.path.exists(self.data_file):
-    #                 mode = 'a'
-    #                 header = str()
-    #             else:
-    #                 mode = 'w'
-    #                 header = str()
-
-    #             with open(file=data_file, mode=mode) as fh:
-    #                 fh.write(header)
-    #                 fh.write(self._data)
-    #                 self.logger.info(f"[{self.name}] file saved: {data_file}")
-
-    #             # reset self._data
-    #             self._data = str()
-
-    #         self.data_file = data_file
-    #         return
-
-    #     except Exception as err:
-    #         self.logger.error(err)
-
-
-    # def _stage_data_file(self):
-    #     """ Create zip file from self.data_file and stage archive.
-    #     """
-    #     try:
-    #         if self.data_file:
-    #             archive = os.path.join(self._staging_path_data, os.path.basename(self.data_file).replace('.dat', '.zip'))
-    #             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    #                 zf.write(self.data_file, os.path.basename(self.data_file))
-    #                 self.logger.info(f"[{self.name}] file staged: {archive}")
-
-    #     except Exception as err:
-    #         self.logger.error(err)
-
-
-    # def _save_and_stage_data(self):
-    #     self._save_data()
-    #     self._stage_data_file()
-
-
-    # def get_new_log_entries(self, sep="|", save=True) -> str:
-    #     """
-    #     Retrieve all records from table data that have not been read and optionally write to log.
-
-    #     :param str sep: item separator. Defaults to True.
-    #     :param bln save: Should data be saved to file? Default=True
-    #     :return str response as decoded string
-    #     """
-    #     try:
-    #         dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-    #         self.logger.info(f"[{self.name}] .get_new_log_entries, save={save})")
-
-    #         # get data_begin_read_id
-    #         if self.__log_begin_read_id:
-    #             log_begin_read_id = self.__log_begin_read_id
-    #         else:
-    #             # if we don't know where to start, we start at the beginning
-    #             minid = int(self._tcpip_comm(cmd="MINID Log", tidy=True))
-    #             log_begin_read_id = minid
-    #         # read the last record from the Log table
-    #         # get the maximum id in the Log table
-    #         log = str()
-    #         maxid = int(self._tcpip_comm(cmd="MAXID Log", tidy=True))
-    #         if log_begin_read_id < maxid:
-    #             cmd=f"FETCH Log {log_begin_read_id} {maxid}"
-    #             log = self._tcpip_comm(cmd, tidy=True)
-
-    #             # set log_begin_read_id for the next call
-    #             self.__log_begin_read_id = maxid + 1
-
-    #             if save:
-    #                 # generate the datafile name
-    #                 # self.__logfile = os.path.join(self._logdir,
-    #                 #                             "".join([self.name, "-",
-    #                 #                                     datetimebin.dtbin(self._reporting_interval), ".log"]))
-    #                 self.__logfile = os.path.join(self._logdir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-    #                                             "".join([self.name, "-",
-    #                                                     datetimebin.dtbin(self.reporting_interval), ".log"]))
-
-    #                 os.makedirs(os.path.dirname(self.__logfile), exist_ok=True)
-    #                 with open(self.__logfile, "at", encoding='utf8') as fh:
-    #                     fh.write(f"{dtm}{sep}{log}\n")
-    #                     fh.close()
-
-    #                 # stage data for transfer
-    #                 self.stage_log_file()
-
-    #         return log
-
-    #     except Exception as err:
-    #         self.logger.error(err)
-    #         return str()
-
-
-    # def stage_log_file(self) -> None:
-    #     """Stage a file if it is no longer written to. This is determined by checking if the path
-    #        of the file to be staged is different the path of the current (data)file.
-
-    #     Raises:
-    #         ValueError: _description_
-    #         ValueError: _description_
-    #         ValueError: _description_
-    #     """
-    #     try:
-    #         if self.__logfile is None:
-    #             raise ValueError("_logfile cannot be None.")
-    #         if self._staging is None:
-    #             raise ValueError("_staging cannot be None.")
-    #         if self._logdir is None:
-    #             raise ValueError("_logdir cannot be None.")
-
-    #         if self.__logfile_to_stage is None:
-    #             self.__logfile_to_stage = self.__logfile
-    #         elif self.__logfile_to_stage != self.__logfile:
-    #             root = os.path.join(self._staging, self.name, os.path.basename(self._logdir))
-    #             os.makedirs(root, exist_ok=True)
-    #             if self.zip:
-    #                 # create zip file
-    #                 archive = os.path.join(root, "".join([os.path.basename(self.__logfile_to_stage)[:-4], ".zip"]))
-    #                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    #                     zf.write(self.__logfile_to_stage, os.path.basename(self.__logfile_to_stage))
-    #             else:
-    #                 shutil.copyfile(self.__logfile_to_stage, os.path.join(root, os.path.basename(self.__logfile_to_stage)))
-    #             self.__logfile_to_stage = self.__logfile
-
-    #     except Exception as err:
-    #         self.logger.error(err)
-
-
-    # def get_latest_ATN_info(self, save=True) -> str:
-    #     """Get latest ATN info from log file, based on tape advance info"""
-    #     try:
-    #         # minid = int(self._tcpip_comm(cmd="MINID Log", tidy=True))
-    #         maxid = int(self._tcpip_comm(cmd="MAXID Log", tidy=True))
-    #         if int(maxid) > 49:
-    #             minid = str(int(maxid) - 50)
-    #         else:
-    #             minid = "1"
-    #         log = self._tcpip_comm(cmd=f"FETCH Log {minid} {maxid}", tidy=False)
-    #         log = log.replace("AE33>", "")
-
-    #         log = log.splitlines()
-    #         i = [i for i in range(len(log)) if "Tape Advance number" in log[i]][-1]
-    #         j = [i for i in range(len(log)) if "ATN1zero" in log[i]][-1]
-    #         k = log[i].find("Tape Advance number:")
-    #         tape_advance_number = int(log[i][k+20:k+25])
-
-    #         # pattern_1 = r"(.*Tape Advance number:.*)" # to capture line containing words
-    #         # atn_pattern = r"(ATN\dzero\(\d\):\s+\d+.\d+)"
-
-    #         if save:
-    #             # generate the datafile name
-    #             self.__datafile = os.path.join(self.__datadir,
-    #                                            "".join([self.name, "-",
-    #                                                    datetimebin.dtbin(self._reporting_interval), ".log"]))
-
-    #             with open(self.__datafile, "at", encoding='utf8') as fh:
-    #                 fh.write(f"{dtm}{sep}{data}\n")
-    #                 fh.close()
-
-    #             # stage data for transfer
-    #             self.stage_file()
-    #         return tape_advance_number, log[i:j]
-
-    #     except Exception as err:
-    #         if self._log:
-    #             self._logger.error(err)
-    #         print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] produced error {err}.")
 
 
 # %%
