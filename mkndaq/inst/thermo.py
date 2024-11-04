@@ -31,7 +31,6 @@ class Thermo49C:
             - config[name]['serial_number']
             - config[name]['get_config']
             - config[name]['set_config']
-            - config[name]['get_data']
             - config[name]['data_header']
             - config[name]['port']
             - config[port]['baudrate']
@@ -297,63 +296,6 @@ class Thermo49C:
         self._stage_file()
 
 
-    # def get_data(self, cmd=None, save=True):
-    #     """
-    #     Retrieve long record from instrument and optionally write to log.
-
-    #     :param str cmd: command sent to instrument
-    #     :param bln save: Should data be saved to file? default=True
-    #     :return str response as decoded string
-    #     """
-    #     try:
-    #         dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-    #         self.logger.info(f"[{self._name}] .get_data (save={save})")
-
-    #         if cmd is None:
-    #             cmd = self._get_data
-
-    #         if self._serial.is_open:
-    #             self._serial.close()
-    #         self._serial.open()
-    #         data = self.serial_comm(cmd)
-    #         self._serial.close()
-
-    #         if save:
-    #             # generate the datafile name
-    #             _data_file = os.path.join(self.data_path, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-    #                                            f"{self._name}-{datetimebin.dtbin(self._reporting_interval)}.dat")
-
-    #             os.makedirs(os.path.dirname(_data_file), exist_ok=True)
-    #             if not os.path.exists(_data_file):
-    #                 # if file doesn't exist, create and write header
-    #                 with open(_data_file, "at", encoding='utf8') as fh:
-    #                     fh.write(f"{self._data_header}\n")
-    #                     fh.close()
-    #             with open(_data_file, "at", encoding='utf8') as fh:
-    #                 # add data to file
-    #                 fh.write(f"{dtm} {data}\n")
-    #                 fh.close()
-
-    #             if self._file_to_stage is None:
-    #                 self._file_to_stage = _data_file
-    #             elif self._file_to_stage != _data_file:
-    #                 root = os.path.join(self.staging_path, os.path.basename(self.data_path))
-    #                 os.makedirs(root, exist_ok=True)
-    #                 if self._zip:
-    #                     # create zip file
-    #                     archive = os.path.join(root, "".join([os.path.basename(self._file_to_stage)[:-4], ".zip"]))
-    #                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    #                         zf.write(self._file_to_stage, os.path.basename(self._file_to_stage))
-    #                 else:
-    #                     shutil.copyfile(self._file_to_stage, os.path.join(root, os.path.basename(self._file_to_stage)))
-    #                 self._file_to_stage = _data_file
-
-    #         return data
-
-    #     except Exception as err:
-    #         self.logger.error(err)
-
-
     def get_o3(self) -> str:
         try:
             self._serial.open()
@@ -467,7 +409,6 @@ class Thermo49i:
             self._id = config[name]['id'] + 128
             self._get_config = config[name]['get_config']
             self._set_config = config[name]['set_config']
-            self._get_data = config[name]['get_data']
 
             self._serial_com = config.get(name, {}).get('serial', None)
             if self._serial_com:
