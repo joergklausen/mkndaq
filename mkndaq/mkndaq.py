@@ -16,7 +16,7 @@ import colorama
 import schedule
 
 from mkndaq.utils.sftp import SFTPClient
-from mkndaq.utils.utils import load_config, setup_logging, copy_file
+from mkndaq.utils.utils import load_config, setup_logging, copy_file, seconds_to_next_n_minutes
 
 
 def run_threaded(job_func):
@@ -131,12 +131,6 @@ def main():
                                             interval=meteo.reporting_interval)  
                 schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
                 schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.print_meteo)
-            # if cfg.get('aerosol', None):
-            #     from mkndaq.inst.aerosol import AEROSOL
-            #     aerosol = AEROSOL('aerosol', config=cfg)
-            #     aerosol.store_and_stage_files()
-            #     schedule.every(cfg['aerosol']['staging_interval']).minutes.do(run_threaded, aerosol.store_and_stage_files)
-            #     schedule.every(cfg['aerosol']['staging_interval']).minutes.do(run_threaded, aerosol.print_aerosol)
             if cfg.get('ae33', None):
                 from mkndaq.inst.ae33 import AE33
                 ae33 = AE33(name='ae33', config=cfg)
@@ -182,11 +176,13 @@ def main():
 
         # align start with a multiple-of-minute timestamp
         n = 10
-        dt = int(time.time()) % (n * 60)
-        while dt > 0:
-            print(f"Waiting {dt:>4} seconds before start ...", end="\r")
+
+        # Countdown to the next full 10 minutes
+        seconds_left = seconds_to_next_n_minutes()
+        while seconds_left > 0:
+            print(f"Time remaining: {seconds_left} seconds", end="\r")
             time.sleep(1)
-            dt -= 1
+            seconds_left -= 1
         logger.info("Beginning data acquisition and file transfer ...")
 
         # # align start with a 10' timestamp

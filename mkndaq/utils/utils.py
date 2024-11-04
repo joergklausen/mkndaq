@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import time
 import zipfile
 
 import yaml
@@ -100,3 +101,15 @@ def copy_file(source: str, target: str, logger: logging.Logger, zip: bool=True):
             print(err)
 
 
+def seconds_to_next_n_minutes():
+    # Get the current time in seconds since the epoch
+    now = time.time()
+    
+    # Calculate minutes and seconds of the current time
+    minutes = int(now // 60) % 60
+    seconds = int(now % 60)
+    
+    # Calculate remaining time to the next 10-minute mark
+    minutes_to_next_10 = 10 - (minutes % 10)
+    remaining_seconds = (minutes_to_next_10 * 60) - seconds
+    return remaining_seconds
