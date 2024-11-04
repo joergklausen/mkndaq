@@ -311,7 +311,11 @@ class Thermo49C:
     def print_o3(self) -> None:
         try:
             o3 = self.get_o3().split()
-            self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}")
+            if len(o3)==2:
+                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
+            if len(o3)==3:
+                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()}  {float(o3[1]):0.1f} {o3[2]}")
+
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
 
