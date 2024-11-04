@@ -181,10 +181,8 @@ def main():
         logger.info(schedule.get_jobs())
 
         # align start with a multiple-of-minute timestamp
-        n = 5
+        n = 10
         dt = int(time.time()) % (n * 60)
-        logger.info(f"Waiting {dt:>4} seconds before start ...")
-        
         while dt > 0:
             print(f"Waiting {dt:>4} seconds before start ...", end="\r")
             time.sleep(1)
