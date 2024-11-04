@@ -141,7 +141,6 @@ class NEPH:
             self.data_file = str()
 
         except Exception as err:
-            print(err)
             self.logger.error(err)
 
 
@@ -290,14 +289,14 @@ class NEPH:
         """
         response_length = int(int.from_bytes(response[4:6], byteorder='big') / 4)
         if verbosity>1:
-            print(f"response length : {response_length}")
+            self.logger.debug(f"response length : {response_length}")
         
         items = []
         for i in range(6, (response_length + 1) * 4 + 2, 4):
             item = int.from_bytes(response[i:(i+4)], byteorder='big')
 
             if verbosity>1:
-                print(f"response item{(i-2)/4:3.0f}: {item}")
+                self.logger.debug(f"response item{(i-2)/4:3.0f}: {item}")
             items.append(item)
 
         return items
@@ -317,11 +316,11 @@ class NEPH:
         data = dict()
         response_length = int(int.from_bytes(response[4:6], byteorder='big') / 4)
         if verbosity>1:
-            print(f"response length : {response_length}")
+            self.logger.debug(f"response length : {response_length}")
 
         items_bytes = [response[i:(i+4)] for i in range(6, (response_length + 1) * 4 + 2, 4)]
         if verbosity>1:
-            print(f"items: {len(items_bytes)}\nitems (bytes): {items_bytes}")
+            self.logger.debug(f"items: {len(items_bytes)}\nitems (bytes): {items_bytes}")
 
         if len(parameters)==len(items_bytes):
             data_bytes = dict(zip(parameters, items_bytes))
@@ -343,10 +342,10 @@ class NEPH:
                 data[parameter] = struct.unpack('>f', item)[0]
 
         if verbosity==1:
-            print(f"response items:\n{data}")
+            self.logger.debug(f"response items:\n{data}")
         if verbosity>1:
-            print(f"response items (bytes):\n{data_bytes}")
-            print(f"response items:\n{data}")
+            self.logger.debug(f"response items (bytes):\n{data_bytes}")
+            self.logger.debug(f"response items:\n{data}")
 
         return data
 
@@ -372,10 +371,10 @@ class NEPH:
             items_per_record = fields_per_record + 4
             number_of_records = message_length // items_per_record
             if verbosity>1:
-                print(f"message length (items): {message_length}")
-                print(f"response body length  : {len(response_body)}")
-                print(f"response body (bytes) : {response_body}")
-                print(f"number of records     : {number_of_records}")
+                self.logger.debug(f"message length (items): {message_length}")
+                self.logger.debug(f"response body length  : {len(response_body)}")
+                self.logger.debug(f"response body (bytes) : {response_body}")
+                self.logger.debug(f"number of records     : {number_of_records}")
 
             # parse bytearray into records and records into dict of header record(s) and data records
             records = [response_body[(i*items_per_record*4):((i+1)*(items_per_record*4)-1)] for i in range(number_of_records)]
@@ -397,14 +396,14 @@ class NEPH:
                     data['logging_interval'] = int.from_bytes(records[i][8:12], byteorder='big')
                     data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8], byteorder='big')).strftime('%Y-%m-%d %H:%M:%S')
                     if verbosity==1:
-                        print(data)
+                        self.logger.debug(data)
                     if verbosity>1:
-                        print(f"record  {i:2.0f}: {records[i]}")
-                        print(f"type    : {records[i][0]}")
-                        print(f"inst op : {records[i][0]}")
-                        print(f"{i}: keys: {keys}")
-                        print(f"{i}: values: {values}")
-                        print(data)
+                        self.logger.debug(f"record  {i:2.0f}: {records[i]}")
+                        self.logger.debug(f"type    : {records[i][0]}")
+                        self.logger.debug(f"inst op : {records[i][0]}")
+                        self.logger.debug(f"{i}: keys: {keys}")
+                        self.logger.debug(f"{i}: values: {values}")
+                        self.logger.debug(data)
                     all.append(data)
             return all
         elif response[2]==0:
@@ -920,9 +919,9 @@ class NEPH:
             elif self._protocol=="aurora":
                 resp = {'id': self._tcpip_comm(message=f"ID{self.serial_id}\r".encode(), verbosity=verbosity).decode()}
             else:
-                raise ValueError("Communication protocol unknown")
+                raise ValueError(f"[{self.name}] Communication protocol unknown")
 
-            self.logger.info(f"get_id: {resp}")
+            self.logger.info(f"[{self.name}] get_id: {resp}")
             return resp
 
         except Exception as err:
@@ -1010,7 +1009,7 @@ class NEPH:
 
         # change operating state to ZERO
         msg = f"Switching to ZERO CHECK mode ..."
-        print(colorama.Fore.BLUE + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] {msg}")
+        self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
         resp = self.do_zero(verbosity=verbosity)
         if resp==1:
             self.logger.info(f"Instrument switched to ZERO CHECK")
@@ -1023,7 +1022,7 @@ class NEPH:
         # change operating state to SPAN
         dtm = now = datetime.now(timezone.utc)
         msg = f"Switching to SPAN CHECK mode ..."
-        print(colorama.Fore.BLUE + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] {msg}")
+        self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
         resp = self.do_span(verbosity=verbosity)
         
         # open CO2 cylinder valve by setting digital out to HIGH
@@ -1039,7 +1038,7 @@ class NEPH:
         
         # change operating state to AMBIENT
         msg = f"Switching to AMBIENT mode."
-        self.logger.info(colorama.Fore.BLUE + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] {msg}")
+        self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
         resp = self.do_ambient(verbosity=verbosity)
         if resp==0:
             self.logger.info(f"Instrument switched to AMBIENT mode")
