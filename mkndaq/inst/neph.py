@@ -1275,7 +1275,7 @@ class NEPH:
                 with open(file=self.data_file, mode=mode) as fh:
                     fh.write(header)
                     fh.write(self._data)
-                    self.logger.debug(self._data)
+                    # self.logger.debug(f"[{self.name}] {self._data}")
                     self.logger.info(f"[{self.name}] file saved: {self.data_file}")
 
                 # reset self._data
@@ -1325,7 +1325,7 @@ class NEPH:
 
     def _save_and_stage_data(self):
         try:
-            self.logger.info(f"[{self.name}]: ._save_and_stage_data")
+            self.logger.debug(f"[{self.name}] ._save_and_stage_data")
         
             self._save_data()
             self._stage_file()
@@ -1343,8 +1343,7 @@ class NEPH:
             self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {data}")
 
         except Exception as err:
-            self.logger.error(err)
-            # print(colorama.Fore.RED + f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{self.name}] produced error {err}.")
+            self.logger.error(colorama.Fore.RED + f"[{self.name}] print_ssp_bssp: {err}")
     
 
     # def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
@@ -1422,40 +1421,6 @@ class NEPH:
     #     except Exception as err:
     #         self.logger.error(err)
     #         return str()
-
-
-    # def stage_data_file(self) -> None:
-    #     """Stage a file if it is no longer written to. This is determined by checking if the path 
-    #        of the file to be staged is different from the path of the current (data)file.
-
-    #     Raises:
-    #         ValueError: _description_
-    #         ValueError: _description_
-    #         ValueError: _description_
-    #     """
-    #     try:
-    #         if self.__datafile is None:
-    #             raise ValueError("__datafile cannot be None.")
-    #         if self.staging_path is None:
-    #             raise ValueError("__staging cannot be None.")
-    #         if self.datadir is None:
-    #             raise ValueError("__datadir cannot be None.")
-    #         if self.__datafile_to_stage is None:
-    #             self.__datafile_to_stage = self.__datafile
-    #         elif self.__datafile_to_stage != self.__datafile:
-    #             root = os.path.join(self.staging_path, self.name, os.path.basename(self.datadir))
-    #             os.makedirs(root, exist_ok=True)
-    #             if self.staging_zip:
-    #                 # create zip file
-    #                 archive = os.path.join(root, "".join([os.path.basename(self.__datafile_to_stage)[:-4], ".zip"]))
-    #                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    #                     zf.write(self.__datafile_to_stage, os.path.basename(self.__datafile_to_stage))
-    #             else:
-    #                 shutil.copyfile(self.__datafile_to_stage, os.path.join(root, os.path.basename(self.__datafile_to_stage)))
-    #             self.__datafile_to_stage = self.__datafile
-
-    #     except Exception as err:
-    #         self.logger.error(err)
 
 
 # %%
