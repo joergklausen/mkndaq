@@ -116,12 +116,14 @@ class METEO:
     def print_meteo(self) -> None:
         try:
             files = os.listdir(self.source)
-            if files:
+            if len(files)>0:
+                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {files}")
                 file = max([x for x in files if "VMSW" in x])
 
                 data = self.extract_short_bulletin(os.path.join(self.source, file))
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] zzzztttt: {data['zzzztttt']} tre200s0: {data['tre200s0']} uor200s0: {data['uor200s0']}")
-
+            else:
+                self.logger.warning(colorama.Fore.RED + "no recent data to display")
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"print_meteo: {err}")
 
