@@ -121,7 +121,7 @@ class METEO:
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {files}")
                 file = max([x for x in files if self.pattern in x])
 
-                data = self.extract_short_bulletin(os.path.join(self.source, file))
+                data = self.extract_bulletin(os.path.join(self.source, file))
                 # self.logger.info(colorama.Fore.GREEN + f"[{self.name}] zzzztttt: {data['zzzztttt']} tre200s0: {data['tre200s0']} uor200s0: {data['uor200s0']}")
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {[f'{key}: {value},' for key, value in data.items()]}")
             else:
@@ -130,7 +130,7 @@ class METEO:
             self.logger.error(colorama.Fore.RED + f"print_meteo: {err}; data: {data}")
 
 
-    def extract_short_bulletin(self, file) -> dict:
+    def extract_bulletin(self, file) -> dict:
         """
         Read file and extract meteo data.
 
@@ -138,7 +138,7 @@ class METEO:
         :return:
         """
         try:
-            if self.pattern in file:
+            if "VRXA00" in file:
                 with open(file, "r", encoding='utf8') as fh:
                     for i in range(3):
                         fh.readline()
