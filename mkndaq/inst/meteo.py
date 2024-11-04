@@ -56,7 +56,7 @@ class METEO:
             # source of data files
             self.source = config[name]['source']
             self.pattern = config[name]['pattern']
-            
+
             # interval to fetch and stage data files
             # self.staging_interval = config[name]['staging_interval']
 
@@ -122,11 +122,12 @@ class METEO:
                 file = max([x for x in files if self.pattern in x])
 
                 data = self.extract_short_bulletin(os.path.join(self.source, file))
-                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] zzzztttt: {data['zzzztttt']} tre200s0: {data['tre200s0']} uor200s0: {data['uor200s0']}")
+                # self.logger.info(colorama.Fore.GREEN + f"[{self.name}] zzzztttt: {data['zzzztttt']} tre200s0: {data['tre200s0']} uor200s0: {data['uor200s0']}")
+                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {[f'{key}: {value},' for key, value in data.items()]}")
             else:
                 self.logger.warning(colorama.Fore.RED + "no recent data to display")
         except Exception as err:
-            self.logger.error(colorama.Fore.RED + f"print_meteo: {err}")
+            self.logger.error(colorama.Fore.RED + f"print_meteo: {err}; data: {data}")
 
 
     def extract_short_bulletin(self, file) -> dict:
@@ -137,7 +138,7 @@ class METEO:
         :return:
         """
         try:
-            if "VMSW" in file:
+            if self.pattern in file:
                 with open(file, "r", encoding='utf8') as fh:
                     for i in range(3):
                         fh.readline()
