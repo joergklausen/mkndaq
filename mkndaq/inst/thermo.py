@@ -152,7 +152,7 @@ class Thermo49C:
             return rcvd
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"serial_comm: {err}")
             return str()
 
 
@@ -185,10 +185,14 @@ class Thermo49C:
         :return:
         """
         try:
+            if self._serial.is_open:
+                self._serial.close()
+            self._serial.open()
             dte = self.serial_comm(f"set date {time.strftime('%m-%d-%y')}")
             dte = self.serial_comm("date")
             tme = self.serial_comm(f"set time {time.strftime('%H:%M')}")
             tme = self.serial_comm("time")
+            self._serial.close()
             self.logger.info(f"[{self.name}] Date and time set and reported as: {dte} {tme}")
         except Exception as err:
             self.logger.error(err)
@@ -203,6 +207,8 @@ class Thermo49C:
         self.logger.info(f"[{self.name}] .set_config")
         cfg = []
         try:
+            if self._serial.is_open:
+                self._serial.close()
             self._serial.open()
             self.set_datetime()
             for cmd in self._set_config:
@@ -298,6 +304,8 @@ class Thermo49C:
 
     def get_o3(self) -> str:
         try:
+            if self._serial.is_open:
+                self._serial.close()
             self._serial.open()
             o3 = self.serial_comm('O3')
             self._serial.close()
@@ -314,7 +322,7 @@ class Thermo49C:
             if len(o3)==2:
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
             if len(o3)==3:
-                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()}  {float(o3[1]):0.1f} {o3[2]}")
+                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}")
 
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
@@ -356,6 +364,8 @@ class Thermo49C:
                         retrieve = index
                     cmd = f"{CMD[i]} {str(index)} {str(retrieve)}"
                     self.logger.info(cmd)
+                    if self._serial.is_open:
+                        self._serial.close()
                     self._serial.open()
                     data += f"{self.serial_comm(cmd)}\n"
                     self._serial.close()
@@ -554,7 +564,11 @@ class Thermo49i:
     def send_command(self, cmd: str) -> str:
         try:
             if self._serial_com:
+                if self._serial.is_open:
+                    self._serial.close()
+                self._serial.open()
                 response = self.serial_comm(cmd)
+                self._serial.close()
             else:
                 response = self.tcpip_comm(cmd)
             return response
@@ -574,7 +588,11 @@ class Thermo49i:
         try:
             for cmd in self._get_config:
                 if self._serial_com:
+                    if self._serial.is_open:
+                        self._serial.close()
+                    self._serial.open()
                     cfg.append(self.serial_comm(cmd))
+                    self._serial.close()
                 else:
                     cfg.append(self.tcpip_comm(cmd))
 
@@ -596,14 +614,22 @@ class Thermo49i:
         try:
             cmd = f"set date {time.strftime('%m-%d-%y')}"
             if self._serial_com:
+                if self._serial.is_open:
+                    self._serial.close()
+                self._serial.open()
                 dte = self.serial_comm(cmd)
+                self._serial.close()
             else:
                 dte = self.tcpip_comm(cmd)
             self.logger.info(f"[{self.name}] Date set to: {dte}")
 
             cmd = f"set time {time.strftime('%H:%M:%S')}"
             if self._serial_com:
+                if self._serial.is_open:
+                    self._serial.close()
+                self._serial.open()
                 tme = self.serial_comm(cmd)
+                self._serial.close()
             else:
                 tme = self.tcpip_comm(cmd)
             self.logger.info(f"[{self.name}] Time set to: {tme}")
