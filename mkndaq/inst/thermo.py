@@ -185,9 +185,8 @@ class Thermo49C:
         :return:
         """
         try:
-            if self._serial.is_open:
-                self._serial.close()
-            self._serial.open()
+            if self._serial.closed:
+                self._serial.open()
             dte = self.serial_comm(f"set date {time.strftime('%m-%d-%y')}")
             dte = self.serial_comm("date")
             tme = self.serial_comm(f"set time {time.strftime('%H:%M')}")
@@ -207,9 +206,8 @@ class Thermo49C:
         self.logger.info(f"[{self.name}] .set_config")
         cfg = []
         try:
-            if self._serial.is_open:
-                self._serial.close()
-            self._serial.open()
+            if self._serial.closed:
+                self._serial.open()
             self.set_datetime()
             for cmd in self._set_config:
                 cfg.append(f"{cmd}: {self.serial_comm(cmd)}")
@@ -231,9 +229,8 @@ class Thermo49C:
         """
         try:
             dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            if self._serial.is_open:
-                self._serial.close()
-            self._serial.open()
+            if self._serial.closed:
+                self._serial.open()
             _ = self.serial_comm('lrec')
             self._serial.close()
 
@@ -304,9 +301,8 @@ class Thermo49C:
 
     def get_o3(self) -> str:
         try:
-            if self._serial.is_open:
-                self._serial.close()
-            self._serial.open()
+            if self._serial.closed:
+                self._serial.open()
             o3 = self.serial_comm('O3')
             self._serial.close()
             return o3
@@ -345,10 +341,6 @@ class Thermo49C:
 
             self.logger.info(f"[{self.name}] .get_all_rec (save={save})")
 
-            # close potentially open port
-            if self._serial.is_open:
-                self._serial.close()
-
             # retrieve data from instrument
             for i in [0, 1]:
                 index = CAPACITY[i]
@@ -364,9 +356,8 @@ class Thermo49C:
                         retrieve = index
                     cmd = f"{CMD[i]} {str(index)} {str(retrieve)}"
                     self.logger.info(cmd)
-                    if self._serial.is_open:
-                        self._serial.close()
-                    self._serial.open()
+                    if self._serial.closed:
+                        self._serial.open()
                     data += f"{self.serial_comm(cmd)}\n"
                     self._serial.close()
 
@@ -564,9 +555,8 @@ class Thermo49i:
     def send_command(self, cmd: str) -> str:
         try:
             if self._serial_com:
-                if self._serial.is_open:
-                    self._serial.close()
-                self._serial.open()
+                if self._serial.closed:
+                    self._serial.open()
                 response = self.serial_comm(cmd)
                 self._serial.close()
             else:
@@ -588,9 +578,8 @@ class Thermo49i:
         try:
             for cmd in self._get_config:
                 if self._serial_com:
-                    if self._serial.is_open:
-                        self._serial.close()
-                    self._serial.open()
+                    if self._serial.closed:
+                        self._serial.open()
                     cfg.append(self.serial_comm(cmd))
                     self._serial.close()
                 else:
@@ -614,9 +603,8 @@ class Thermo49i:
         try:
             cmd = f"set date {time.strftime('%m-%d-%y')}"
             if self._serial_com:
-                if self._serial.is_open:
-                    self._serial.close()
-                self._serial.open()
+                if self._serial.closed:
+                    self._serial.open()
                 dte = self.serial_comm(cmd)
                 self._serial.close()
             else:
@@ -625,9 +613,8 @@ class Thermo49i:
 
             cmd = f"set time {time.strftime('%H:%M:%S')}"
             if self._serial_com:
-                if self._serial.is_open:
-                    self._serial.close()
-                self._serial.open()
+                if self._serial.closed:
+                    self._serial.open()
                 tme = self.serial_comm(cmd)
                 self._serial.close()
             else:

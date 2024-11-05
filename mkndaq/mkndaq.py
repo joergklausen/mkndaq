@@ -161,11 +161,6 @@ def main():
         except Exception as err:
             logger.error(err)
 
-        # transfer most recent log file and define schedule
-        logger.info(f"Staging current log file {logfile}")
-        copy_file(source=logfile, target=staging, logger=logger)
-        schedule.every().day.at('00:00').do(copy_file, source=logfile, target=staging, logger=logger)
-
         # # transfer any existing staged files and define schedule for data transfer
         # logger.info("mkndaq, Transfering existing staged files ...")
         # sftp.xfer_r()
@@ -173,6 +168,11 @@ def main():
 
         # list all jobs
         logger.info(schedule.get_jobs())
+
+        # transfer most recent log file and define schedule
+        logger.info(f"Staging current log file {logfile}")
+        copy_file(source=logfile, target=staging, logger=logger)
+        schedule.every(1).day.at('00:00').do(copy_file, source=logfile, target=staging, logger=logger)
 
         # align start with a multiple-of-minute timestamp
         n = 1
@@ -184,10 +184,6 @@ def main():
             time.sleep(1)
             seconds_left -= 1
         logger.info("Beginning data acquisition and file transfer ...")
-
-        # # align start with a 10' timestamp
-        # while int(time.time()) % 10 > 0:
-        #     time.sleep(0.1)
 
         while True:
             schedule.run_pending()
