@@ -104,7 +104,6 @@ class Thermo49C:
             # configure folders needed
             os.makedirs(self.data_path, exist_ok=True)
             os.makedirs(self.staging_path, exist_ok=True)
-            # os.makedirs(self.archive_path, exist_ok=True)
 
             # configure data acquisition schedule
             schedule.every(self.sampling_interval).minutes.at(':00').do(self.accumulate_lrec)
@@ -138,11 +137,12 @@ class Thermo49C:
         id = bytes([self._id])
         try:
             rcvd = b''
-            self._serial.write(id + (f"{cmd}\x0D").encode())
-            time.sleep(0.5)
-            while self._serial.in_waiting > 0:
-                rcvd = rcvd + self._serial.read(1024)
-                time.sleep(0.1)
+            with self._serial as s:
+                s.write(id + (f"{cmd}\x0D").encode())
+                time.sleep(0.5)
+                while s.in_waiting > 0:
+                    rcvd = rcvd + s.read(1024)
+                    time.sleep(0.1)
 
             rcvd = rcvd.decode()
             # remove checksum after and including the '*'
@@ -165,10 +165,10 @@ class Thermo49C:
         """
         cfg = []
         try:
-            self._serial.open()
+            # self._serial.open()
             for cmd in self._get_config:
                 cfg.append(self.serial_comm(cmd))
-            self._serial.close()
+            # self._serial.close()
             self.logger.info(f"[{self.name}] Configuration is: {cfg}")
 
             return cfg
@@ -185,13 +185,13 @@ class Thermo49C:
         :return:
         """
         try:
-            if self._serial.closed:
-                self._serial.open()
+            # if self._serial.closed:
+            #     self._serial.open()
             dte = self.serial_comm(f"set date {time.strftime('%m-%d-%y')}")
             dte = self.serial_comm("date")
             tme = self.serial_comm(f"set time {time.strftime('%H:%M')}")
             tme = self.serial_comm("time")
-            self._serial.close()
+            # self._serial.close()
             self.logger.info(f"[{self.name}] Date and time set and reported as: {dte} {tme}")
         except Exception as err:
             self.logger.error(err)
@@ -206,12 +206,12 @@ class Thermo49C:
         self.logger.info(f"[{self.name}] .set_config")
         cfg = []
         try:
-            if self._serial.closed:
-                self._serial.open()
+            # if self._serial.closed:
+            #     self._serial.open()
             self.set_datetime()
             for cmd in self._set_config:
                 cfg.append(f"{cmd}: {self.serial_comm(cmd)}")
-            self._serial.close()
+            # self._serial.close()
             time.sleep(1)
 
             self.logger.info(f"[{self.name}] Configuration set to: {cfg}")
@@ -229,13 +229,13 @@ class Thermo49C:
         """
         try:
             dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            if self._serial.closed:
-                self._serial.open()
-            _ = self.serial_comm('lrec')
-            self._serial.close()
+            # if self._serial.closed:
+            #     self._serial.open()
+            lrec = self.serial_comm('lrec')
+            # self._serial.close()
 
-            self._data += f"{dtm} {_}\n"
-            self.logger.debug(f"[{self.name}] {_[:60]}[...]")
+            self._data += f"{dtm} {lrec}\n"
+            self.logger.debug(f"[{self.name}] {lrec[:60]}[...]")
 
             return
 
@@ -245,8 +245,8 @@ class Thermo49C:
 
     def _save_data(self) -> None:
         try:
-            data_file = str()
-            self.data_file = str()
+            # data_file = str()
+            # self.data_file = str()
             if self._data:
                 # create appropriate file name and write mode
                 now = datetime.now()
@@ -254,8 +254,8 @@ class Thermo49C:
                 yyyy = now.strftime('%Y')
                 mm = now.strftime('%m')
                 dd = now.strftime('%d')
-                data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
-                os.makedirs(os.path.dirname(data_file), exist_ok=True)
+                self.data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
+                os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
 
                 # configure file mode, open file and write to it
                 if os.path.exists(self.data_file):
@@ -265,15 +265,14 @@ class Thermo49C:
                     mode = 'w'
                     header = f"{self._data_header}\n"
 
-                with open(file=data_file, mode=mode) as fh:
+                with open(file=self.data_file, mode=mode) as fh:
                     fh.write(header)
                     fh.write(self._data)
-                    self.logger.info(f"[{self.name}] file saved: {data_file}")
+                    self.logger.info(f"[{self.name}] file saved: {self.data_file}")
 
                 # reset self._data
                 self._data = str()
 
-            self.data_file = data_file
             return
 
         except Exception as err:
@@ -301,11 +300,11 @@ class Thermo49C:
 
     def get_o3(self) -> str:
         try:
-            if self._serial.closed:
-                self._serial.open()
-            o3 = self.serial_comm('O3')
-            self._serial.close()
-            return o3
+            # if self._serial.closed:
+            #     self._serial.open()
+            # o3 = self.serial_comm('O3')
+            # self._serial.close()
+            return self.serial_comm('O3')
 
         except Exception as err:
             self.logger.error(err)
@@ -356,10 +355,10 @@ class Thermo49C:
                         retrieve = index
                     cmd = f"{CMD[i]} {str(index)} {str(retrieve)}"
                     self.logger.info(cmd)
-                    if self._serial.closed:
-                        self._serial.open()
+                    # if self._serial.closed:
+                    #     self._serial.open()
                     data += f"{self.serial_comm(cmd)}\n"
-                    self._serial.close()
+                    # self._serial.close()
 
                     index = index - 10
 
