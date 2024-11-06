@@ -347,7 +347,7 @@ class SFTPClient:
                     for root, dirs, files in os.walk(top=local_path):
                         for file in files:
                             localpath = os.path.join(root, file)
-                            remotepath = os.path.join(remote_path, file)#.replace('\\', '/')
+                            remotepath = os.path.join(remote_path, file).replace('\\', '/')
 
                             attr = sftp.put(localpath=localpath, remotepath=remotepath, confirm=True)
                             self.logger.info(f".put {localpath} > {remotepath}")
