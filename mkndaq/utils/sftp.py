@@ -365,10 +365,6 @@ class SFTPClient:
 
     def setup_transfer_schedules(self, local_path: str, remote_path: str, remove_on_success: bool=True, interval: int=60):
         try:
-            # local_path = re.sub(r'(/?\.?\\){1,2}', '/', local_path)
-            # remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
-            self.setup_remote_folders(local_path=local_path, remote_path=remote_path)
-
             if interval==10:
                 minutes = [f"{interval*n:02}" for n in range(6) if interval*n < 6]
                 for minute in minutes:
