@@ -19,7 +19,7 @@ staging: staging
 # file transfer
 sftp:
     host: sftp.meteoswiss.ch
-    usr: gaw_kenya
+    usr: gaw_mkn
     remote: '.'
     key: ~/.ssh/private-open-ssh-4096-mkn.ppk
     proxy:

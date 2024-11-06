@@ -169,11 +169,11 @@ class SFTPClient:
             # sanitize local_path
             local_path = re.sub(r'(/?\.?\\){1,2}', '/', local_path)
 
-            if remote_path is None:
+            if remote_path is str():
                 remote_path = self.remote_path
 
             # sanitize remote_path
-            remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
+            remote_path = re.sub(r'(\\){1,2}', '/', remote_path)
 
             self.logger.info(f".setup_remote_folders (local_path: {local_path}, remote_path: {remote_path})")
 
@@ -182,8 +182,9 @@ class SFTPClient:
                 ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
                 with ssh.open_sftp() as sftp:
                     # determine local directory structure, establish same structure on remote host
-                    for root, dirs, files in os.walk(top=local_path):
+                    for root, dirs, files in os.walk(local_path):
                         root = re.sub(r'(/?\.?\\){1,2}', '/', root).replace(local_path, remote_path)
+                        self.logger.debug(f"root: {root}")
                         try:
                             sftp.mkdir(root, mode=16877)
                         except OSError as err:
@@ -244,12 +245,80 @@ class SFTPClient:
             self.logger.error(err)
 
 
+    # def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) -> None:
+    #     """Transfer (move) all files from local_path to remote_path.
+
+    #     Args:
+    #         local_path (str, optional): full path to local directory location. Defaults to empty string.
+    #         remote_path (str, optional): relative path to remote directory location. Defaults to empty string.
+    #         remove_on_success (bool, optional): Remove successfully transfered files from local_path?. Defaults to True.
+    #     """
+    #     try:
+    #         if not local_path:
+    #             local_path = self.local_path
+
+    #         # sanitize local_path
+    #         # local_path = re.sub(r'(/?\.?\\){1,2}', '/', local_path)
+
+    #         if not remote_path:
+    #             remote_path = self.remote_path
+
+    #         self.logger.debug(f".transfer_all_files (local path: {local_path}, remote path: {remote_path})")
+
+    #         with paramiko.SSHClient() as ssh:
+    #             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    #             ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
+    #             with ssh.open_sftp() as sftp:
+    #                 # walk local directory structure, put file to remote location
+    #                 if not self.remote_item_exists(remote_path):
+    #                     self.setup_remote_folders(local_path=local_path, remote_path=remote_path)
+    #                 for root, dirs, files in os.walk(top=local_path):
+    #                     for src in files:
+    #                         # create full remote path, including file name
+    #                         dst = os.path.join(remote_path, src)
+    #                         dst = re.sub(r'(\\){1,2}', '/', dst)
+    #                         # create full local path, including file name
+    #                         src = os.path.join(root, src)
+    #                         msg = f".put {src} > {dst}"
+    #                         # send file to remote
+    #                         attr = sftp.put(localpath=src, remotepath=dst, confirm=True)
+    #                         self.logger.info(msg)
+
+    #                         if remove_on_success:
+    #                             # remove local file from local source if it exists on remote host.
+    #                             src_size = os.stat(src).st_size
+    #                             dst_size = attr.st_size
+    #                             if dst_size == src_size:
+    #                                 os.remove(src)
+    #                             else:
+    #                                 self.logger.warning(f"src: {src_size}, dst: {dst_size} differ in size. Did not remove {src}.")
+
+    #     except Exception as err:
+    #         self.logger.error(err)
+
+
+    def setup_remote_path(self, sftp: paramiko.SFTPClient, remote_path: str) -> None:
+        try:
+            sftp.chdir(remote_path)
+        except IOError:
+            parts = remote_path.split("/")
+            current_path = str()
+            for part in parts:
+                if part:
+                    current_path = f"{current_path}/{part}"
+                    try:
+                        sftp.chdir(current_path)
+                    except IOError:
+                        sftp.mkdir(current_path)
+                        sftp.chdir(current_path)
+
+
     def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) -> None:
-        """Transfer (move) all files from local_path to remote_path.
+        """Transfer (move) all files from local_path and sub-folders to remote_path.
 
         Args:
-            local_path (_type_, optional): full path to local directory location. Defaults to empty string.
-            remote_path (_type_, optional): relative path to remote directory location. Defaults to empty string.
+            local_path (str, optional): full path to local directory location. Defaults to empty string.
+            remote_path (str, optional): relative path to remote directory location. Defaults to empty string.
             remove_on_success (bool, optional): Remove successfully transfered files from local_path?. Defaults to True.
         """
         try:
@@ -257,45 +326,41 @@ class SFTPClient:
                 local_path = self.local_path
 
             # sanitize local_path
-            # local_path = re.sub(r'(/?\.?\\){1,2}', '/', local_path)
+            local_path = local_path.replace('\\', '/')
 
             if not remote_path:
                 remote_path = self.remote_path
 
+            # sanitize remote_path
+            remote_path = remote_path.replace('\\', '/')
+
             self.logger.debug(f".transfer_all_files (local path: {local_path}, remote path: {remote_path})")
 
-            # localitem = None
-            # remoteitem = None
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
                 with ssh.open_sftp() as sftp:
+                    # create remote path if it doesn't exist and enter it
+                    self.setup_remote_path(sftp, remote_path)
+
                     # walk local directory structure, put file to remote location
-                    if not self.remote_item_exists(remote_path):
-                        self.setup_remote_folders(local_path=local_path, remote_path=remote_path)
                     for root, dirs, files in os.walk(top=local_path):
-                        for src in files:
-                            # create full remote path, including file name
-                            dst = os.path.join(remote_path, src)
-                            dst = re.sub(r'(\\){1,2}', '/', dst)
-                            # create full local path, including file name
-                            src = os.path.join(root, src)
-                            msg = f".put {src} > {dst}"
-                            # send file to remote
-                            attr = sftp.put(localpath=src, remotepath=dst, confirm=True)
-                            self.logger.info(msg)
+                        for file in files:
+                            localpath = os.path.join(root, file)
+                            remotepath = os.path.join(remote_path, file)#.replace('\\', '/')
+
+                            attr = sftp.put(localpath=localpath, remotepath=remotepath, confirm=True)
+                            self.logger.info(f".put {localpath} > {remotepath}")
 
                             if remove_on_success:
-                                # remove local file from local source if it exists on remote host.
-                                src_size = os.stat(src).st_size
-                                dst_size = attr.st_size
-                                if dst_size == src_size:
-                                    os.remove(src)
-                                else:
-                                    self.logger.warning(f"src: {src_size}, dst: {dst_size} differ in size. Did not remove {src}.")
+                                try:
+                                    sftp.stat(remotepath)
+                                    os.remove(file)
+                                except IOError:
+                                    self.logger.warning(f"Failed to verify existence of {remotepath}. Did not remove {localpath}.")
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"transfer files: {err}")
 
 
     def setup_transfer_schedules(self, local_path: str, remote_path: str, remove_on_success: bool=True, interval: int=60):

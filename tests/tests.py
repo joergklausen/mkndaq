@@ -31,11 +31,37 @@ class TestSFTP(unittest.TestCase):
         if sftp.remote_item_exists(remote_path=remote_path):
             sftp.remove_remote_item(remote_path=remote_path)            
 
+        # test
         attr = sftp.put_file(local_path=file_path, remote_path=remotepath)
 
         self.assertEqual(sftp.remote_item_exists(remote_path=remote_path), True)
 
         # clean up
+        sftp.remove_remote_item(remote_path=remote_path)
+        os.remove(path=file_path)
+
+    def test_setup_remote_folders(self):
+        sftp = SFTPClient(config=config)
+
+        # setup
+        file_path = 'tests/data/hello_world.txt'
+        file_content = 'Hello, world!'
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'w') as fh:
+            fh.write(file_content)
+            fh.close()
+        remote_path = os.path.join(sftp.remote_path, os.path.dirname(file_path))
+
+        # test
+        sftp.setup_remote_folders(local_path=os.path.dirname(os.path.abspath(file_path)), remote_path=remote_path)
+
+        remote_file=os.path.join(remote_path, os.path.basename(file_path))
+        attr = sftp.put_file(local_path=file_path, remote_path=remote_file)
+
+        self.assertEqual(sftp.remote_item_exists(remote_path=remote_file), True)
+
+        # clean up
+        sftp.remove_remote_item(remote_path=remote_file)            
         sftp.remove_remote_item(remote_path=remote_path)
         os.remove(path=file_path)
 
