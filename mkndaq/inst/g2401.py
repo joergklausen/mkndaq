@@ -69,7 +69,8 @@ class G2401:
 
             # staging area for files to be transfered
             self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
-            self._zip = config[name]['staging_zip']
+            os.makedirs(self.staging_path, exist_ok=True)
+            self.staging_zip = config[name]['staging_zip']
 
             # sampling, aggregation, reporting/storage
             self.reporting_interval = config[name]['reporting_interval']
@@ -123,6 +124,7 @@ class G2401:
             self.logger.error(colorama.Fore.RED + f"{err}")
             return str()
 
+
     def print_co2_ch4_co(self) -> None:
         try:
             conc = self.tcpip_comm("_Meas_GetConc").split(';')[0:3]
@@ -149,10 +151,9 @@ class G2401:
                 
                 # stage data for transfer
                 for file in files_received:
-
-                    if self._zip:
+                    if self.staging_zip:
                         # create zip file
-                        archive = os.path.join(file.replace(".dat", ".zip"))
+                        archive = os.path.join(self.staging_path, os.path.basename(file).replace('.dat', '.zip'))
                         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
                             fh.write(file, os.path.basename(file))
                     else:
