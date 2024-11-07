@@ -127,6 +127,7 @@ class SFTPClient:
             Boolean: True if item exists, False otherwise.
         """
         try:
+            remote_path = remote_path.replace('\\', '/').rstrip('/')
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
@@ -206,39 +207,55 @@ class SFTPClient:
         """
         try:
             if os.path.exists(local_path):
-                remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
-                msg = f".put_file {local_path} > {remote_path}"
+                # remove the file name from remote_path in case it was appended, then add the file name
+                remote_path = os.path.join(os.path.dirname(remote_path), os.path.basename(local_path)).replace('\\', '/')
+                # remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
+                
                 with paramiko.SSHClient() as ssh:
                     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                     ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
                     with ssh.open_sftp() as sftp:
                         attr = sftp.put(localpath=local_path,
-                                        remotepath=os.path.join(remote_path, os.path.basename(local_path)),
+                                        remotepath=remote_path,
                                         confirm=True)
                         sftp.close()
-                    self.logger.info(msg)
+                    self.logger.info(f"put_file {local_path} > {remote_path}")
                 return attr
             else:
-                raise ValueError("local_path does not exist.")
+                raise ValueError(f"local_path {local_path} does not exist.")
         except Exception as err:
             self.logger.error(err)
 
 
     def remove_remote_item(self, remote_path: str) -> None:
-        """Remove a file or (empty) directory on a remote host using SFTP and SSH.
+        """Remove a file or an (empty) directory from a remote host using SFTP and SSH.
 
         Args:
             remote_path (str): relative path to remote item
         """
         try:
+            remote_path = remote_path.replace('\\', '/')
             if self.remote_item_exists(remote_path):
                 with paramiko.SSHClient() as ssh:
                     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                     ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
                     with ssh.open_sftp() as sftp:
-                        sftp.remove(remote_path)
+                        try:
+                            if sftp.listdir(remote_path):                        
+                                # neither an empty directory, nor a file: do nothing
+                                self.logger.warning('Cannot remove non-empty directory. Provide full path to file to remove it, or empty the directory first.')
+                                return
+                            else:
+                                # remote path is an empty directory
+                                sftp.rmdir(remote_path)
+                        except:
+                            # remote_path is a file
+                            try:
+                                sftp.remove(remote_path)
+                            except Exception as err:
+                                self.logger.error(err)
+                        self.logger.info(f"remove_remote_item {remote_path}")
                         sftp.close()
-                    self.logger.info(f".remove_remote_item {remote_path}")
             else:
                 raise ValueError("remote_path does not exist.")
         except Exception as err:
@@ -297,20 +314,30 @@ class SFTPClient:
     #         self.logger.error(err)
 
 
-    def setup_remote_path(self, sftp: paramiko.SFTPClient, remote_path: str) -> None:
+    def setup_remote_path(self, remote_path: str) -> None:
         try:
-            sftp.chdir(remote_path)
-        except IOError:
-            parts = remote_path.split("/")
-            current_path = str()
-            for part in parts:
-                if part:
-                    current_path = f"{current_path}/{part}"
+            remote_path = remote_path.replace('\\', '/').replace('./', '')
+            with paramiko.SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
+                with ssh.open_sftp() as sftp:
+                    # create remote path if it doesn't exist and enter it        
                     try:
-                        sftp.chdir(current_path)
+                        sftp.chdir(remote_path)
                     except IOError:
-                        sftp.mkdir(current_path)
-                        sftp.chdir(current_path)
+                        parts = remote_path.split("/")
+                        current_path = '.'
+                        for part in parts:
+                            if part:
+                                current_path = f"{current_path}/{part}"
+                            try:
+                                sftp.chdir(current_path)
+                            except IOError:
+                                sftp.mkdir(part)
+                                sftp.chdir(part)
+                        return
+        except Exception as err:
+            self.logger.error(err)
 
 
     def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) -> None:
@@ -334,15 +361,15 @@ class SFTPClient:
             # sanitize remote_path
             remote_path = remote_path.replace('\\', '/')
 
+            # create remote path if it doesn't exist and enter it
+            self.setup_remote_path(remote_path)
+
             self.logger.debug(f".transfer_all_files (local path: {local_path}, remote path: {remote_path})")
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
                 with ssh.open_sftp() as sftp:
-                    # create remote path if it doesn't exist and enter it
-                    self.setup_remote_path(sftp, remote_path)
-
                     # walk local directory structure, put file to remote location
                     for root, dirs, files in os.walk(top=local_path):
                         for file in files:
@@ -360,7 +387,7 @@ class SFTPClient:
                                     self.logger.warning(f"Failed to verify existence of {remotepath}. Did not remove {localpath}.")
 
         except Exception as err:
-            self.logger.error(f"transfer files: {err}")
+            self.logger.error(f"transfer files {localpath} > {remotepath}: {err}")
 
 
     def setup_transfer_schedules(self, local_path: str, remote_path: str, remove_on_success: bool=True, interval: int=60):

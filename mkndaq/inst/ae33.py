@@ -132,14 +132,15 @@ class AE33:
             os.makedirs(self.data_path, exist_ok=True)
             self.log_path = os.path.join(root, config['data'], config[name]['data_path'], 'logs')
             os.makedirs(self.log_path, exist_ok=True)
-            self._staging_path_data = os.path.join(root, config['staging'], config[name]['staging_path'], 'data')
-            os.makedirs(self._staging_path_data, exist_ok=True)
-            self._staging_path_logs = os.path.join(root, config['staging'], config[name]['staging_path'], 'logs')
-            os.makedirs(self._staging_path_logs, exist_ok=True)
+            self.staging_path_data = os.path.join(root, config['staging'], config[name]['staging_path'], 'data')
+            os.makedirs(self.staging_path_data, exist_ok=True)
+            self.staging_path_logs = os.path.join(root, config['staging'], config[name]['staging_path'], 'logs')
+            os.makedirs(self.staging_path_logs, exist_ok=True)
             self.zip = config[name]['staging_zip']
 
             # configure remote transfer
-            self.remote_path = config[name]['remote_path']
+            self.remote_path_data = os.path.join(config[name]['remote_path'], 'data')
+            self.remote_path_logs = os.path.join(config[name]['remote_path'], 'logs')
 
             # initialize data, logs response
             self._data = str()
@@ -316,7 +317,7 @@ class AE33:
             # if not table in self._tables:
             if not table in self.table_ext_dict.keys():
                 raise ValueError(f"[{self.name}] 'table' must be one of {self.table_ext_dict.keys()}")
-            self.logger.info(f"[{self.name}] ._accumulate_new_data {table}")
+            self.logger.debug(f"[{self.name}] ._accumulate_new_data {table}")
 
             # read the latest records from the table
             records = str()
@@ -350,7 +351,7 @@ class AE33:
                     elif table=='Log':
                         self._log += records
                     else:
-                        raise ValueError(f"not implemented")                    
+                        raise ValueError(f"[{self.name}] '{table}' not implemented")                    
                     self.logger.debug(f"[{self.name}] {records[:60]}[...]")
 
                     begin_read_id += chunk_size + 1
@@ -437,11 +438,11 @@ class AE33:
             if table=='Data':
                 file = self._data_file_to_stage
                 ext = self.table_ext_dict[table]
-                path = self._staging_path_data
+                path = self.staging_path_data
             elif table=='Log':
                 file = self._log_file_to_stage
                 ext = self.table_ext_dict[table]
-                path = self._staging_path_logs
+                path = self.staging_path_logs
             else:
                 raise ValueError(f"[{self.name}] '{table}' not implemented")
             self.logger.debug(f"[{self.name}] _stage_file: table {table}, file {file}, ext {ext}, path {path}")
