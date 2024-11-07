@@ -160,7 +160,7 @@ class AE33:
         try:
             # configure data acquisition schedule
             schedule.every(int(self.sampling_interval)).minutes.at(':00').do(self._accumulate_new_data, table='Data')
-            schedule.every(int(self.sampling_interval)).minutes.at(':00').do(self._accumulate_new_data, table='Log')
+            schedule.every(int(self.sampling_interval)).minutes.at(':01').do(self._accumulate_new_data, table='Log')
 
             # configure saving and staging schedules
             if self.reporting_interval==10:
@@ -316,7 +316,7 @@ class AE33:
             self.logger.info(f"[{self.name}] ._accumulate_new_data {table}")
 
             # read the latest records from the table
-            _ = ""
+            records = str()
             maxid = int(self._tcpip_comm(cmd=f"MAXID {table}", tidy=True))
 
             # get {table}_begin_read_id
@@ -340,15 +340,15 @@ class AE33:
                         cmd=f"FETCH {table} {begin_read_id} {begin_read_id + chunk_size}"
                     else:
                         cmd=f"FETCH {table} {begin_read_id} {maxid}"
-                    _ = self._tcpip_comm(cmd, tidy=True)
+                    records = self._tcpip_comm(cmd, tidy=True)
 
                     if table=='Data':
-                        self._data += _
+                        self._data += records
                     elif table=='Log':
-                            self._log += _
+                            self._log += records
                     else:
                         raise ValueError(f"not implemented")                    
-                    self.logger.debug(f"[{self.name}] {_[:60]}[...]")
+                    self.logger.debug(f"[{self.name}] {records[:60]}[...]")
 
                     begin_read_id += chunk_size + 1
 
@@ -379,23 +379,20 @@ class AE33:
 
             if table=='Data':
                 path = self.data_path
-                data = self._data
+                content = self._data
                 ext = self.table_ext_dict['Data']
-
                 # reset attributes
                 self._data = str()
             elif table=='Log':
                 path = self.log_path
-                data = self._log
+                content = self._log
                 ext = self.table_ext_dict['Log']
-
                 # reset attributes
-                self.log_file = str()
                 self._log = str()
             else:
                 raise ValueError(f"[{self.name}] '{table}' not implemented")
 
-            if data:
+            if content:
                 # create appropriate file name and write mode
                 file = os.path.join(path, yyyy, mm, dd, f"{self.name}-{timestamp}.{ext}")
                 os.makedirs(os.path.dirname(file), exist_ok=True)
@@ -410,10 +407,15 @@ class AE33:
 
                 with open(file=file, mode=mode) as fh:
                     fh.write(header)
-                    fh.write(data)
+                    fh.write(content)
                     self.logger.info(f"[{self.name}] file saved: {file}")
 
-                self._data_file_to_stage = file
+                if table=='Data':
+                    self._data_file_to_stage = file
+                elif table=='Log':
+                    self._log_file_to_stage = file
+                else:
+                    raise ValueError(f"[{self.name}] '{table}' not implemented")
 
             return
 
@@ -427,14 +429,14 @@ class AE33:
         try:
             if not table in self.table_ext_dict.keys():
                 raise ValueError(f"[{self.name}] 'table' must be one of {self.table_ext_dict.keys()}")
-            self.logger.debug(f"[{self.name}] ._stage_file {table}")
+            # self.logger.debug(f"[{self.name}] ._stage_file {table}")
 
             if table=='Data':
                 file = self._data_file_to_stage
                 ext = self.table_ext_dict[table]
                 path = self._staging_path_data
             elif table=='Log':
-                file = self.log_file
+                file = self._log_file_to_stage
                 ext = self.table_ext_dict[table]
                 path = self._staging_path_logs
             else:
@@ -451,7 +453,12 @@ class AE33:
                     shutil.copy(src=file, dst=file_staged)
                 self.logger.info(f"[{self.name}] file staged: {file_staged}")
 
-            self._data_file_to_stage = str()
+                if table=='Data':
+                    self._data_file_to_stage = str()
+                elif table=='Log':
+                    self._log_file_to_stage = str()
+                else:
+                    raise ValueError(f"[{self.name}] '{table}' not implemented")
 
         except Exception as err:
             self.logger.error(f"[{self.name}] _stage_file {err}")
