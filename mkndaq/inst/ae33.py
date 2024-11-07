@@ -143,9 +143,12 @@ class AE33:
 
             # initialize data, logs response
             self._data = str()
-            self._log = str()
             self._data_begin_read_id = int()
+            self._data_file_to_stage = str()
+            
+            self._log = str()
             self._log_begin_read_id = int()
+            self._log_file_to_stage = str()
 
             self.get_config()
 
@@ -345,7 +348,7 @@ class AE33:
                     if table=='Data':
                         self._data += records
                     elif table=='Log':
-                            self._log += records
+                        self._log += records
                     else:
                         raise ValueError(f"not implemented")                    
                     self.logger.debug(f"[{self.name}] {records[:60]}[...]")
@@ -358,7 +361,7 @@ class AE33:
                 elif table=='Log':
                     self._log_begin_read_id = maxid + 1
                 else:
-                    raise ValueError(f"[{self.name}] not implemented")
+                    raise ValueError(f"[{self.name}] '{table}' not implemented")
                 return
 
         except Exception as err:
