@@ -85,7 +85,7 @@ def main():
                 tei49c = Thermo49C(name='tei49c', config=cfg)
                 tei49c.setup_schedules()
                 remote_path = os.path.join(sftp.remote_path, tei49c.remote_path)
-                sftp.transfer_files(local_path=tei49c.staging_path, remote_path=remote_path)
+                # sftp.transfer_files(local_path=tei49c.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
                                             remote_path=remote_path,
                                             interval=tei49c.reporting_interval)  
@@ -96,7 +96,7 @@ def main():
                 tei49i = Thermo49i(name='tei49i', config=cfg)
                 tei49i.setup_schedules()
                 remote_path = os.path.join(sftp.remote_path, tei49i.remote_path)
-                sftp.transfer_files(local_path=tei49i.staging_path, remote_path=remote_path)
+                # sftp.transfer_files(local_path=tei49i.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49i.staging_path,
                                             remote_path=remote_path,
                                             interval=tei49i.reporting_interval)  
@@ -107,7 +107,7 @@ def main():
                 tei49i_2 = Thermo49i(name='tei49i_2', config=cfg)
                 tei49i_2.setup_schedules()
                 remote_path = os.path.join(sftp.remote_path, tei49i_2.remote_path)
-                sftp.transfer_files(local_path=tei49i_2.staging_path, remote_path=remote_path)
+                # sftp.transfer_files(local_path=tei49i_2.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49i_2.staging_path,
                                             remote_path=remote_path,
                                             interval=tei49i_2.reporting_interval)  
@@ -119,7 +119,7 @@ def main():
                 g2401.store_and_stage_files()
                 schedule.every(cfg['g2401']['reporting_interval']).minutes.do(run_threaded, g2401.store_and_stage_files)
                 remote_path = os.path.join(sftp.remote_path, g2401.remote_path)
-                sftp.transfer_files(local_path=g2401.staging_path, remote_path=remote_path)
+                # sftp.transfer_files(local_path=g2401.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=g2401.staging_path,
                                             remote_path=remote_path,
                                             interval=g2401.reporting_interval)  
@@ -129,7 +129,7 @@ def main():
                 meteo = METEO('meteo', config=cfg)
                 meteo.store_and_stage_files()
                 remote_path = os.path.join(sftp.remote_path, meteo.remote_path)
-                sftp.transfer_files(local_path=meteo.staging_path, remote_path=remote_path)
+                # sftp.transfer_files(local_path=meteo.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=meteo.staging_path,
                                             remote_path=remote_path,
                                             interval=meteo.reporting_interval)  
@@ -141,8 +141,8 @@ def main():
                 ae33.setup_schedules()
                 remote_path_data = os.path.join(sftp.remote_path, ae33.remote_path_data)
                 remote_path_logs = os.path.join(sftp.remote_path, ae33.remote_path_logs)
-                sftp.transfer_files(local_path=ae33.staging_path_data, remote_path=remote_path_data)
-                sftp.transfer_files(local_path=ae33.staging_path_logs, remote_path=remote_path_logs)
+                # sftp.transfer_files(local_path=ae33.staging_path_data, remote_path=remote_path_data)
+                # sftp.transfer_files(local_path=ae33.staging_path_logs, remote_path=remote_path_logs)
                 sftp.setup_transfer_schedules(local_path=ae33.staging_path_data,
                                             remote_path=remote_path_data,
                                             interval=ae33.reporting_interval)  
@@ -166,11 +166,6 @@ def main():
         except Exception as err:
             logger.error(err)
 
-        # # transfer any existing staged files and define schedule for data transfer
-        # logger.info("mkndaq, Transfering existing staged files ...")
-        # sftp.xfer_r()
-        # # schedule.every(cfg['reporting_interval']).minutes.at(':20').do(run_threaded, sftp.xfer_r)
-
         # list all jobs
         logger.info(schedule.get_jobs())
 
@@ -178,6 +173,10 @@ def main():
         logger.info(f"Staging current log file {logfile}")
         copy_file(source=logfile, target=staging, logger=logger)
         schedule.every(1).day.at('00:00').do(copy_file, source=logfile, target=staging, logger=logger)
+
+        # # transfer any existing staged files
+        # logger.info("Transfering existing staged files ... this could take a while")
+        # sftp.transfer_files(local_path=staging, remote_path=sftp.remote_path)
 
         # align start with a multiple-of-minute timestamp
         seconds_left = seconds_to_next_n_minutes(1)

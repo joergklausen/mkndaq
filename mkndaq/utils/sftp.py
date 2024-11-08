@@ -347,9 +347,12 @@ class SFTPClient:
                                 self.logger.debug(f"setup_remote_path: created {part}")
                     cwd = sftp.getcwd()
                     self.logger.debug(f"setup_remote_path: switched to {cwd}")
-                    return cwd
+                    if cwd is None:
+                        cwd = str()
+            return cwd
         except Exception as err:
             self.logger.error(f"setup_remote_path: {err}")
+            return str()
 
 
     def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) -> None:
