@@ -66,13 +66,13 @@ class TestSFTP(unittest.TestCase):
         sftp = SFTPClient(config=config)
 
         # setup
-        local_path = 'tests/data/ae33'
+        local_path = 'tests/data'
         remote_path = f"{sftp.remote_path}/test"
 
         # test
         sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=False)
 
         # clean up
-        for file in os.listdir(local_path):
-            sftp.remove_remote_item(os.path.join(remote_path, file))
-        sftp.remove_remote_item(remote_path=remote_path)
+        # for file in os.listdir(local_path):
+        #     sftp.remove_remote_item(os.path.join(remote_path, file))
+        # sftp.remove_remote_item(remote_path=remote_path)

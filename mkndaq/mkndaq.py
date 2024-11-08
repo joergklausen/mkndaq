@@ -67,9 +67,8 @@ def main():
         # Inform user on what's going on
         logger.info(f"==  MKNDAQ ({version}) started =====================")
 
-        # initialize data transfer, set up remote folders
+        # initialize data transfer
         sftp = SFTPClient(config=cfg)
-        # sftp.setup_remote_folders()
 
         # setup staging
         staging = os.path.join(os.path.expanduser(cfg['root']), cfg['staging'])
@@ -163,8 +162,6 @@ def main():
                                             remote_path=remote_path,
                                             interval=ne300.reporting_interval)  
                 schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
-            #     schedule.every(cfg['ne300']['get_data_interval']).minutes.at(':10').do(run_threaded, ne300.get_new_data)
-            #     schedule.every(cfg['ne300']['zero_span_check_interval']).minutes.at(':00').do(run_threaded, ne300.do_zero_span_check)
 
         except Exception as err:
             logger.error(err)
@@ -183,14 +180,12 @@ def main():
         schedule.every(1).day.at('00:00').do(copy_file, source=logfile, target=staging, logger=logger)
 
         # align start with a multiple-of-minute timestamp
-        n = 1
-
-        # Countdown to the next full 10 minutes
-        seconds_left = seconds_to_next_n_minutes(n)
+        seconds_left = seconds_to_next_n_minutes(1)
         while seconds_left > 0:
             print(f"Time remaining: {seconds_left} seconds", end="\r")
-            time.sleep(1)
-            seconds_left -= 1
+            dt = 0.2
+            time.sleep(dt)
+            seconds_left -= dt
         logger.info("Beginning data acquisition and file transfer ...")
 
         while True:
