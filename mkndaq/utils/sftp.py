@@ -228,7 +228,8 @@ class SFTPClient:
 
 
     def remove_remote_item(self, remote_path: str) -> None:
-        """Remove a file or an (empty) directory from a remote host using SFTP and SSH.
+        """
+        Remove a file or prune (the last part of remote_path, not iterative) an (empty) directory from a remote host using SFTP and SSH.
 
         Args:
             remote_path (str): relative path to remote item
@@ -380,11 +381,12 @@ class SFTPClient:
                             self.logger.info(f".put {localpath} > {remotepath}")
 
                             if remove_on_success:
-                                try:
-                                    sftp.stat(remotepath)
-                                    os.remove(file)
-                                except IOError:
-                                    self.logger.warning(f"Failed to verify existence of {remotepath}. Did not remove {localpath}.")
+                                local_size = os.stat(localpath).st_size
+                                remote_size = attr.st_size
+                                if remote_size == local_size:
+                                    os.remove(localpath)
+                                else:
+                                    self.logger.warning(f"local file size: {local_size}, remote file: {remote_size} differ. Did not remove {localpath}.")
 
         except Exception as err:
             self.logger.error(f"transfer files {localpath} > {remotepath}: {err}")
