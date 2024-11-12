@@ -118,12 +118,12 @@ class METEO:
         try:
             files = os.listdir(self.source)
             if len(files)>0:
-                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {files}")
+                # self.logger.debug(colorama.Fore.GREEN + f"[{self.name}] {files}")
                 file = max([x for x in files if self.pattern in x])
 
                 data = self.extract_bulletin(os.path.join(self.source, file))
                 # self.logger.info(colorama.Fore.GREEN + f"[{self.name}] zzzztttt: {data['zzzztttt']} tre200s0: {data['tre200s0']} uor200s0: {data['uor200s0']}")
-                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {[f'{key}: {value},' for key, value in data.items()]}")
+                self.logger.debug(colorama.Fore.GREEN + f"[{self.name}] {[f'{key}: {value},' for key, value in data.items()]}")
             else:
                 self.logger.warning(colorama.Fore.RED + "no recent data to display")
         except Exception as err:
