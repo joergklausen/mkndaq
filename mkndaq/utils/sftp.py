@@ -397,7 +397,7 @@ class SFTPClient:
                             self.logger.debug(f"put {local_file} > {remote_file}")
 
                             if remove_on_success:
-                                local_size = os.stat(local_path).st_size
+                                local_size = os.stat(local_file).st_size
                                 remote_size = attr.st_size
                                 if remote_size == local_size:
                                     os.remove(local_path)
