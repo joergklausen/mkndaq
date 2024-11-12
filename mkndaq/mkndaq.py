@@ -85,7 +85,6 @@ def main():
                 tei49c = Thermo49C(name='tei49c', config=cfg)
                 tei49c.setup_schedules()
                 remote_path = os.path.join(sftp.remote_path, tei49c.remote_path)
-                # sftp.transfer_files(local_path=tei49c.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
                                             remote_path=remote_path,
                                             interval=tei49c.reporting_interval)  
@@ -179,7 +178,7 @@ def main():
         # sftp.transfer_files(local_path=staging, remote_path=sftp.remote_path)
 
         # align start with a multiple-of-minute timestamp
-        seconds_left = seconds_to_next_n_minutes(1)
+        seconds_left = seconds_to_next_n_minutes(10)
         while seconds_left > 0:
             print(f"Time remaining: {seconds_left:0.1f} s", end="\r")
             dt = 0.2
