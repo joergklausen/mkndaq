@@ -1340,7 +1340,7 @@ class NEPH:
         try:
             data = self.get_values(parameters=[2635000, 2635090, 2525000, 2525090, 2450000, 2450090])
             data = f"ssp|bssp (Mm-1) r: {data[2635000]:0.4f}|{data[2635090]:0.4f} g: {data[2525000]:0.4f}|{data[2525090]:0.4f} b: {data[2450000]:0.4f}|{data[2450090]:0.4f}"
-            self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {data}")
+            self.logger.debug(colorama.Fore.GREEN + f"[{self.name}] {data}")
 
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_ssp_bssp: {err}")
