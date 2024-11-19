@@ -104,31 +104,31 @@ class NEPH:
 
             self.remote_path = config[name]['remote_path']
 
-            # retrieve instrument id
+            # retrieve instrument id and other instrument info
             id = self.get_id(verbosity=verbosity)
             if id=={}:
-                self.logger.warning(f"[{self.name}] Could not communicate with instrument. Protocol set to '{self._protocol}'. Please verify instrument settings.")
+                self.logger.error(f"[{self.name}] Could not communicate with instrument. Protocol set to '{self._protocol}'. Please verify instrument settings.")
             else:
                 self.logger.info(f"[{self.name}] Instrument identified itself as '{id}'.")
 
-            # put instrument in ambient mode
-            state = self.do_ambient(verbosity=verbosity)
-            if state==0:
-                self.logger.info(f"[{self.name}] Instrument current operation is 'ambient'.")
-            else:
-                self.logger.warning(f"[{self.name}] Could not verify measurement mode as 'ambient'.")
+                # put instrument in ambient mode
+                state = self.do_ambient(verbosity=verbosity)
+                if state==0:
+                    self.logger.info(f"[{self.name}] Instrument current operation is 'ambient'.")
+                else:
+                    self.logger.warning(f"[{self.name}] Could not verify measurement mode as 'ambient'.")
 
-            # get dtm from instrument, then set date and time
-            dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
-            self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.")            
+                # get dtm from instrument, then set date and time
+                dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
+                self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.")            
 
-            # get logging config
-            self._datalog_config = self.get_data_log_config()[1:]
-            self.logger.info(f"[{self.name}] Logging config reported by instrument: {self._datalog_config}.")
+                # get logging config
+                self._datalog_config = self.get_data_log_config()[1:]
+                self.logger.info(f"[{self.name}] Logging config reported by instrument: {self._datalog_config}.")
 
-            # set datalog interval
-            datalog_interval = self.set_datalog_interval(verbosity=verbosity)
-            self.logger.info(f"[{self.name}] Datalog interval set to {datalog_interval} seconds.")
+                # set datalog interval
+                datalog_interval = self.set_datalog_interval(verbosity=verbosity)
+                self.logger.info(f"[{self.name}] Datalog interval set to {datalog_interval} seconds.")
 
             # datetime to keep track of retrievals from datalog
             self._start_datalog = datetime.now(timezone.utc).replace(second=0, microsecond=0)
@@ -489,9 +489,7 @@ class NEPH:
         while self._tcpip_line_is_busy:
             time.sleep(0.1)
             if time.perf_counter() > (t0 + 3 * self.socktout):
-                msg = "'_tcpip_comm_wait_for_line' timed out!"
-                warnings.warn(msg)
-                self.logger.warning(msg)
+                self.logger.warning("'_tcpip_comm_wait_for_line' timed out!")
                 break
         return
 
@@ -526,7 +524,7 @@ class NEPH:
 
                 # send message
                 if verbosity>0:
-                    print(f"message sent: {message}")
+                    self.logger.debug(f"message sent: {message}")
                 s.sendall(message)
 
                 # receive response
@@ -551,8 +549,8 @@ class NEPH:
 
                     end = time.perf_counter()    
                     if verbosity>1:
-                        print(f"response (bytes): {rcvd}")
-                        print(f"time elapsed (s): {end - start:0.4f}")
+                        self.logger.debug(f"response (bytes): {rcvd}")
+                        self.logger.debug(f"time elapsed (s): {end - start:0.4f}")
 
                 # inform other callers tha line is free
                 self._tcpip_line_is_busy = False
@@ -581,7 +579,7 @@ class NEPH:
                 response = self._tcpip_comm(message, verbosity=verbosity)
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
-                warnings.warn("Not implemented.")
+                self.logger.warning("Not implemented.")
                 return []
         except Exception as err:
             self.logger.error(err)
@@ -671,7 +669,7 @@ class NEPH:
                 data = dict(zip(parameters, items))
                 return data
             else:
-                warnings.warn("Not implemented.")
+                self.logger.warning("Not implemented.")
                 return dict()
         except Exception as err:
             self.logger.error(err)
@@ -735,7 +733,7 @@ class NEPH:
                 response = self._tcpip_comm(message, verbosity=verbosity)
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
-                warnings.warn("Not implemented.")
+                self.logger.warning("Not implemented.")
                 return list()
         except Exception as err:
             self.logger.error(err)
@@ -817,7 +815,7 @@ class NEPH:
                 # while response:=self._tcpip_comm(message, verbosity=verbosity):
                 #     data.append(self._acoem_decode_logged_data(response=response, verbosity=verbosity))
             else:
-                warnings.warn("Not implemented. For the aurora protocol, try 'get_all_data' or 'accumulate_new_data'.")
+                self.logger.warning("Not implemented. For the aurora protocol, try 'get_all_data' or 'accumulate_new_data'.")
                 return list(dict())
         except Exception as err:
             self.logger.error(err)
