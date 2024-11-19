@@ -138,8 +138,9 @@ class Thermo49C:
         try:
             rcvd = b''
             self._serial.close()
+            
+            # open the serial connection, then write
             with self._serial as s:
-                s.open()
                 s.write(id + (f"{cmd}\x0D").encode())
                 time.sleep(0.5)
                 while s.in_waiting > 0:
