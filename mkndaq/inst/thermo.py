@@ -137,13 +137,16 @@ class Thermo49C:
         id = bytes([self._id])
         try:
             rcvd = b''
+            self._serial.close()
             with self._serial as s:
+                s.open()
                 s.write(id + (f"{cmd}\x0D").encode())
                 time.sleep(0.5)
                 while s.in_waiting > 0:
                     rcvd = rcvd + s.read(1024)
                     time.sleep(0.1)
-
+                s.close()
+                
             rcvd = rcvd.decode()
             # remove checksum after and including the '*'
             rcvd = rcvd.split("*")[0]
