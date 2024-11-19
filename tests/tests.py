@@ -1,7 +1,7 @@
 import os
 import unittest
 
-import paramiko
+# import paramiko
 
 from mkndaq.utils.sftp import SFTPClient
 from mkndaq.utils.utils import load_config

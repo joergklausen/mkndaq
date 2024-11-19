@@ -180,7 +180,7 @@ def main():
         # align start with a multiple-of-minute timestamp
         seconds_left = seconds_to_next_n_minutes(10)
         while seconds_left > 0:
-            print(f"Time remaining: {seconds_left:0.1f} s", end="\r")
+            print(f"Time remaining: {seconds_left:0.0f} s", end="\r")
             dt = 0.2
             time.sleep(dt)
             seconds_left -= dt
