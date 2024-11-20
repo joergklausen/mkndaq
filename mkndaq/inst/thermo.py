@@ -137,7 +137,8 @@ class Thermo49C:
         id = bytes([self._id])
         try:
             rcvd = b''
-            self._serial.close()
+            if self._serial.is_open:
+                self._serial.close()
             
             # open the serial connection, then write
             with self._serial as s:
