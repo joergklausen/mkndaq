@@ -61,7 +61,7 @@ class Thermo49C:
             self._set_config = config[name]['set_config']
             self._data_header = config[name]['data_header']
 
-            # configure serial port
+            # configure serial port and open it
             port = config[name]['port']
             try:
                 self._serial = serial.Serial(port=port,
@@ -70,9 +70,9 @@ class Thermo49C:
                                         parity=config[port]['parity'],
                                         stopbits=config[port]['stopbits'],
                                         timeout=config[port]['timeout'])
-            finally:
-                if self._serial.is_open:
-                    self._serial.close()
+            except serial.SerialException as err:
+                self.logger.error(f"__init__ produced SerialException {err}")
+                pass
 
             # sampling, aggregation, reporting/storage
             self.sampling_interval = config[name]['sampling_interval']
@@ -131,7 +131,7 @@ class Thermo49C:
 
     def serial_comm(self, cmd: str) -> str:
         """
-        Send a command and retrieve the response. Assumes an open connection.
+        Send a command and retrieve the response. Assumes an open connection and will try to open it if closed.
 
         :param cmd: command sent to instrument
         :return: response of instrument, decoded
@@ -139,17 +139,14 @@ class Thermo49C:
         id = bytes([self._id])
         try:
             rcvd = b''
-            if self._serial.is_open:
-                self._serial.close()
+            if self._serial.closed:
+                self._serial.open()
             
-            # open the serial connection, then write
-            with self._serial as s:
-                s.write(id + (f"{cmd}\x0D").encode())
-                time.sleep(0.5)
-                while s.in_waiting > 0:
-                    rcvd = rcvd + s.read(1024)
-                    time.sleep(0.1)
-                s.close()
+            self._serial.write(id + (f"{cmd}\x0D").encode())
+            time.sleep(0.5)
+            while self._serial.in_waiting > 0:
+                rcvd = rcvd + self._serial.read(1024)
+                time.sleep(0.1)
                 
             rcvd = rcvd.decode()
             # remove checksum after and including the '*'
@@ -158,6 +155,9 @@ class Thermo49C:
             rcvd = rcvd.replace(cmd, "").strip()
             return rcvd
 
+        except serial.SerialException as err:
+            self.logger.error(f"serial_comm SerialException: {err}")
+            return str()
         except Exception as err:
             self.logger.error(f"serial_comm: {err}")
             return str()
@@ -172,10 +172,8 @@ class Thermo49C:
         """
         cfg = []
         try:
-            # self._serial.open()
             for cmd in self._get_config:
                 cfg.append(self.serial_comm(cmd))
-            # self._serial.close()
             self.logger.info(f"[{self.name}] Configuration is: {cfg}")
 
             return cfg
@@ -192,13 +190,10 @@ class Thermo49C:
         :return:
         """
         try:
-            # if self._serial.closed:
-            #     self._serial.open()
             dte = self.serial_comm(f"set date {time.strftime('%m-%d-%y')}")
             dte = self.serial_comm("date")
             tme = self.serial_comm(f"set time {time.strftime('%H:%M')}")
             tme = self.serial_comm("time")
-            # self._serial.close()
             self.logger.info(f"[{self.name}] Date and time set and reported as: {dte} {tme}")
         except Exception as err:
             self.logger.error(err)
@@ -213,12 +208,9 @@ class Thermo49C:
         self.logger.info(f"[{self.name}] .set_config")
         cfg = []
         try:
-            # if self._serial.closed:
-            #     self._serial.open()
             self.set_datetime()
             for cmd in self._set_config:
                 cfg.append(f"{cmd}: {self.serial_comm(cmd)}")
-            # self._serial.close()
             time.sleep(1)
 
             self.logger.info(f"[{self.name}] Configuration set to: {cfg}")
@@ -236,10 +228,7 @@ class Thermo49C:
         """
         try:
             dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            # if self._serial.closed:
-            #     self._serial.open()
             lrec = self.serial_comm('lrec')
-            # self._serial.close()
 
             self._data += f"{dtm} {lrec}\n"
             self.logger.debug(f"[{self.name}] {lrec[:60]}[...]")
@@ -307,10 +296,6 @@ class Thermo49C:
 
     def get_o3(self) -> str:
         try:
-            # if self._serial.closed:
-            #     self._serial.open()
-            # o3 = self.serial_comm('O3')
-            # self._serial.close()
             return self.serial_comm('O3')
 
         except Exception as err:
@@ -362,10 +347,7 @@ class Thermo49C:
                         retrieve = index
                     cmd = f"{CMD[i]} {str(index)} {str(retrieve)}"
                     self.logger.info(cmd)
-                    # if self._serial.closed:
-                    #     self._serial.open()
                     data += f"{self.serial_comm(cmd)}\n"
-                    # self._serial.close()
 
                     index = index - 10
 
@@ -426,9 +408,9 @@ class Thermo49i:
                                             parity=config[port]['parity'],
                                             stopbits=config[port]['stopbits'],
                                             timeout=config[port]['timeout'])
-                if self._serial.is_open:
-                    self._serial.close()
-                self.logger.info(f"Serial port {port} successfully opened and closed.")
+                # if self._serial.is_open:
+                #     self._serial.close()
+                self.logger.info(f"Serial port {port} successfully opened.")
             else:
                 # configure tcp/ip
                 self._sockaddr = (config[name]['socket']['host'],
