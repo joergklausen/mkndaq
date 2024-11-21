@@ -76,3 +76,7 @@ class TestSFTP(unittest.TestCase):
         # for file in os.listdir(local_path):
         #     sftp.remove_remote_item(os.path.join(remote_path, file))
         # sftp.remove_remote_item(remote_path=remote_path)
+
+
+if __name__ == '__main__':
+    unittest.main()

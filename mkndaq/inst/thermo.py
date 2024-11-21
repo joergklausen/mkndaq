@@ -63,14 +63,16 @@ class Thermo49C:
 
             # configure serial port
             port = config[name]['port']
-            self._serial = serial.Serial(port=port,
+            try:
+                self._serial = serial.Serial(port=port,
                                         baudrate=config[port]['baudrate'],
                                         bytesize=config[port]['bytesize'],
                                         parity=config[port]['parity'],
                                         stopbits=config[port]['stopbits'],
                                         timeout=config[port]['timeout'])
-            if self._serial.is_open:
-                self._serial.close()
+            finally:
+                if self._serial.is_open:
+                    self._serial.close()
 
             # sampling, aggregation, reporting/storage
             self.sampling_interval = config[name]['sampling_interval']
