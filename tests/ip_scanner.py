@@ -5,7 +5,7 @@
 Source: https://www.tutorialspoint.com/python_penetration_testing/python_penetration_testing_network_scanner.htm
 """
 
-from socket import *
+from socket import gethostbyname, socket, AF_INET, SOCK_STREAM
 import time
 
 startTime = time.time()
