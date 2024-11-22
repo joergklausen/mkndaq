@@ -355,7 +355,7 @@ class SFTPClient:
             return str()
 
 
-    def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) -> None:
+    def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) -> list:
         """Transfer (move) all files from local_path and sub-folders to remote_path.
 
         Args:
@@ -365,6 +365,8 @@ class SFTPClient:
             remove_on_success (bool, optional): Remove successfully transfered files from local_path?. Defaults to True.
         """
         try:
+            transfered = []
+
             if not local_path:
                 local_path = self.local_path
 
@@ -395,6 +397,7 @@ class SFTPClient:
                             
                             attr = sftp.put(localpath=local_file, remotepath=remote_file, confirm=True)
                             self.logger.debug(f"put {local_file} > {remote_file}")
+                            transfered.append(file)
 
                             if remove_on_success:
                                 local_size = os.stat(local_file).st_size
@@ -403,10 +406,13 @@ class SFTPClient:
                                     os.remove(local_path)
                                 else:
                                     self.logger.warning(f"local file size: {local_size}, remote file: {remote_size} differ. Did not remove {local_file}.")
+                            
+                return transfered
 
         except Exception as err:
             self.logger.error(f"transfer_files: {local_path} > {remote_path}: {err}")
-
+            return []
+        
 
     def setup_transfer_schedules(self, local_path: str, remote_path: str, remove_on_success: bool=True, interval: int=60):
         try:

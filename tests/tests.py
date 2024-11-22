@@ -41,6 +41,7 @@ class TestSFTP(unittest.TestCase):
 
         # setup
         file_path = 'tests/data/hello_world.txt'
+        file_path = 'C:/Users/mkn/Documents/mkndaq/staging/hello_world.txt'
         file_content = 'Hello, world!'
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'w') as fh:
@@ -77,6 +78,17 @@ class TestSFTP(unittest.TestCase):
         #     sftp.remove_remote_item(os.path.join(remote_path, file))
         # sftp.remove_remote_item(remote_path=remote_path)
 
+    def test_transfer_ne300_files(self):
+        sftp = SFTPClient(config=config)
+
+        # setup
+        local_path = 'C:/Users/mkn/Documents/mkndaq/staging/ne300/'
+        remote_path = f"{sftp.remote_path}/ne300"
+
+        # test
+        transfered = sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=True)
+
+        self.assertTrue(len(transfered) > 0)
 
 if __name__ == '__main__':
     unittest.main()
