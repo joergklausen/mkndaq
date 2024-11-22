@@ -355,7 +355,7 @@ class SFTPClient:
             return str()
 
 
-    def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) --> None:
+    def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) -> None:
         """Transfer (move) all files from local_path and sub-folders to remote_path.
 
         Args:
