@@ -355,7 +355,7 @@ class SFTPClient:
             return str()
 
 
-    def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) -> list:
+    def transfer_files(self, local_path: str=str(), remote_path: str=str(), remove_on_success: bool=True) --> None:
         """Transfer (move) all files from local_path and sub-folders to remote_path.
 
         Args:
@@ -365,7 +365,7 @@ class SFTPClient:
             remove_on_success (bool, optional): Remove successfully transfered files from local_path?. Defaults to True.
         """
         try:
-            transfered = []
+            self.transfered = []
 
             if not local_path:
                 local_path = self.local_path
@@ -376,10 +376,6 @@ class SFTPClient:
             # sanitize paths
             local_path = local_path.replace('\\', '/')
             remote_path = remote_path.replace('\\', '/')
-
-            # create remote path if it doesn't exist and enter it
-            # cwd = self.setup_remote_path(remote_path)
-            # self.logger.debug(f"transfer files {local_path} > {cwd}")
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -397,21 +393,20 @@ class SFTPClient:
                             
                             attr = sftp.put(localpath=local_file, remotepath=remote_file, confirm=True)
                             self.logger.debug(f"put {local_file} > {remote_file}")
-                            transfered.append(file)
+                            self.transfered.append(file)
 
                             if remove_on_success:
                                 local_size = os.stat(local_file).st_size
                                 remote_size = attr.st_size
                                 if remote_size == local_size:
-                                    os.remove(local_path)
+                                    os.remove(local_file)
                                 else:
                                     self.logger.warning(f"local file size: {local_size}, remote file: {remote_size} differ. Did not remove {local_file}.")
                             
-                return transfered
+                return
 
         except Exception as err:
             self.logger.error(f"transfer_files: {local_path} > {remote_path}: {err}")
-            return []
         
 
     def setup_transfer_schedules(self, local_path: str, remote_path: str, remove_on_success: bool=True, interval: int=60):

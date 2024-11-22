@@ -82,13 +82,13 @@ class TestSFTP(unittest.TestCase):
         sftp = SFTPClient(config=config)
 
         # setup
-        local_path = 'C:/Users/mkn/Documents/mkndaq/staging/ne300/'
+        local_path = 'C:/Users/mkn/Documents/mkndaq/staging/ne300'
         remote_path = f"{sftp.remote_path}/ne300"
 
         # test
-        transfered = sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=True)
+        sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=True)
 
-        self.assertTrue(len(transfered) > 0)
+        self.assertTrue(len(sftp.transfered) > 0)
 
 if __name__ == '__main__':
     unittest.main()
