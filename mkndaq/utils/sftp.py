@@ -8,7 +8,6 @@ Manage file transfer. Currently, sftp transfer to MeteoSwiss is supported.
 import logging
 import os
 import re
-# from xmlrpc.client import Boolean
 
 import paramiko
 import schedule
@@ -63,7 +62,6 @@ class SFTPClient:
 
             # configure local source
             self.local_path = os.path.join(os.path.expanduser(config['root']), config['staging'])
-            # self.local_path = re.sub(r'(/?\.?\\){1,2}', '/', self.local_path)
 
             # configure remote destination
             self.remote_path = config['sftp']['remote']
@@ -176,7 +174,7 @@ class SFTPClient:
             # sanitize remote_path
             remote_path = re.sub(r'(\\){1,2}', '/', remote_path)
 
-            self.logger.info(f".setup_remote_folders (local_path: {local_path}, remote_path: {remote_path})")
+            self.logger.info(f"setup_remote_folders (local_path: {local_path}, remote_path: {remote_path})")
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -350,7 +348,6 @@ class SFTPClient:
                                     os.remove(local_file)
                                 else:
                                     self.logger.warning(f"local file size: {local_size}, remote file: {remote_size} differ. Did not remove {local_file}.")
-                            
                 return
 
         except Exception as err:
