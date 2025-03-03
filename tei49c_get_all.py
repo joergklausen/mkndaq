@@ -18,7 +18,7 @@ def main():
                             help='full path to configuration file',
                             default='dist/mkndaq.yml', required=False)
         args = parser.parse_args()
-        fetch = args.fetch
+       # fetch = args.fetch()
         config_file = args.configuration
 
         # load configuation
@@ -31,8 +31,8 @@ def main():
 
         tei49c = Thermo49C(name='tei49c', config=cfg)
 
-        tei49c.get_all_rec()
-        print('done.')
+        file = tei49c.get_all_rec()
+        print(f'{file} written.')
     except Exception as err:
         print(err)
 

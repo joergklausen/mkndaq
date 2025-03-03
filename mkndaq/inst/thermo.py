@@ -367,7 +367,7 @@ class Thermo49C:
                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
                         fh.write(data_file, os.path.basename(data_file))
 
-            return data
+            return data_file
 
         except Exception as err:
             self.logger.error(err)
