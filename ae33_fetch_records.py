@@ -50,10 +50,10 @@ if __name__ == "__main__":
 
     # Define file names/paths
     dtm = time.strftime("%y%m%d%H%M")
-    data_file_name = os.path.join(os.path.expanduser(cfg["data"]), "ae33", "data", f"ae33-from-logger-{dtm}.dat")
-    zip_file_path = os.path.join(os.path.expanduser(cfg["staging"]["path"]), "ae33", "data", f"ae33-from-logger-{dtm}.zip")
+    data_file_name = os.path.join(os.path.expanduser(cfg['root']), cfg["data"], "ae33", "data", f"ae33-from-logger-{dtm}.dat")
+    zip_file_path = os.path.join(os.path.expanduser(cfg['root']), cfg["staging"], "ae33", "data", f"ae33-from-logger-{dtm}.zip")
 
-    data = ae33._fetch_from_table(name='Data', rows=args.rows)
+    data = ae33._fetch_from_table(name='Data', rows=args.records)
     data = data.replace("AE33>", "")
 
 
@@ -68,4 +68,4 @@ if __name__ == "__main__":
     print(f"Zipped file saved as {zip_file_path}")
 
     # remove .pickle and .dat files
-    os.remove(data_file_name)
+    # os.remove(data_file_name)
