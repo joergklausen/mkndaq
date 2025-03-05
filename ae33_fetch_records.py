@@ -46,9 +46,6 @@ if __name__ == "__main__":
     parser.add_argument('-f', '--first', type=int,
                         help='number of records to retrieve',
                         default='525000', required=False)
-    parser.add_argument('-l', '--last', type=int,
-                        help='number of records to retrieve',
-                        default='526000', required=False)
     args = parser.parse_args()
     cfg = load_config(config_file=args.configuration)
 
@@ -59,7 +56,7 @@ if __name__ == "__main__":
     data_file_name = os.path.join(os.path.expanduser(cfg['root']), cfg["data"], "ae33", "data", f"ae33-from-logger-{dtm}.dat")
     zip_file_path = os.path.join(os.path.expanduser(cfg['root']), cfg["staging"], "ae33", "data", f"ae33-from-logger-{dtm}.zip")
 
-    data = ae33._fetch_from_table(name='Data', rows=args.records)
+    data = ae33._fetch_from_table(name='Data', rows=args.records, first=args.first)
     data = data.replace("AE33>", "")
 
 
