@@ -43,6 +43,12 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--records', type=int,
                         help='number of records to retrieve',
                         default='1440', required=False)
+    parser.add_argument('-f', '--first', type=int,
+                        help='number of records to retrieve',
+                        default='525000', required=False)
+    parser.add_argument('-l', '--last', type=int,
+                        help='number of records to retrieve',
+                        default='526000', required=False)
     args = parser.parse_args()
     cfg = load_config(config_file=args.configuration)
 
