@@ -342,7 +342,7 @@ class Thermo49C:
                     # generate the datafile name
                     dtm = time.strftime('%Y%m%d%H%M%S')
                     data_file = os.path.join(self.data_path,
-                                            f"{self.name}_all_{CMD[i]}-{dtm}.dat")
+                                            f"{self.name}-all-{CMD[i]}-{dtm}.dat")
 
                 while index > 0:
                     if index < 10:
