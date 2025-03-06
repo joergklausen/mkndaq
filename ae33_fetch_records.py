@@ -65,8 +65,8 @@ if __name__ == "__main__":
         fh.write(data)  # Writing the extracted data
 
     # Create a zip archive
-    with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        zipf.write(data_file_name, arcname=data_file_name)
+    with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(data_file_name, arcname=os.path.basename(data_file_name))
 
     print(f"Zipped file saved as {zip_file_path}")
 
