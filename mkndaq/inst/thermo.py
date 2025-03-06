@@ -157,9 +157,11 @@ class Thermo49C:
 
         except serial.SerialException as err:
             self.logger.error(f"serial_comm SerialException: {err}")
+            pass
             return str()
         except Exception as err:
             self.logger.error(f"serial_comm: {err}")
+            pass
             return str()
 
 
