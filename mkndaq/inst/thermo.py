@@ -94,8 +94,8 @@ class Thermo49C:
             # initialize data response
             self._data = str()
 
-            self.get_config()
-            self.set_config()
+            # self.get_config()
+            # self.set_config()
 
         except Exception as err:
             self.logger.error(err)

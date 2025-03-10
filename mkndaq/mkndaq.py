@@ -83,6 +83,8 @@ def main():
             if cfg.get('tei49c', None):
                 from mkndaq.inst.thermo import Thermo49C
                 tei49c = Thermo49C(name='tei49c', config=cfg)
+                tei49c.get_config()
+                tei49c.set_config()
                 tei49c.setup_schedules()
                 remote_path = os.path.join(sftp.remote_path, tei49c.remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
