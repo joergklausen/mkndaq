@@ -351,7 +351,7 @@ class Thermo49C:
                     self.logger.info(cmd)
                     data += f"{self.serial_comm(cmd)}\n"
 
-                    index = index - 10
+                    index = index - retrieve
 
                 if save:
                     if not os.path.exists(data_file):
@@ -695,10 +695,10 @@ class Thermo49i:
 
             # retrieve all lrec records stored in buffer
             index = no_of_lrec
-            retrieve = 10
+            retrieve = 100
 
             while index > 0:
-                if index < 10:
+                if index < retrieve:
                     retrieve = index
                 cmd = f"lrec {str(index)} {str(retrieve)}"
                 self.logger.info(cmd)
@@ -721,7 +721,7 @@ class Thermo49i:
                 # data = data.replace("pres ", "")
                 # data = data.replace("o3 ", "")
 
-                index = index - 10
+                index = index - retrieve
 
             if save:
                 # write .dat file
