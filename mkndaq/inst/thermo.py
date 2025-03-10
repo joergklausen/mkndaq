@@ -337,7 +337,7 @@ class Thermo49C:
             # retrieve data from instrument
             for i in [0, 1]:
                 index = CAPACITY[i]
-                retrieve = 10
+                retrieve = 50 #10
                 if save:
                     # generate the datafile name
                     dtm = time.strftime('%Y%m%d%H%M%S')
@@ -345,7 +345,7 @@ class Thermo49C:
                                             f"{self.name}-all-{CMD[i]}-{dtm}.dat")
 
                 while index > 0:
-                    if index < 10:
+                    if index < retrieve:
                         retrieve = index
                     cmd = f"{CMD[i]} {str(index)} {str(retrieve)}"
                     self.logger.info(cmd)
