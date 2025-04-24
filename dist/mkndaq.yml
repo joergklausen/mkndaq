@@ -216,14 +216,40 @@ meteo:
     staging_path: meteo
     reporting_interval: 10
     staging_zip: False
-    remote_path: meteo
-#    staging_interval: 5             # minutes. How often should source be scanned and files staged?
-# aerosol:
-#     type: AEROSOL
-#     socket:
-#         host: 192.168.1.105
-#     netshare: psi-sent              # directory where data can be found
-#     buckets: None                   # None|hourly|daily. Determines the directory structure and how files are found.
-#     days_to_sync: 7                 # file synching from network drives to data directory
-#     staging_interval: 5             # minutes. How often should source be scanned and files staged?
-#     staging_zip: False
+
+aerosol:
+    type: AEROSOL
+    socket:
+        host: 192.168.1.105
+    netshare: psi-sent              # directory where data can be found
+    buckets: None                   # None|hourly|daily. Determines the directory structure and how files are found.
+    days_to_sync: 7                 # file synching from network drives to data directory
+    staging_interval: 5             # minutes. How often should source be scanned and files staged?
+    staging_zip: False
+
+fidas:
+    type: FIDAS
+    protocol: UDP_ASCII
+    serial_number: 6082
+    socket:
+        host: 192.168.3.255
+        port: 56790
+        timeout: 0.5
+        sleep: 0.5
+    sampling_interval: 5            # seconds (!!). How often should data be requested from instrument?
+    reporting_interval: 60          # minutes. Determines the period covered in one file.
+    buckets: daily                  # Determines the expected directory structure and how files are found.
+    data_path: data/fidas
+    staging_path: staging/fidas
+    remote_path: fidas
+    staging_zip: True
+
+
+# new entries for v0.8
+root: ~/Documents/mkndaq
+
+logging:
+# NB: specify file relative to root
+  file: mkndaq.log
+  level_console: DEBUG
+  level_file: ERROR
