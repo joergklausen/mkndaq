@@ -6,3 +6,6 @@ schedule
 setuptools
 colorama
 future
+pandas
+polars
+polars-lts-cpu
