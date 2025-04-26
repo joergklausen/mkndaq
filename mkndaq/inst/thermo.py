@@ -695,7 +695,7 @@ class Thermo49i:
 
             # retrieve all lrec records stored in buffer
             index = no_of_lrec
-            retrieve = 100
+            retrieve = 10
 
             while index > 0:
                 if index < retrieve:
@@ -706,20 +706,6 @@ class Thermo49i:
                     data += f"{self.serial_comm(cmd)}\n"
                 else:
                     data += f"{self.tcpip_comm(cmd)}\n"
-
-                # remove all the extra info in the string returned
-                # 05:26 07-19-22 flags 0C100400 o3 30.781 hio3 0.000 cellai 50927 cellbi 51732 bncht 29.9 lmpt 53.1 o3lt 0.0 flowa 0.435 flowb 0.000 pres 493.7
-                # data = data.replace("flags ", "")
-                # data = data.replace("hio3 ", "")
-                # data = data.replace("cellai ", "")
-                # data = data.replace("cellbi ", "")
-                # data = data.replace("bncht ", "")
-                # data = data.replace("lmpt ", "")
-                # data = data.replace("o3lt ", "")
-                # data = data.replace("flowa ", "")
-                # data = data.replace("flowb ", "")
-                # data = data.replace("pres ", "")
-                # data = data.replace("o3 ", "")
 
                 index = index - retrieve
 

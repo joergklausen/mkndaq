@@ -4,32 +4,7 @@ import time
 import zipfile
 
 from mkndaq.inst.ae33 import AE33
-from mkndaq.utils.utils import load_config, setup_logging
-
-cfg = {"data": "~/Documents/mkndaq/data",
-        "reporting_interval": 10,
-        "staging": {
-            "path": "~/Documents/mkndaq/staging",
-        },
-        "logging": {
-            "file": "ae33.log",
-        },
-        "ae33": {"type": "AE33",
-                 "id": 169,
-                 "serial_number": "AE33-S10-01394",
-                 "socket": {"host": "192.168.3.137",
-                            "port": 8002,
-                            "timeout": 0.5,
-                            "sleep": 0.5},
-                 "get_config": ["HELLO"],
-                 "set_config": [],
-                 "set_datetime": False,          # Should date and time be set when initializing the instrument?
-                 "reporting_interval": 10,
-                 "sampling_interval": 1,        # minutes. How often should data be requested from instrument?
-                 "staging_zip": True,
-                 "MAC": "C4-00-AD-D8-0A-AC"
-            }
-       }
+from mkndaq.utils.utils import load_config
 
 if __name__ == "__main__":
 
@@ -44,7 +19,7 @@ if __name__ == "__main__":
                         help='number of records to retrieve',
                         default='1440', required=False)
     parser.add_argument('-f', '--first', type=int,
-                        help='number of records to retrieve',
+                        help='row id of first record to retrieve',
                         default='525000', required=False)
     args = parser.parse_args()
     cfg = load_config(config_file=args.configuration)
@@ -59,16 +34,12 @@ if __name__ == "__main__":
     data = ae33._fetch_from_table(name='Data', rows=args.records, first=args.first)
     data = data.replace("AE33>", "")
 
-
     # Write raw_data to a text file
     with open(data_file_name, "w") as fh:
-        fh.write(data)  # Writing the extracted data
+        fh.write(data)
 
     # Create a zip archive
     with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(data_file_name, arcname=os.path.basename(data_file_name))
 
     print(f"Zipped file saved as {zip_file_path}")
-
-    # remove .pickle and .dat files
-    # os.remove(data_file_name)
