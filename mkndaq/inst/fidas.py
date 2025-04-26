@@ -25,7 +25,7 @@ class FIDAS:
         self.buffer = ""
         self.raw_records: list[dict[str, Any]] = []
         self.df_minute = pl.DataFrame()
-        self.current_hour = datetime.datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        self.current_hour = datetime.datetime.now(datetime.timezone.utc).replace(minute=0, second=0, microsecond=0)
 
     def __enter__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -46,12 +46,11 @@ class FIDAS:
                 data, _ = self.sock.recvfrom(self.buffer_size)
                 self.buffer += data.decode('ascii', errors='ignore')
                 if '>' in self.buffer:
-                    # print(self.buffer)
                     raw_record = self.buffer
                     self.buffer = str()
-                    return raw_record  
+                    return raw_record
             # data, _ = self.sock.recvfrom(self.buffer_size)
-            # self.buffer += data.decode('ascii', errors='ignore') 
+            # self.buffer += data.decode('ascii', errors='ignore')
             # if '>' in self.buffer:
             #     raw, self.buffer = self.buffer.split('>', 1)
             #     print(raw)
