@@ -6,3 +6,4 @@ schedule
 setuptools
 colorama
 future
+polars
