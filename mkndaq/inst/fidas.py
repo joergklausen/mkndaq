@@ -15,7 +15,7 @@ class FIDAS:
         local_port: int = 56790,
         buffer_size: int = 8192
     ):
-        self.base_dir = Path(base_dir)
+        self.base_dir = Path(base_dir).expanduser()
         self.interval_seconds = interval_seconds
         self.local_ip = local_ip
         self.local_port = local_port
@@ -161,7 +161,7 @@ class FIDAS:
             self.save_hourly()  # Save any remaining data on exit
 
 if __name__ == "__main__":
-    with FIDAS(base_dir="data/fidas", interval_seconds=5, local_port=56790) as fidas:
+    with FIDAS(base_dir="~/Documents/mkndaq/data/fidas", interval_seconds=5, local_port=56790) as fidas:
         fidas.run()
 
 
