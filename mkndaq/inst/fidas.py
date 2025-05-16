@@ -160,9 +160,13 @@ class FIDAS:
             print("Stopping FIDAS...")
             self.save_hourly()  # Save any remaining data on exit
 
-if __name__ == "__main__":
+def main():
     with FIDAS(base_dir="~/Documents/mkndaq/data/fidas", interval_seconds=5, local_port=56790) as fidas:
         fidas.run()
+
+
+if __name__ == "__main__":
+    main()
 
 
 # import datetime as dt
