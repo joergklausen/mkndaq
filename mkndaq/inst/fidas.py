@@ -5,32 +5,31 @@ import schedule
 import time
 from pathlib import Path
 from typing import Any
+from utils.sftp import SFTPClient
+from utils.utils import load_config
 
 class FIDAS:
-    def __init__(
-        self,
-        base_dir: str,
-        interval_seconds: int = 5,
-        local_ip: str = "0.0.0.0",
-        local_port: int = 56790,
-        buffer_size: int = 8192
-    ):
-        self.base_dir = Path(base_dir).expanduser()
-        self.interval_seconds = interval_seconds
-        self.local_ip = local_ip
-        self.local_port = local_port
-        self.buffer_size = buffer_size
+    def __init__(self, config: dict):
+        self.host = config['host']
+        self.port = config['port']
+        self.buffer_size = config['buffer_size']
+
+        self.data_dir = Path(config['root']).expanduser() / config['data'] / config['data_path']
+        self.staging_dir = Path(config['root']).expanduser() / config['staging'] / config['staging_path']
+
+        self.raw_record_interval = config['raw_record_interval']
+        self.aggregation_period = config['aggregation_period']
 
         self.sock = None
         self.buffer = ""
         self.raw_records: list[dict[str, Any]] = []
-        self.df_minute = pl.DataFrame()
+        self.df_raw_data_median = pl.DataFrame()
         self.current_hour = datetime.datetime.now(datetime.timezone.utc).replace(minute=0, second=0, microsecond=0)
 
     def __enter__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((self.local_ip, self.local_port))
-        print(f"Listening on {self.local_ip}:{self.local_port}")
+        self.sock.bind((self.host, self.port))
+        print(f"Listening on {self.host}:{self.port}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -41,7 +40,7 @@ class FIDAS:
         if self.sock is None:
             return str()
         try:
-            self.sock.settimeout(self.interval_seconds)
+            self.sock.settimeout(self.raw_record_interval)
             while True:
                 data, _ = self.sock.recvfrom(self.buffer_size)
                 self.buffer += data.decode('ascii', errors='ignore')
@@ -49,12 +48,6 @@ class FIDAS:
                     raw_record = self.buffer
                     self.buffer = str()
                     return raw_record
-            # data, _ = self.sock.recvfrom(self.buffer_size)
-            # self.buffer += data.decode('ascii', errors='ignore')
-            # if '>' in self.buffer:
-            #     raw, self.buffer = self.buffer.split('>', 1)
-            #     print(raw)
-            #     return raw + '>'
         except socket.timeout:
             pass
         return str()
@@ -98,8 +91,8 @@ class FIDAS:
         else:
             print(f"[{time.time()}] raw_record is empty")
 
-    def compute_minute_median(self):
-        print(f"[{time.time()}] compute_minute_median")
+    def compute_raw_data_median(self):
+        print(f"[{time.time()}] compute_raw_data_median")
         if not self.raw_records:
             print("self.raw_records is empty.")
             return
@@ -121,36 +114,47 @@ class FIDAS:
                 median_row = median_row.with_columns(pl.lit(None).alias(col))
 
         median_row = median_row.select(sorted(median_row.columns))
-        self.df_minute = pl.concat([self.df_minute, median_row], how="diagonal")
+        self.df_raw_data_median = pl.concat([self.df_raw_data_median, median_row], how="diagonal")
         self.raw_records.clear()
 
-        print(f"[{now}] Minute median computed: df_minute contains {len(self.df_minute)} rows.")
+        print(f"[{now}] Raw data median computed: df_median contains {len(self.df_raw_data_median)} rows.")
         print(median_row)
 
-    def save_hourly(self):
+    def save_hourly(self, stage: bool=True):
         print(f"[{time.time()}] save_hourly")
         now = datetime.datetime.now(datetime.timezone.utc)
         if now.hour != self.current_hour.hour:
-            if not self.df_minute.is_empty():
-                out_path = self.ensure_output_path(self.current_hour)
-                if out_path.exists():
-                    existing = pl.read_parquet(out_path)
-                    self.df_minute = pl.concat([existing, self.df_minute], how="diagonal").unique()
-                self.df_minute.write_parquet(out_path)
-                print(f"Saved hourly file: {out_path}")
-            self.df_minute = pl.DataFrame()
+            if not self.df_raw_data_median.is_empty():
+                data_path = self.ensure_data_path(self.current_hour)
+                if data_path.exists():
+                    existing = pl.read_parquet(data_path)
+                    self.df_raw_data_median = pl.concat([existing, self.df_raw_data_median], how="diagonal").unique()
+                self.df_raw_data_median.write_parquet(data_path)
+                print(f"Saved hourly file: {data_path}")
+                if stage:
+                    staging_path = self.ensure_staging_path(self.current_hour)
+                    self.df_raw_data_median.write_parquet(staging_path)
+                    print(f"Staged hourly file: {staging_path}")
+
+            self.df_raw_data_median = pl.DataFrame()
             self.current_hour = now.replace(minute=0, second=0, microsecond=0)
 
-    def ensure_output_path(self, dt: datetime.datetime) -> Path:
-        folder = self.base_dir / f"{dt.year:04d}" / f"{dt.month:02d}" / f"{dt.day:02d}"
+    def ensure_data_path(self, dt: datetime.datetime) -> Path:
+        folder = self.data_dir / f"{dt.year:04d}" / f"{dt.month:02d}" / f"{dt.day:02d}"
+        folder.mkdir(parents=True, exist_ok=True)
+        filename = f"fidas-{dt.year:04d}{dt.month:02d}{dt.day:02d}{dt.hour:02d}.parquet"
+        return folder / filename
+
+    def ensure_staging_path(self, dt: datetime.datetime) -> Path:
+        folder = self.staging_dir
         folder.mkdir(parents=True, exist_ok=True)
         filename = f"fidas-{dt.year:04d}{dt.month:02d}{dt.day:02d}{dt.hour:02d}.parquet"
         return folder / filename
 
     def run(self):
-        schedule.every(self.interval_seconds).seconds.do(self.collect_raw_record)
-        schedule.every(1).minutes.do(self.compute_minute_median)
-        schedule.every(1).hours.do(self.save_hourly)
+        schedule.every(self.raw_record_interval).seconds.do(self.collect_raw_record)
+        schedule.every(self.aggregation_period).minutes.do(self.compute_raw_data_median)
+        schedule.every(1).hours.do(self.save_hourly, stage=True)
 
         try:
             while True:
@@ -161,7 +165,14 @@ class FIDAS:
             self.save_hourly()  # Save any remaining data on exit
 
 def main():
-    with FIDAS(base_dir="~/Documents/mkndaq/data/fidas", interval_seconds=5, local_port=56790) as fidas:
+    config = load_config(config_file="dist/mkndaq.yml")
+
+    sftp = SFTPClient(config=config)
+    sftp.setup_transfer_schedules(local_path=Path(config['root']).expanduser() / config['staging'] / config['staging_path'],
+                                  remote_path=config['remote_path'],
+                                  interval=config['reporting_interval'])
+
+    with FIDAS(config=config) as fidas:
         fidas.run()
 
 
@@ -553,7 +564,7 @@ if __name__ == "__main__":
 
 # def collect_and_aggregate_polars(
 #     read_func: Callable[[], str],
-#     interval_seconds: int,
+#     raw_record_interval: int,
 #     output_dir: str
 # ) -> None:
 #     """
@@ -583,7 +594,7 @@ if __name__ == "__main__":
 #                     continue
 #             if parsed:
 #                 rows.append(parsed)
-#         time.sleep(interval_seconds)
+#         time.sleep(raw_record_interval)
 
 #     if not rows:
 #         logging.warning("No valid data collected in this interval.")
@@ -625,7 +636,7 @@ if __name__ == "__main__":
 #     schedule.every(1).minutes.do(
 #         collect_and_aggregate_polars,
 #         read_func=read_from_instrument,
-#         interval_seconds=args.interval,
+#         raw_record_interval=args.interval,
 #         output_dir=args.output
 #     )
 

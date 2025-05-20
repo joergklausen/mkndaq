@@ -1,5 +1,5 @@
 file: mkndaq.yml
-version: 2024-11-04
+version: 2025-05-20
 
 # local root directory
 root: ~/Documents/mkndaq
@@ -217,13 +217,20 @@ meteo:
     reporting_interval: 10
     staging_zip: False
     remote_path: meteo
-#    staging_interval: 5             # minutes. How often should source be scanned and files staged?
-# aerosol:
-#     type: AEROSOL
-#     socket:
-#         host: 192.168.1.105
-#     netshare: psi-sent              # directory where data can be found
-#     buckets: None                   # None|hourly|daily. Determines the directory structure and how files are found.
-#     days_to_sync: 7                 # file synching from network drives to data directory
-#     staging_interval: 5             # minutes. How often should source be scanned and files staged?
-#     staging_zip: False
+
+fidas:
+    type: FIDAS
+    serial_number: 6082
+    socket:
+        host: 0.0.0.0
+        port: 56790
+        buffer_size: 8192
+        timeout: 0.5
+        sleep: 0.5
+    raw_record_interval: 5             # seconds. How often should data be read from instrument?
+    aggregation_period: 1            # minutes. What aggregate of data should be stored?
+    # reporting_interval: 60
+    data_path: fidas
+    staging_path: fidas
+    # staging_zip: True
+    remote_path: fidas
