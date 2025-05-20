@@ -5,20 +5,20 @@ import schedule
 import time
 from pathlib import Path
 from typing import Any
-from utils.sftp import SFTPClient
-from utils.utils import load_config
+from mkndaq.utils.sftp import SFTPClient
+from mkndaq.utils.utils import load_config
 
 class FIDAS:
-    def __init__(self, config: dict):
-        self.host = config['host']
-        self.port = config['port']
-        self.buffer_size = config['buffer_size']
+    def __init__(self, config: dict, name: str='fidas'):
+        self.host = config[name]['socket']['host']
+        self.port = config[name]['socket']['port']
+        self.buffer_size = config[name]['socket']['buffer_size']
 
-        self.data_dir = Path(config['root']).expanduser() / config['data'] / config['data_path']
-        self.staging_dir = Path(config['root']).expanduser() / config['staging'] / config['staging_path']
+        self.data_dir = Path(config['root']).expanduser() / config['data'] / config[name]['data_path']
+        self.staging_dir = Path(config['root']).expanduser() / config['staging'] / config[name]['staging_path']
 
-        self.raw_record_interval = config['raw_record_interval']
-        self.aggregation_period = config['aggregation_period']
+        self.raw_record_interval = config[name]['raw_record_interval']
+        self.aggregation_period = config[name]['aggregation_period']
 
         self.sock = None
         self.buffer = ""
@@ -168,9 +168,10 @@ def main():
     config = load_config(config_file="dist/mkndaq.yml")
 
     sftp = SFTPClient(config=config)
-    sftp.setup_transfer_schedules(local_path=Path(config['root']).expanduser() / config['staging'] / config['staging_path'],
-                                  remote_path=config['remote_path'],
-                                  interval=config['reporting_interval'])
+    name = 'fidas'
+    sftp.setup_transfer_schedules(local_path=Path(config['root']).expanduser() / config['staging'] / config[name]['staging_path'],
+                                  remote_path=config[name]['remote_path'],
+                                  interval=config[name]['reporting_interval'])
 
     with FIDAS(config=config) as fidas:
         fidas.run()

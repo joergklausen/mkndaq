@@ -229,7 +229,7 @@ fidas:
         sleep: 0.5
     raw_record_interval: 5             # seconds. How often should data be read from instrument?
     aggregation_period: 1            # minutes. What aggregate of data should be stored?
-    # reporting_interval: 60
+    reporting_interval: 60
     data_path: fidas
     staging_path: fidas
     # staging_zip: True
