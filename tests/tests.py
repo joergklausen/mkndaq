@@ -51,7 +51,7 @@ class TestSFTP(unittest.TestCase):
         remotepath = sftp.remote_path
         remote_path = os.path.join(remotepath, os.path.basename(file_path))
         if sftp.remote_item_exists(remote_path=remote_path):
-            sftp.remove_remote_item(remote_path=remote_path)            
+            sftp.remove_remote_item(remote_path=remote_path)
 
         # test
         attr = sftp.put_file(local_path=file_path, remote_path=remotepath)
@@ -85,13 +85,13 @@ class TestSFTP(unittest.TestCase):
         sftp = SFTPClient(config=config)
 
         # setup
-        local_path = 'C:/Users/mkn/Documents/mkndaq/staging/ne300'
+        local_path = 'tests/data/ne300/'
         remote_path = f"{sftp.remote_path}/ne300"
 
         # test
-        sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=True)
+        sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=False)
 
-        self.assertTrue(len(sftp.transfered) > 0)
+        self.assertTrue(len(sftp.transferred) > 0)
 
 if __name__ == '__main__':
     unittest.main()

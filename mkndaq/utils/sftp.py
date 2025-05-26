@@ -255,33 +255,44 @@ class SFTPClient:
         #     self.logger.error(err)
 
 
-    def put_file(self, local_path: str, remote_path: str):
-        """Send a file to a remote host using SFTP and SSH.
+    def put_file(self, local_path: str, remote_path: Union[str, PurePosixPath]) -> Optional[paramiko.SFTPAttributes]:
+        """
+        Send a file to a remote host using SFTP.
 
         Args:
-            local_path (str): full path to local file
-            remote_path (str): relative path to remote directory
+            local_path (str): Full path to local file.
+            remote_path (str | PurePosixPath): Remote directory or full remote path.
+
+        Returns:
+            paramiko.SFTPAttributes | None: Attributes of the transferred file if successful.
         """
         try:
-            if os.path.exists(local_path):
-                # remove the file name from remote_path in case it was appended, then add the file name
-                remote_path = os.path.join(os.path.dirname(remote_path), os.path.basename(local_path)).replace('\\', '/')
-                # remote_path = re.sub(r'(/?\.?\\){1,2}', '/', remote_path)
+            local_file = Path(local_path).resolve()
+            if not local_file.exists():
+                raise FileNotFoundError(f"Local file does not exist: {local_file}")
 
-                with paramiko.SSHClient() as ssh:
-                    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                    ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
-                    with ssh.open_sftp() as sftp:
-                        attr = sftp.put(localpath=local_path,
-                                        remotepath=remote_path,
-                                        confirm=True)
-                        sftp.close()
-                    self.logger.info(f"put_file {local_path} > {remote_path}")
-                return attr
-            else:
-                raise ValueError(f"local_path {local_path} does not exist.")
+            # Normalize remote path and ensure it's a full remote file path
+            if isinstance(remote_path, str):
+                remote_path = PurePosixPath(remote_path)
+            if remote_path.name != local_file.name:
+                remote_path = remote_path / local_file.name
+
+            with paramiko.SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(hostname=self.host, username=self.usr, pkey=self.key)
+
+                with ssh.open_sftp() as sftp:
+                    attr = sftp.put(
+                        localpath=str(local_file),
+                        remotepath=str(remote_path),
+                        confirm=True
+                    )
+                    self.logger.info(f"put_file {local_file} -> {remote_path}")
+                    return attr
+
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"put_file failed: {local_path} -> {remote_path}: {err}")
+            return None
 
 
     def remove_remote_item(self, remote_path: str) -> None:
@@ -365,7 +376,7 @@ class SFTPClient:
         remove_on_success: bool = True,
         local_path: Optional[str] = None,
         remote_path: Optional[str] = None,
-    ) -> None:
+    ) -> Union[int, None]:
         """
         Transfer all files from local_path and its subfolders to remote_path.
 
@@ -423,6 +434,7 @@ class SFTPClient:
                                         )
                             except Exception as file_err:
                                 self.logger.error(f"Failed to transfer {local_file} -> {remote_file}: {file_err}")
+            return len(self.transferred)
 
         except Exception as err:
             self.logger.error(f"transfer_files failed: {err}")
