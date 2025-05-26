@@ -169,8 +169,10 @@ def main():
 
     sftp = SFTPClient(config=config)
     name = 'fidas'
-    sftp.setup_transfer_schedules(local_path=Path(config['root']).expanduser() / config['staging'] / config[name]['staging_path'],
-                                  remote_path=config[name]['remote_path'],
+    local_path = Path(config['root']).expanduser() / config['staging'] / config[name]['staging_path']
+    remote_path = Path(sftp.remote_path) / config[name]['remote_path']
+    sftp.setup_transfer_schedules(local_path=local_path,
+                                  remote_path=remote_path,
                                   interval=config[name]['reporting_interval'])
 
     with FIDAS(config=config) as fidas:
