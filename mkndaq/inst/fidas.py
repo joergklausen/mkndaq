@@ -166,14 +166,10 @@ class FIDAS:
 
 def main():
     config = load_config(config_file="dist/mkndaq.yml")
-
-    sftp = SFTPClient(config=config)
     name = 'fidas'
-    local_path = Path(config['root']).expanduser() / config['staging'] / config[name]['staging_path']
-    remote_path = Path(sftp.remote_path) / config[name]['remote_path']
-    sftp.setup_transfer_schedules(local_path=local_path,
-                                  remote_path=remote_path,
-                                  interval=config[name]['reporting_interval'])
+
+    sftp = SFTPClient(config=config, name=name)
+    sftp.setup_transfer_schedules(interval=config[name]['reporting_interval'])
 
     with FIDAS(config=config) as fidas:
         fidas.run()
