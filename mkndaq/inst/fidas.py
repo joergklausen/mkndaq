@@ -1,15 +1,26 @@
-import socket
-import polars as pl
 import datetime
-import schedule
+import logging
+import socket
 import time
 from pathlib import Path
 from typing import Any
+
+import polars as pl
+import schedule
+
 from mkndaq.utils.sftp import SFTPClient
 from mkndaq.utils.utils import load_config
 
+
 class FIDAS:
     def __init__(self, config: dict, name: str='fidas'):
+        self.name = name
+
+        # configure logging
+        _logger = config['logging']['file'].split('.')[0]
+        self.logger = logging.getLogger(f"{_logger}.{__name__}")
+        self.logger.info(f"[{self.name}] Initializing")
+
         self.host = config[name]['socket']['host']
         self.port = config[name]['socket']['port']
         self.buffer_size = config[name]['socket']['buffer_size']
@@ -29,7 +40,7 @@ class FIDAS:
     def __enter__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((self.host, self.port))
-        print(f"Listening on {self.host}:{self.port}")
+        self.logger.info(f"Listening on {self.host}:{self.port}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -54,7 +65,7 @@ class FIDAS:
 
 
     def parse_record(self, record: str) -> "dict[str, Any]":
-        print(f"[{time.time()}] parse_record")
+        self.logger.debug(f"[{time.time()}] parse_record")
 
         try:
             id_part, rest = record.split('<', 1)
@@ -75,26 +86,26 @@ class FIDAS:
                     parsed[key] = val
 
             return parsed
-        except Exception as e:
-            print(f"Failed to parse record: {e}")
+        except Exception as err:
+            self.logger.error(f"Failed to parse record: {err}")
             return {}
 
     def collect_raw_record(self):
-        print(f"[{time.time()}] collect_raw_record")
+        self.logger.debug("[collect_raw_record] called")
         record = self.receive_udp_record()
-        print(f"[{time.time()}] {record[:100]}")
+        self.logger.debug(record[:90])
         if record:
             parsed = self.parse_record(record)
             if parsed:
                 self.raw_records.append(parsed)
-                print(f"[{time.time()}] raw_record appended")
+                self.logger.debug("[collect_raw_record] raw_record appended")
         else:
-            print(f"[{time.time()}] raw_record is empty")
+            self.logger.warning("[collect_raw_record] raw_record is empty")
 
     def compute_raw_data_median(self):
-        print(f"[{time.time()}] compute_raw_data_median")
+        self.logger.debug(f"[compute_raw_data_median] called")
         if not self.raw_records:
-            print("self.raw_records is empty.")
+            self.logger.debug("[compute_raw_data_median] self.raw_records is empty.")
             return
 
         df = pl.DataFrame(self.raw_records)
@@ -117,11 +128,11 @@ class FIDAS:
         self.df_raw_data_median = pl.concat([self.df_raw_data_median, median_row], how="diagonal")
         self.raw_records.clear()
 
-        print(f"[{now}] Raw data median computed: df_median contains {len(self.df_raw_data_median)} rows.")
-        print(median_row)
+        self.logger.info(f"[compute_raw_data_median] df_median contains {len(self.df_raw_data_median)} rows.")
+
 
     def save_hourly(self, stage: bool=True):
-        print(f"[{time.time()}] save_hourly")
+        self.logger.debug(f"[save_hourly] called")
         now = datetime.datetime.now(datetime.timezone.utc)
         if now.hour != self.current_hour.hour:
             if not self.df_raw_data_median.is_empty():
@@ -130,11 +141,11 @@ class FIDAS:
                     existing = pl.read_parquet(data_path)
                     self.df_raw_data_median = pl.concat([existing, self.df_raw_data_median], how="diagonal").unique()
                 self.df_raw_data_median.write_parquet(data_path)
-                print(f"Saved hourly file: {data_path}")
+                self.logger.info(f"Saved hourly file: {data_path}")
                 if stage:
                     staging_path = self.ensure_staging_path(self.current_hour)
                     self.df_raw_data_median.write_parquet(staging_path)
-                    print(f"Staged hourly file: {staging_path}")
+                    self.logger.info(f"Staged hourly file: {staging_path}")
 
             self.df_raw_data_median = pl.DataFrame()
             self.current_hour = now.replace(minute=0, second=0, microsecond=0)
@@ -161,7 +172,7 @@ class FIDAS:
                 schedule.run_pending()
                 time.sleep(1)
         except KeyboardInterrupt:
-            print("Stopping FIDAS...")
+            self.logger.info("Stopping FIDAS...")
             self.save_hourly()  # Save any remaining data on exit
 
 def main():
@@ -253,198 +264,6 @@ if __name__ == "__main__":
 #                  'Offset':5,
 #                  'PDControl':6,
 #                  }
-
-
-
-# # class FIDAS:
-# #     def __init__(self, config: dict, name: str='fidas'):
-# #         """
-# #         Initialize the FIDAS 200 instrument class with parameters from a configuration file.
-
-# #         Args:
-# #             config (dict): general configuration
-# #         """
-# #         colorama.init(autoreset=True)
-
-# #         try:
-# #             # configure logging
-# #             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
-# #             self.logger = logging.getLogger(f"{_logger}.{__name__}")
-
-# #             # read instrument control properties for later use
-# #             self._name = name
-# #             self._serial_number = config[name]['serial_number']
-# #             self._get_data = config[name]['get_data']
-
-# #             self.logger.info(f"Initialize FIDAS 200 (name: {self._name}  S/N: {self._serial_number})")
-
-# #             # configure tcp/ip
-# #             self._sockaddr = (config[name]['socket']['host'],
-# #                             config[name]['socket']['port'])
-# #             self._socktout = config[name]['socket']['timeout']
-# #             self._socksleep = config[name]['socket']['sleep']
-
-# #             root = os.path.expanduser(config['root'])
-
-# #             # configure data collection and reporting
-# #             self._sampling_interval = config[name]['sampling_interval']
-# #             self.reporting_interval = config[name]['reporting_interval']
-# #             if not (self.reporting_interval % 60)==0 and self.reporting_interval<=1440:
-# #                 raise ValueError('reporting_interval must be a multiple of 60 and less or equal to 1440 minutes.')
-
-# #             self.header = 'Fidas header\n'
-
-# #             # configure saving, staging and remote transfer
-# #             self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
-# #             self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
-# #             self.remote_path = config[name]['remote_path']
-
-# #             # initialize data response
-# #             self._data = str()
-
-# #             # initialize data_file (path)
-# #             self.data_file = str()
-
-# #         except Exception as err:
-# #             self.logger.error(err)
-
-
-# #     def setup_schedules(self):
-# #         try:
-# #             # configure folders needed
-# #             os.makedirs(self.data_path, exist_ok=True)
-# #             os.makedirs(self.staging_path, exist_ok=True)
-
-# #             # configure data acquisition schedule
-# #             schedule.every(int(self._sampling_interval)).minutes.at(':00').do(self.accumulate_data)
-
-# #             # configure saving and staging schedules
-# #             if self.reporting_interval==10:
-# #                 self._file_timestamp_format = '%Y%m%d%H%M'
-# #                 minutes = [f"{self.reporting_interval*n:02}" for n in range(6) if self.reporting_interval*n < 6]
-# #                 for minute in minutes:
-# #                     schedule.every(1).hour.at(f"{minute}:01").do(self._save_and_stage_data)
-# #             elif self.reporting_interval==60:
-# #                 self._file_timestamp_format = '%Y%m%d%H'
-# #                 schedule.every(1).hour.at('00:01').do(self._save_and_stage_data)
-# #             elif self.reporting_interval==1440:
-# #                 self._file_timestamp_format = '%Y%m%d'
-# #                 schedule.every(1).day.at('00:00:01').do(self._save_and_stage_data)
-
-# #         except Exception as err:
-# #             self.logger.error(err)
-
-
-#     # def udp_ascii_retrieve(self) -> str:
-#     #     """
-#     #     Establish a connection and retrieve a record.
-
-#     #     :return: response of instrument, decoded
-#     #     """
-#     #     rcvd = str()
-
-#     #     try:
-#     #         # open socket connection as a client
-#     #         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, ) as s:
-#     #             # connect to the server
-#     #             s.settimeout(self._socktout)
-#     #             s.bind(self._sockaddr)
-
-#     #             while True:
-#     #                 data, addr = s.recvfrom(1024)
-#     #                 if '>' in data.decode():
-#     #                     rcvd = f"{rcvd}{data.decode()}"
-#     #                     break
-
-#     #         return rcvd
-
-#     #     except Exception as err:
-#     #         self.logger.error(err)
-#     #         return str()
-
-
-#     # def accumulate_data(self):
-#     #     """
-#     #     Retrieve data from instrument during self.sampling_interval, compute median, add time stamp and append to self._data.
-#     #     """
-#     #     try:
-#     #         dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-#     #         instant_data = self.udp_ascii_retrieve()
-#     #         self._data += f"{dtm} {instant_data}\n"
-#     #         self.logger.info(f"{self._name}, {_[:60]}[...]")
-
-#     #         return
-
-#     #     except Exception as err:
-#     #         self.logger.error(err)
-
-
-#     # def print_o3(self) -> None:
-#     #     try:
-#     #         if self._serial_com:
-#     #             o3 = self.serial_comm('o3').split()
-#     #         else:
-#     #             o3 = self.tcpip_comm('o3').split()
-#     #         self.logger.info(colorama.Fore.GREEN + f"{self._name}, {o3[0].upper()} {str(float(o3[1]))} {o3[2]}")
-
-#     #     except Exception as err:
-#     #         self.logger.error(colorama.Fore.RED + f"{err}")
-
-
-# #     def _save_data(self) -> None:
-# #         try:
-# #             data_file = str()
-# #             if self._data:
-# #                 # create appropriate file name and write mode
-# #                 timestamp = datetime.now().strftime(self._file_timestamp_format)
-# #                 data_file = os.path.join(self.data_path, f"49i-{timestamp}.dat")
-
-# #                 # configure file mode, open file and write to it
-# #                 if os.path.exists(data_file):
-# #                     with open(file=data_file, mode='a') as fh:
-# #                         fh.write(self._data)
-# #                 else:
-# #                     with open(file=data_file, mode='w') as fh:
-# #                         fh.write(self.header)
-# #                         fh.write(self._data)
-# #                 self.logger.info(f"file saved: {data_file}")
-
-# #                 # reset self._data
-# #                 self._data = str()
-
-# #             self.data_file = data_file
-# #             return
-
-# #         except Exception as err:
-# #             self.logger.error(err)
-
-
-# #     def _stage_file(self):
-# #         """ Create zip file from self.data_file and stage archive.
-# #         """
-# #         try:
-# #             if self.data_file:
-# #                 archive = os.path.join(self.staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
-# #                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-# #                     zf.write(self.data_file, os.path.basename(self.data_file))
-# #                     self.logger.info(f"file staged: {archive}")
-
-# #         except Exception as err:
-# #             self.logger.error(err)
-
-
-# #     def _save_and_stage_data(self):
-# #         self._save_data()
-# #         self._stage_file()
-
-
-# # if __name__ == "__main__":
-# #     pass
-
-
-
-
 
 
 # # class ModbusTCPDriver:
@@ -646,20 +465,6 @@ if __name__ == "__main__":
 
 # if __name__ == "__main__":
 #     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # # if __name__ == "__main__":
