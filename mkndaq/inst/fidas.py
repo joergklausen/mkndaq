@@ -102,11 +102,11 @@ class FIDAS:
         else:
             self.logger.warning("[collect_raw_record] raw_record is empty")
 
-    def compute_raw_data_median(self):
+    def compute_raw_data_median(self, cols: list=['60','61','62','63','64','65']) -> dict:
         self.logger.debug(f"[compute_raw_data_median] called")
         if not self.raw_records:
             self.logger.debug("[compute_raw_data_median] self.raw_records is empty.")
-            return
+            return dict()
 
         df = pl.DataFrame(self.raw_records)
         value_cols = [col for col in df.columns if col not in {"id", "checksum"} and df.schema[col] in {pl.Float64, pl.Float32}]
@@ -125,11 +125,14 @@ class FIDAS:
                 median_row = median_row.with_columns(pl.lit(None).alias(col))
 
         median_row = median_row.select(sorted(median_row.columns))
+        median_dict = {col: median_row[0, col] for col in cols}
         self.df_raw_data_median = pl.concat([self.df_raw_data_median, median_row], how="diagonal")
         self.raw_records.clear()
 
-        self.logger.info(f"[compute_raw_data_median] df_median contains {len(self.df_raw_data_median)} rows.")
+        # self.logger.info(f"[compute_raw_data_median] df_median contains {len(self.df_raw_data_median)} rows.")
+        self.logger.info(f"[{self.name}] median  {median_dict}.")
 
+        return median_dict
 
     def save_hourly(self, stage: bool=True):
         self.logger.debug(f"[save_hourly] called")
