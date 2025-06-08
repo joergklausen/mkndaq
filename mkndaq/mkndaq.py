@@ -89,7 +89,7 @@ def main():
                 remote_path = os.path.join(sftp.remote_path, tei49c.remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
                                             remote_path=remote_path,
-                                            interval=tei49c.reporting_interval)  
+                                            interval=tei49c.reporting_interval)
                 schedule.every(6).hours.at(':00').do(run_threaded, tei49c.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
             if cfg.get('tei49i', None):
@@ -100,7 +100,7 @@ def main():
                 # sftp.transfer_files(local_path=tei49i.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49i.staging_path,
                                             remote_path=remote_path,
-                                            interval=tei49i.reporting_interval)  
+                                            interval=tei49i.reporting_interval)
                 schedule.every().day.at('00:00').do(run_threaded, tei49i.set_datetime)
                 schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
             if cfg.get('tei49i_2', None):
@@ -111,7 +111,7 @@ def main():
                 # sftp.transfer_files(local_path=tei49i_2.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49i_2.staging_path,
                                             remote_path=remote_path,
-                                            interval=tei49i_2.reporting_interval)  
+                                            interval=tei49i_2.reporting_interval)
                 schedule.every().day.at('00:00').do(run_threaded, tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(run_threaded, tei49i_2.print_o3)
             if cfg.get('g2401', None):
@@ -123,7 +123,7 @@ def main():
                 # sftp.transfer_files(local_path=g2401.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=g2401.staging_path,
                                             remote_path=remote_path,
-                                            interval=g2401.reporting_interval)  
+                                            interval=g2401.reporting_interval)
                 schedule.every(fetch).seconds.do(run_threaded, g2401.print_co2_ch4_co)
             if cfg.get('meteo', None):
                 from mkndaq.inst.meteo import METEO
@@ -133,7 +133,7 @@ def main():
                 # sftp.transfer_files(local_path=meteo.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=meteo.staging_path,
                                             remote_path=remote_path,
-                                            interval=meteo.reporting_interval)  
+                                            interval=meteo.reporting_interval)
                 schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
                 schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.print_meteo)
             if cfg.get('ae33', None):
@@ -146,10 +146,10 @@ def main():
                 # sftp.transfer_files(local_path=ae33.staging_path_logs, remote_path=remote_path_logs)
                 sftp.setup_transfer_schedules(local_path=ae33.staging_path_data,
                                             remote_path=remote_path_data,
-                                            interval=ae33.reporting_interval)  
+                                            interval=ae33.reporting_interval)
                 sftp.setup_transfer_schedules(local_path=ae33.staging_path_logs,
                                             remote_path=remote_path_logs,
-                                            interval=ae33.reporting_interval)  
+                                            interval=ae33.reporting_interval)
                 # schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
                 # schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
@@ -161,7 +161,7 @@ def main():
                 remote_path = os.path.join(sftp.remote_path, ne300.remote_path)
                 sftp.setup_transfer_schedules(local_path=ne300.staging_path,
                                             remote_path=remote_path,
-                                            interval=ne300.reporting_interval)  
+                                            interval=ne300.reporting_interval)
                 schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
 
         except Exception as err:

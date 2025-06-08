@@ -440,18 +440,23 @@ class SFTPClient:
             self.logger.error(f"transfer_files failed: {err}")
 
 
-    def setup_transfer_schedules(self, remove_on_success: bool=True, interval: int=60):
+    def setup_transfer_schedules(self,
+                                 remove_on_success: bool=True,
+                                 interval: int=60,
+                                 local_path: Optional[str] = None,
+                                 remote_path: Optional[str] = None,
+                                 ):
         try:
             if interval==10:
                 minutes = [f"{interval*n:02}" for n in range(6) if interval*n < 6]
                 for minute in minutes:
-                    schedule.every(1).hour.at(f"{minute}:10").do(self.transfer_files, remove_on_success)
+                    schedule.every(1).hour.at(f"{minute}:10").do(self.transfer_files, remove_on_success, local_path, remote_path)
             elif (interval % 60) == 0:
                 hrs = [f"{n:02}:00:10" for n in range(0, 24, interval // 60)]
                 for hr in hrs:
-                    schedule.every(1).day.at(hr).do(self.transfer_files, remove_on_success)
+                    schedule.every(1).day.at(hr).do(self.transfer_files, remove_on_success, local_path, remote_path)
             elif interval==1440:
-                schedule.every(1).day.at('00:00:10').do(self.transfer_files, remove_on_success)
+                schedule.every(1).day.at('00:00:10').do(self.transfer_files, remove_on_success, local_path, remote_path)
             else:
                 raise ValueError("'interval' must be 10 minutes or a multiple of 60 minutes and a maximum of 1440 minutes.")
 
