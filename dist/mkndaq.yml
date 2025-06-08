@@ -10,7 +10,7 @@ data: data
 # log directory, relative to root
 logging:
   file: mkndaq.log
-  level_console: DEBUG
+  level_console: INFO
   level_file: ERROR
 
 # staging area for transfer, relative to root

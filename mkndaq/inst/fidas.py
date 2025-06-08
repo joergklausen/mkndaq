@@ -7,18 +7,16 @@ from typing import Any
 
 import polars as pl
 import schedule
-
-from mkndaq.utils.sftp import SFTPClient
-from mkndaq.utils.utils import load_config
-
+from mkndaq.utils.utils import setup_logging
 
 class FIDAS:
     def __init__(self, config: dict, name: str='fidas'):
         self.name = name
 
         # configure logging
-        _logger = config['logging']['file'].split('.')[0]
-        self.logger = logging.getLogger(f"{_logger}.{__name__}")
+        # _logger = config['logging']['file'].split('.')[0]
+        self.logger = setup_logging(file=f"{config['root']}/{name}.log")
+        # self.logger = logging.getLogger(f"{_logger}.{__name__}")
         self.logger.info(f"[{self.name}] Initializing")
 
         self.host = config[name]['socket']['host']
@@ -78,7 +76,8 @@ class FIDAS:
             for pair in data_part.split(';'):
                 if '=' in pair:
                     k, v = pair.split('=', 1)
-                    key = f"val_{int(k.strip())}"
+#                    key = f"val_{int(k.strip())}"
+                    key = f"{int(k.strip())}"
                     try:
                         val = float(v.strip())
                     except ValueError:
@@ -166,9 +165,13 @@ class FIDAS:
         return folder / filename
 
     def run(self):
+        self.logger.info("=== Starting FIDAS DAQ =======")
+        # print("=== Starting FIDAS DAQ =======")
         schedule.every(self.raw_record_interval).seconds.do(self.collect_raw_record)
         schedule.every(self.aggregation_period).minutes.do(self.compute_raw_data_median)
         schedule.every(1).hours.do(self.save_hourly, stage=True)
+        self.logger.info(schedule.get_jobs())
+        # print(schedule.get_jobs())
 
         try:
             while True:
@@ -178,19 +181,9 @@ class FIDAS:
             self.logger.info("Stopping FIDAS...")
             self.save_hourly()  # Save any remaining data on exit
 
-def main():
-    config = load_config(config_file="dist/mkndaq.yml")
-    name = 'fidas'
-
-    sftp = SFTPClient(config=config, name=name)
-    sftp.setup_transfer_schedules(interval=config[name]['reporting_interval'])
-
-    with FIDAS(config=config) as fidas:
-        fidas.run()
-
 
 if __name__ == "__main__":
-    main()
+    pass
 
 
 # import datetime as dt

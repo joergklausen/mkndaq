@@ -70,8 +70,8 @@ class SFTPClient:
             self.remote_path = PurePosixPath(config['sftp']['remote'])
 
             if name:
-                self.local_path = self.local_path / config[name]['staging']
-                self.remote_path = self.remote_path / config[name]['remote']
+                self.local_path = self.local_path / config[name]['staging_path']
+                self.remote_path = self.remote_path / config[name]['remote_path']
 
         except Exception as err:
             self.logger.error(err)
