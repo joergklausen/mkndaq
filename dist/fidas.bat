@@ -1,36 +1,34 @@
 @echo off
-rem set a=c:/users/mkn/mkndaq
-set a=c:/users/mkn/Documents/git/mkndaq
-set b=__fidas__.py
-set c=mkndaq.yml
-set d=%a%/%b% -c %a%/dist/%c%
-set e=mkndaq-start.log
-set f=%a%/dist/%e%
+setlocal
 
-rem record execution of __fidas__.py to logfile.
-rem echo %date:~6,4%-%date:~3,2%-%date:~0,2% %time:~0,8% __fidas__.py started. >> %f%
+REM === Configuration ===
+set PROJECT_DIR=C:\Users\mkn\Documents\git\mkndaq
+set PYTHON_EXE=%PROJECT_DIR%\.venv\Scripts\python.exe
+set SCRIPT=%PROJECT_DIR%\__fidas__.py
+set SCRIPT_NAME=__fidas__.py
+set LOG_FILE=C:\Users\mkn\Documents\mkndaq\fidas-start.log
 
-@echo off
-SETLOCAL EnableExtensions
-FOR /F %%x IN ('tasklist /NH /FI "IMAGENAME eq %b%"') DO IF %%x == %b% goto ProcessFound
-goto ProcessNotFound
+REM === Get timestamp ===
+for /f %%a in ('wmic os get localdatetime ^| find "."') do set ldt=%%a
+set TIMESTAMP=%ldt:~0,4%-%ldt:~4,2%-%ldt:~6,2% %ldt:~8,2%:%ldt:~10,2%:%ldt:~12,2%
 
-:ProcessFound
-rem echo %b% is running, no further action taken.
-echo %date:~6,4%-%date:~3,2%-%date:~0,2% %time:~0,8% %b% running. >> %f%
-goto END
+call :log "Attempting to start %SCRIPT_NAME%"
 
-:ProcessNotFound
-rem echo Starting %b% ...
-call C:\Users\mkn\Documents\git\mkndaq\.venv\Scripts\activate.bat
-echo %date:~6,4%-%date:~3,2%-%date:~0,2% %time:~0,8% .venv activated. >> %f%
-cd /d C:\Users\mkn\Documents\git\mkndaq
-python -u C:\Users\mkn\Documents\git\mkndaq\__fidas__.py
+REM === Check if script is already running ===
+tasklist /FI "IMAGENAME eq python.exe" /V | findstr /I "%SCRIPT_NAME%" >nul
+if %ERRORLEVEL%==0 (
+    call :log "Script %SCRIPT_NAME% is already running. Skipping startup."
+    exit /b 0
+)
 
-echo %date:~6,4%-%date:~3,2%-%date:~0,2% %time:~0,8% %b% started. >> %f%
-rem open CLI and run batch file, return to CLI
-cmd /k %d%
-goto END
+cd /d "%PROJECT_DIR%"
+call :log "Starting script %SCRIPT_NAME%"
 
-:END
-echo Finished!
+start "" "%PYTHON_EXE%" "%SCRIPT%"
+exit /b 0
+
+:log
+set MSG=[%TIMESTAMP%] %~1
+echo %MSG%
+echo %MSG% >> "%LOG_FILE%"
+goto :eof
