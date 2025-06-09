@@ -64,14 +64,14 @@ class TestSFTP(unittest.TestCase):
 
 
     def test_transfer_files(self):
-        sftp = SFTPClient(config=config, name="fidas")
+        sftp = SFTPClient(config=config, name="test")
 
         # setup
-        local_path = '/c/Users/mkn/Documents/mkndaq/staging/fidas'
-        local_path = 'tests/data'
-        local_path = str()
-        remote_path = f"{sftp.remote_path}/test"
-        remote_path = str()
+        # local_path = '/c/Users/mkn/Documents/mkndaq/staging/fidas'
+        local_path = 'tests/data/test'
+        # local_path = str()
+        remote_path = sftp.remote_path
+        # remote_path = str()
 
         # test
         sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=False)

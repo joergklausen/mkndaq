@@ -234,3 +234,6 @@ fidas:
     staging_path: fidas
     # staging_zip: True
     remote_path: fidas
+
+test:
+    remote_path: test
