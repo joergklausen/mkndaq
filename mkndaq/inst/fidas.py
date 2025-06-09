@@ -15,7 +15,7 @@ class FIDAS:
 
         # configure logging
         # _logger = config['logging']['file'].split('.')[0]
-        self.logger = setup_logging(file=f"{config['root']}/{name}.log")
+        self.logger = setup_logging(file=str(Path(config['root']).expanduser() / f"{name}.log"))
         # self.logger = logging.getLogger(f"{_logger}.{__name__}")
         self.logger.info(f"[{self.name}] Initializing")
 
