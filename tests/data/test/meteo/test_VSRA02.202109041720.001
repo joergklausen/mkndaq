@@ -1,0 +1,88 @@
+001
+VSRA02 LSSW 041720
+
+iii zzzztttt message
+187 202109041720
+<bulletin>
+	<info>
+		station="KEMKN"
+		id="187"
+		host="10.182.253.11"
+		date="2021-09-04T17:20Z"
+	</info>
+	<sensor>
+		<description>
+			remark="WS 700 msg M0 2m"
+			type="WS600"
+			note"M0"
+			protocole"RS485-2w"
+			baudrate="19200"
+			port="/dev/ttyM0"
+			host="LinuxBox Front-face side"
+			command="'M0\r'"
+		</description>
+		<data>
+			<2021-09-04/17:19:21>M0;+004.0;+000.5;+002.3;+077.5;+0660.8;+002.3;+151.4;+00000.00;+000;<\2021-09-04/17:19:21>
+		</data>
+	</sensor>
+	<sensor>
+		<description>
+			remark="WS 600 msg M0 10m"
+			type="WS600"
+			note="M0"
+			protocole="RS485-2w"
+			baudrate="19200"
+			port="/dev/ttyM1"
+			host="LinuxBox Back-face side"
+			command="'M0\r'"
+		</description>
+		<data>
+			<2021-09-04/17:19:22>M0;+005.8;+002.4;+004.1;+078.9;+0660.8;+002.2;+233.4;+00000.00;+000;<\2021-09-04/17:19:22>
+		</data>
+	</sensor>
+	<sensor>
+		<description>
+			remark="WS 600 msg M2 10m"
+			type="WS600"
+			note="M2"
+			protocole="RS485-2w"
+			baudrate="19200"
+			port="/dev/ttyM1"
+			host="LinuxBox Back-face side"
+			command="'M2\r'"
+		</description>
+		<data>
+			<2021-09-04/17:19:41>M2;+002.4;+001.2;+003.5;+002.4;+002.3;+215.1;+223.6;+224.5;+214.1;<\2021-09-04/17:19:41>
+		</data>
+	</sensor>
+	<sensor>
+		<description>
+			remark="WS 700 M4 2m"
+			type="WS600"
+			note="M4"
+			protocole="RS485-2w"
+			baudrate="19200"
+			port="/dev/ttyM0"
+			host="LinuxBox Front-face side"
+			command="'M4\r'"
+		</description>
+		<data>
+			<2021-09-04/17:19:42>M4;+354.0;+000.0;+000.0;+000.0;+000.0;+019.1;+002.1;+035.9;+000.8<\2021-09-04/17:19:42>
+		</data>
+	</sensor>
+	<sensor>
+		<description>
+			remark="Rotronic RDD 2m"
+			type="Rotronic"
+			note="RDD"
+			protocole="serial_over_IP"
+			baudrate="19200"
+			port="4001"
+			host="10.182.255.2"
+			command="'{H99RDD}\r'"
+		</description>
+		<data>
+			<2021-09-04/17:19:46>{H00rdd 1;84.510; %rh;0;+; 4.000;  °C;0;+;  ; --.--;    ;0; ;048;V3.2-1;0020001551;Probe 1     ;000;6;153;V1.5-1;0061155289;MP          ;000;@<\2021-09-04/17:19:46>
+		</data>
+	</sensor>
+</bulletin>

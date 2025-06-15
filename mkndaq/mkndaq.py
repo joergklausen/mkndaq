@@ -11,12 +11,14 @@ import argparse
 import os
 import threading
 import time
+from pathlib import Path, PurePosixPath
 
 import colorama
 import schedule
 
 from mkndaq.utils.sftp import SFTPClient
-from mkndaq.utils.utils import load_config, setup_logging, copy_file, seconds_to_next_n_minutes
+from mkndaq.utils.utils import (copy_file, load_config,
+                                seconds_to_next_n_minutes, setup_logging)
 
 
 def run_threaded(job_func):
@@ -86,7 +88,7 @@ def main():
                 tei49c.get_config()
                 tei49c.set_config()
                 tei49c.setup_schedules()
-                remote_path = os.path.join(sftp.remote_path, tei49c.remote_path)
+                remote_path = (PurePosixPath(sftp.remote_path) / tei49c.remote_path).as_posix()
                 sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
                                             remote_path=remote_path,
                                             interval=tei49c.reporting_interval)
@@ -96,7 +98,7 @@ def main():
                 from mkndaq.inst.thermo import Thermo49i
                 tei49i = Thermo49i(name='tei49i', config=cfg)
                 tei49i.setup_schedules()
-                remote_path = os.path.join(sftp.remote_path, tei49i.remote_path)
+                remote_path = (PurePosixPath(sftp.remote_path) / tei49i.remote_path).as_posix()
                 # sftp.transfer_files(local_path=tei49i.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=tei49i.staging_path,
                                             remote_path=remote_path,
@@ -119,7 +121,7 @@ def main():
                 g2401 = G2401('g2401', config=cfg)
                 g2401.store_and_stage_files()
                 schedule.every(cfg['g2401']['reporting_interval']).minutes.do(run_threaded, g2401.store_and_stage_files)
-                remote_path = os.path.join(sftp.remote_path, g2401.remote_path)
+                remote_path = (PurePosixPath(sftp.remote_path) / g2401.remote_path).as_posix()
                 # sftp.transfer_files(local_path=g2401.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=g2401.staging_path,
                                             remote_path=remote_path,
@@ -129,7 +131,7 @@ def main():
                 from mkndaq.inst.meteo import METEO
                 meteo = METEO('meteo', config=cfg)
                 meteo.store_and_stage_files()
-                remote_path = os.path.join(sftp.remote_path, meteo.remote_path)
+                remote_path = (PurePosixPath(sftp.remote_path) / meteo.remote_path).as_posix()
                 # sftp.transfer_files(local_path=meteo.staging_path, remote_path=remote_path)
                 sftp.setup_transfer_schedules(local_path=meteo.staging_path,
                                             remote_path=remote_path,
@@ -140,8 +142,8 @@ def main():
                 from mkndaq.inst.ae33 import AE33
                 ae33 = AE33(name='ae33', config=cfg)
                 ae33.setup_schedules()
-                remote_path_data = os.path.join(sftp.remote_path, ae33.remote_path_data)
-                remote_path_logs = os.path.join(sftp.remote_path, ae33.remote_path_logs)
+                remote_path_data = (PurePosixPath(sftp.remote_path) / ae33.remote_path_data).as_posix()
+                remote_path_logs = (PurePosixPath(sftp.remote_path) / ae33.remote_path_logs).as_posix()
                 # sftp.transfer_files(local_path=ae33.staging_path_data, remote_path=remote_path_data)
                 # sftp.transfer_files(local_path=ae33.staging_path_logs, remote_path=remote_path_logs)
                 sftp.setup_transfer_schedules(local_path=ae33.staging_path_data,
@@ -155,10 +157,11 @@ def main():
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
             if cfg.get('ne300', None):
                 from mkndaq.inst.neph import NEPH
-                ne300 = NEPH(name='ne300', config=cfg)
+
+                # ne300 = NEPH(name='ne300', config=cfg)
                 ne300 = NEPH('ne300', cfg, verbosity=0)
                 ne300.setup_schedules()
-                remote_path = os.path.join(sftp.remote_path, ne300.remote_path)
+                remote_path = (PurePosixPath(sftp.remote_path) / ne300.remote_path).as_posix()
                 sftp.setup_transfer_schedules(local_path=ne300.staging_path,
                                             remote_path=remote_path,
                                             interval=ne300.reporting_interval)

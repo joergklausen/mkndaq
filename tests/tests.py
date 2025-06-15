@@ -1,5 +1,5 @@
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import unittest
 
 # import paramiko
@@ -19,11 +19,10 @@ class TestSFTP(unittest.TestCase):
 
 
     def test_setup_remote_path(self):
-        sftp = SFTPClient(config=config)
+        sftp = SFTPClient(config=config, name='test')
 
         # setup
-        file_path = 'test/hello_world.txt'
-        remote_path = Path(sftp.remote_path) / Path(file_path).parent
+        remote_path = PurePosixPath(sftp.remote_path) / sftp.name
 
         # test
         sftp.setup_remote_path(remote_path)
@@ -35,33 +34,23 @@ class TestSFTP(unittest.TestCase):
 
     def test_transfer_single_file(self):
         """
-        Put a single file from the local file system to the root location of the remote sftp server.
-        If the remote destination is a subfolder, this will probably fail.
+        Put a single file from the local file system to remote sftp server.
+        If name exists, local files will be transfered to a remote folder name.
+        After transfer, clean up.
         """
         sftp = SFTPClient(config=config, name='test')
 
         # setup
-        file_path = 'tests/data/hello_world.txt'
-        file_path = 'C:/Users/mkn/Documents/mkndaq/staging/hello_world.txt'
-        file_content = 'Hello, world!'
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'w') as fh:
-            fh.write(file_content)
-            fh.close()
-
-        remotepath = sftp.remote_path
-        remote_path = Path(os.path.join(remotepath, os.path.basename(file_path)))
-        if sftp.remote_item_exists(remote_path=remote_path):
-            sftp.remove_remote_item(remote_path=remote_path)
+        local_path = Path('tests/data/test/hello/hello.txt')
 
         # test
-        attr = sftp.put_file(local_path=file_path, remote_path=Path(remotepath))
+        sftp.transfer_files(local_path=local_path, remove_on_success=False)
 
-        self.assertEqual(sftp.remote_item_exists(remote_path=remote_path), True)
+        self.assertEqual(len(sftp.transfered_remote) > 0, True)
 
         # clean up
-        sftp.remove_remote_item(remote_path=remote_path)
-        os.remove(path=file_path)
+        for remote_path in sftp.transfered_remote:
+            sftp.remove_remote_item(remote_path=remote_path, recursive=True)
 
 
     def test_transfer_files(self):
@@ -69,33 +58,30 @@ class TestSFTP(unittest.TestCase):
 
         # setup
         # local_path = '/c/Users/mkn/Documents/mkndaq/staging/fidas'
-        local_path = 'tests/data/test'
-        # local_path = str()
-        remote_path = sftp.remote_path.as_posix()
-        # remote_path = str()
+        local_path = Path('tests/data/test')
 
         # test
-        sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=False)
+        sftp.transfer_files(local_path=local_path, remove_on_success=False)
+
+        self.assertTrue(len(sftp.transfered_remote) > 0)
 
         # clean up
-        # [TODO] remove files from remote path
-        self.assertTrue(len(sftp.transfered) > 0)
-        # self.assertTrue(sftp.remote_item_exists(remote_path=remote_path))
-        # sftp.remove_remote_item(remote_path=remote_path)
-        # os.remove(path=local_path)
-# -*- coding: utf-8 -*-
+        for remote_path in sftp.transfered_remote:
+            sftp.remove_remote_item(remote_path=remote_path, recursive=True)
+
 
     def test_transfer_ne300_files(self):
-        sftp = SFTPClient(config=config)
+        sftp = SFTPClient(config=config, name="ne300")
 
         # setup
-        local_path = 'tests/data/ne300/'
-        remote_path = f"{sftp.remote_path}/ne300"
+        local_path = Path('tests/data/ne300/')
+        # remote_path = PurePosixPath(sftp.remote_path)
 
         # test
-        sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=False)
+        # sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=False)
+        sftp.transfer_files(local_path=local_path, remove_on_success=False)
 
-        self.assertTrue(len(sftp.transfered) > 0)
+        self.assertTrue(len(sftp.transfered_remote)==9)
 
 if __name__ == '__main__':
     unittest.main()
