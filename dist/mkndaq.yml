@@ -237,3 +237,4 @@ fidas:
 
 test:
     remote_path: test
+    staging_path: test

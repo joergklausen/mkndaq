@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import unittest
 
 # import paramiko
@@ -22,7 +23,7 @@ class TestSFTP(unittest.TestCase):
 
         # setup
         file_path = 'test/hello_world.txt'
-        remote_path = os.path.join(sftp.remote_path, os.path.dirname(file_path))
+        remote_path = Path(sftp.remote_path) / Path(file_path).parent
 
         # test
         sftp.setup_remote_path(remote_path)
@@ -49,12 +50,12 @@ class TestSFTP(unittest.TestCase):
             fh.close()
 
         remotepath = sftp.remote_path
-        remote_path = os.path.join(remotepath, os.path.basename(file_path))
+        remote_path = Path(os.path.join(remotepath, os.path.basename(file_path)))
         if sftp.remote_item_exists(remote_path=remote_path):
             sftp.remove_remote_item(remote_path=remote_path)
 
         # test
-        attr = sftp.put_file(local_path=file_path, remote_path=remotepath)
+        attr = sftp.put_file(local_path=file_path, remote_path=Path(remotepath))
 
         self.assertEqual(sftp.remote_item_exists(remote_path=remote_path), True)
 
@@ -70,7 +71,7 @@ class TestSFTP(unittest.TestCase):
         # local_path = '/c/Users/mkn/Documents/mkndaq/staging/fidas'
         local_path = 'tests/data/test'
         # local_path = str()
-        remote_path = os.path.join(sftp.remote_path, sftp.name)
+        remote_path = sftp.remote_path.as_posix()
         # remote_path = str()
 
         # test
@@ -94,7 +95,7 @@ class TestSFTP(unittest.TestCase):
         # test
         sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=False)
 
-        self.assertTrue(len(sftp.transferred) > 0)
+        self.assertTrue(len(sftp.transfered) > 0)
 
 if __name__ == '__main__':
     unittest.main()
