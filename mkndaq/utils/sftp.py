@@ -43,6 +43,9 @@ class SFTPClient:
         :param name: name of instrument to use. Used to expand the name of the local and remote folders
         """
         try:
+            self.name = name
+
+
             # configure logging
             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
@@ -264,7 +267,7 @@ class SFTPClient:
             remote_path (str | PurePosixPath): Remote directory or full remote path.
 
         Returns:
-            paramiko.SFTPAttributes | None: Attributes of the transferred file if successful.
+            paramiko.SFTPAttributes | None: Attributes of the transfered file if successful.
         """
         try:
             local_file = Path(local_path).resolve()
@@ -376,7 +379,7 @@ class SFTPClient:
         remove_on_success: bool = True,
         local_path: Optional[str] = None,
         remote_path: Optional[str] = None,
-    ) -> Union[int, None]:
+    ) -> None:
         """
         Transfer all files from local_path and its subfolders to remote_path.
 
@@ -387,7 +390,7 @@ class SFTPClient:
                                     The last element must be a directory.
         """
         try:
-            self.transferred = []
+            self.transfered = []
 
             local_base = Path(local_path or self.local_path).resolve()
             remote_base = PurePosixPath(remote_path or self.remote_path)
@@ -419,8 +422,8 @@ class SFTPClient:
                                     remotepath=str(remote_file),
                                     confirm=True
                                 )
-                                self.logger.debug(f"Transferred {local_file} -> {remote_file}")
-                                self.transferred.append(str(local_file))
+                                self.logger.debug(f"transfered {local_file} -> {remote_file}")
+                                self.transfered.append(str(local_file))
 
                                 if remove_on_success:
                                     local_size = local_file.stat().st_size
@@ -434,7 +437,7 @@ class SFTPClient:
                                         )
                             except Exception as file_err:
                                 self.logger.error(f"Failed to transfer {local_file} -> {remote_file}: {file_err}")
-            return len(self.transferred)
+            return
 
         except Exception as err:
             self.logger.error(f"transfer_files failed: {err}")

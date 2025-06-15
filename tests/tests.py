@@ -37,7 +37,7 @@ class TestSFTP(unittest.TestCase):
         Put a single file from the local file system to the root location of the remote sftp server.
         If the remote destination is a subfolder, this will probably fail.
         """
-        sftp = SFTPClient(config=config)
+        sftp = SFTPClient(config=config, name='test')
 
         # setup
         file_path = 'tests/data/hello_world.txt'
@@ -70,16 +70,19 @@ class TestSFTP(unittest.TestCase):
         # local_path = '/c/Users/mkn/Documents/mkndaq/staging/fidas'
         local_path = 'tests/data/test'
         # local_path = str()
-        remote_path = sftp.remote_path
+        remote_path = os.path.join(sftp.remote_path, sftp.name)
         # remote_path = str()
 
         # test
         sftp.transfer_files(local_path=local_path, remote_path=remote_path, remove_on_success=False)
 
         # clean up
-        # for file in os.listdir(local_path):
-        #     sftp.remove_remote_item(os.path.join(remote_path, file))
+        # [TODO] remove files from remote path
+        self.assertTrue(len(sftp.transfered) > 0)
+        # self.assertTrue(sftp.remote_item_exists(remote_path=remote_path))
         # sftp.remove_remote_item(remote_path=remote_path)
+        # os.remove(path=local_path)
+# -*- coding: utf-8 -*-
 
     def test_transfer_ne300_files(self):
         sftp = SFTPClient(config=config)
