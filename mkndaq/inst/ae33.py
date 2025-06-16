@@ -11,6 +11,8 @@ import socket
 import time
 import zipfile
 from datetime import datetime
+from pathlib import Path, PurePosixPath
+from typing import Optional
 
 import colorama
 import schedule
@@ -67,7 +69,7 @@ import schedule
 # - ID_com1; ID_com2; ID_com3; The Fields_i: ID_com_i are the identifiers indicating which
 # auxiliary device is connected to which serial port (necessary because of the different data
 # structure). This is a 3 byte field: thus,
-# 0 2 0 21.1 
+# 0 2 0 21.1
 # means that the “Comet temperature probe” (instrument code 2) is connected to COM2 and
 # nothing is connected to COM1 and COM3. The temperature is 21.1 C.
 class AE33:
@@ -108,7 +110,7 @@ class AE33:
             self._tables = ('Data', 'Log')
 
             # configure logging
-            _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
+            _logger = str(config['logging']['file']).split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
             self.logger.info(f"[{self.name}] Initializing {self.type} (S/N: {self.serial_number})")
 
@@ -127,26 +129,26 @@ class AE33:
             self.reporting_interval = config[name]['reporting_interval']
 
             # configure saving, staging and archiving
-            root = os.path.expanduser(config['root'])
-            self.data_path = os.path.join(root, config['data'], config[name]['data_path'], 'data')
-            os.makedirs(self.data_path, exist_ok=True)
-            self.log_path = os.path.join(root, config['data'], config[name]['data_path'], 'logs')
-            os.makedirs(self.log_path, exist_ok=True)
-            self.staging_path_data = os.path.join(root, config['staging'], config[name]['staging_path'], 'data')
-            os.makedirs(self.staging_path_data, exist_ok=True)
-            self.staging_path_logs = os.path.join(root, config['staging'], config[name]['staging_path'], 'logs')
-            os.makedirs(self.staging_path_logs, exist_ok=True)
+            root = Path(config['root']).expanduser()
+            self.data_path = root / config['data'] / config[name]['data_path'] / 'data'
+            self.data_path.mkdir(parents=True, exist_ok=True)
+            self.log_path = root / config['data'] / config[name]['data_path'] / 'logs'
+            self.log_path.mkdir(parents=True, exist_ok=True)
+            self.staging_path_data = root / config['staging'] / config[name]['staging_path'] / 'data'
+            self.staging_path_data.mkdir(parents=True, exist_ok=True)
+            self.staging_path_logs = root / config['staging'] / config[name]['staging_path'] / 'logs'
+            self.staging_path_logs.mkdir(parents=True, exist_ok=True)
             self.zip = config[name]['staging_zip']
 
             # configure remote transfer
-            self.remote_path_data = os.path.join(config[name]['remote_path'], 'data')
-            self.remote_path_logs = os.path.join(config[name]['remote_path'], 'logs')
+            self.remote_path_data = PurePosixPath(config[name]['remote_path']) / 'data'
+            self.remote_path_logs = PurePosixPath(config[name]['remote_path']) / 'logs'
 
             # initialize data, logs response
             self._data = str()
             self._data_begin_read_id = int()
             self._data_file_to_stage = str()
-            
+
             self._log = str()
             self._log_begin_read_id = int()
             self._log_file_to_stage = str()
@@ -169,17 +171,13 @@ class AE33:
             # configure saving and staging schedules
             if self.reporting_interval==10:
                 self._file_timestamp_format = '%Y%m%d%H%M'
-                # minutes = [f"{self.reporting_interval*n:02}" for n in range(6) if self.reporting_interval*n < 6]
-                # minutes = (0, 10, 20, 30, 40, 50)
                 for minute in range(6):
                     schedule.every().hour.at(f"{minute}0:01").do(self._save_and_stage_data)
             elif self.reporting_interval==60:
                 self._file_timestamp_format = '%Y%m%d%H'
-                # schedule.every().hour.at('00:01').do(self._save_and_stage_data)
                 schedule.every().hour.at('00:01').do(self._save_and_stage_data)
             elif self.reporting_interval==1440:
                 self._file_timestamp_format = '%Y%m%d'
-                # schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
                 schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
 
         except Exception as err:
@@ -217,10 +215,7 @@ class AE33:
             # decode response, tidy
             rcvd = rcvd.decode()
             if tidy:
-                # rcvd = rcvd.replace("\n", "").replace("\r", "").replace("AE33>", "")
-                rcvd = rcvd.replace("AE33>", "")
-                rcvd = rcvd.replace("\r\n", "\n")
-                rcvd = rcvd.replace("\n\n", "\n")
+                rcvd = rcvd.replace("AE33>", "").replace("\r\n", "\n").replace("\n\n", "\n")
             return rcvd
 
         except Exception as err:
@@ -228,43 +223,88 @@ class AE33:
             return str()
 
 
-    def _fetch_from_table(self, name: str, rows=None, first=None, last=None) -> str:
+    # def _fetch_from_table(self, name: str, rows=None, first=None, last=None) -> str:
+    #     try:
+    #         if name is None:
+    #             raise("Table 'name' must be provided.")
+    #         if first is None:
+    #             if last is None:
+    #                 if rows is None:
+    #                     # fetch all data from table
+    #                     cmd = f"FETCH {name} 1"
+    #                 else:
+    #                     # fetch number of rows from end of table
+    #                     maxid = int(self._tcpip_comm(cmd=f"MAXID {name}", tidy=True))
+    #                     cmd=f"FETCH {name} {maxid-rows}"
+    #             elif rows is None:
+    #                 raise ValueError("Number of 'rows' to read must be provided together with 'last'.")
+    #             else:
+    #                 # fetch number of rows up until last
+    #                 cmd = f"FETCH {name} {last-rows} {last}"
+    #         elif last is None:
+    #             if rows is None:
+    #                 # fetch all data starting at first
+    #                 cmd = f"FETCH {name} {first}"
+    #             else:
+    #                 # fetch number of rows starting at first
+    #                 cmd = f"FETCH {name} {first} {first+rows}"
+    #         else:
+    #             if rows is None:
+    #                 cmd = f"FETCH {name} {first} {last}"
+    #             else:
+    #                 raise ValueError("Ambiguous request, cannot use all of 'first', 'last' and 'rows' at once.")
+
+    #         resp = self._tcpip_comm(cmd=cmd, tidy=False)
+
+    #         return resp
+    #     except Exception as err:
+    #         self.logger.error(err)
+    #         return str()
+    def _fetch_from_table(self,
+                          name: str, rows: Optional[int] = None,
+                          first: Optional[int] = None,
+                          last: Optional[int] = None
+                          ) -> str:
         try:
-            if name is None:
-                raise("Table 'name' must be provided.")
+            if not name:
+                raise ValueError("Table 'name' must be provided.")
+
+            cmd = ""
             if first is None:
                 if last is None:
                     if rows is None:
-                        # fetch all data from table
+                        # fetch all data from the table
                         cmd = f"FETCH {name} 1"
                     else:
-                        # fetch number of rows from end of table
+                        # fetch a number of rows from the end of the table
                         maxid = int(self._tcpip_comm(cmd=f"MAXID {name}", tidy=True))
-                        cmd=f"FETCH {name} {maxid-rows}"
+                        cmd = f"FETCH {name} {maxid - rows}"
                 elif rows is None:
                     raise ValueError("Number of 'rows' to read must be provided together with 'last'.")
                 else:
-                    # fetch number of rows up until last
-                    cmd = f"FETCH {name} {last-rows} {last}"
+                    # fetch rows up until 'last'
+                    cmd = f"FETCH {name} {last - rows} {last}"
             elif last is None:
                 if rows is None:
-                    # fetch all data starting at first
+                    # fetch all data starting at 'first'
                     cmd = f"FETCH {name} {first}"
                 else:
-                    # fetch number of rows starting at first
-                    cmd = f"FETCH {name} {first} {first+rows}"
+                    # fetch a number of rows starting at 'first'
+                    cmd = f"FETCH {name} {first} {first + rows}"
             else:
                 if rows is None:
                     cmd = f"FETCH {name} {first} {last}"
                 else:
-                    raise ValueError("Ambiguous request, cannot use all of 'first', 'last' and 'rows' at once.")
+                    raise ValueError("Ambiguous request: cannot use 'first', 'last', and 'rows' all at once.")
 
+            # Send command and get response
             resp = self._tcpip_comm(cmd=cmd, tidy=False)
 
             return resp
+
         except Exception as err:
-            self.logger.error(err)
-            return str()
+            self.logger.error(f"Error fetching from table {name}: {err}")
+            return ""
 
 
     def set_datetime(self) -> None:
@@ -351,7 +391,7 @@ class AE33:
                     elif table=='Log':
                         self._log += records
                     else:
-                        raise ValueError(f"[{self.name}] '{table}' not implemented")                    
+                        raise ValueError(f"[{self.name}] '{table}' not implemented")
                     self.logger.debug(f"[{self.name}] {records[:60]}[...]")
 
                     begin_read_id += chunk_size + 1
@@ -398,11 +438,11 @@ class AE33:
 
             if content:
                 # create appropriate file name and write mode
-                file = os.path.join(path, yyyy, mm, dd, f"{self.name}-{timestamp}.{ext}")
-                os.makedirs(os.path.dirname(file), exist_ok=True)
-                
+                file = path / yyyy / mm / dd / f"{self.name}-{timestamp}.{ext}"
+                Path(file).mkdir(parents=True, exist_ok=True)
+
                 # configure file mode, open file and write to it
-                if os.path.exists(file):
+                if file.exists():
                     mode = 'a'
                     header = str()
                 else:
@@ -449,11 +489,11 @@ class AE33:
 
             if file:
                 if self.zip:
-                    file_staged = os.path.join(path, os.path.basename(file).replace(ext, 'zip'))
+                    file_staged = path / (Path(file).name).replace(ext, 'zip')
                     with zipfile.ZipFile(file_staged, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                        zf.write(file, os.path.basename(file))
+                        zf.write(file, Path(file).name)
                 else:
-                    file_staged = os.path.join(path, os.path.basename(file))
+                    file_staged = path / Path(file).name
                     shutil.copy(src=file, dst=file_staged)
                 self.logger.info(f"[{self.name}] file staged: {file_staged}")
 
@@ -471,7 +511,7 @@ class AE33:
     def _save_and_stage_data(self):
         try:
             self.logger.debug(f"[{self.name}] _save_and_stage_data")
-        
+
             self._save_data('Data')
             self._stage_file('Data')
             self._save_data('Log')
