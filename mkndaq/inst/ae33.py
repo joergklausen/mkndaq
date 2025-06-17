@@ -439,7 +439,7 @@ class AE33:
             if content:
                 # create appropriate file name and write mode
                 file = path / yyyy / mm / dd / f"{self.name}-{timestamp}.{ext}"
-                Path(file).mkdir(parents=True, exist_ok=True)
+                Path(file).parent.mkdir(parents=True, exist_ok=True)
 
                 # configure file mode, open file and write to it
                 if file.exists():
