@@ -11,7 +11,7 @@ if __name__ == "__main__":
     # collect and parse CLI arguments
     parser = argparse.ArgumentParser(
         description='Fetch data records from instrument internal data logger.',
-        usage='python3 ae33_download_from_logger.py -c')
+        usage='python3 ae33_fetch_records.py -c')
     parser.add_argument('-c', '--configuration', type=str,
                         help='full path to configuration file',
                         default='dist/mkndaq.yml', required=False)
