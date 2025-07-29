@@ -1,9 +1,8 @@
 # %%
 import os
 import argparse
-from mkndaq.inst.tei49c import TEI49C
-from mkndaq.inst.tei49i import TEI49I
-
+import serial
+from mkndaq.inst.thermo import Thermo49C, Thermo49i
 
 def main():
     try:
@@ -29,6 +28,7 @@ def main():
         # convert to cfg
         cfg = { 'data': '~/data',
                 'logs': '~/logs',
+                'logging': {'file': 'tei49x.log'},
                 'staging': {'path': '~', 'zip': True},
                 'reporting_interval': 1,
                 'COM1': {'protocol': 'RS232', 'baudrate': 9600, 'bytesize': 8, 'stopbits': 1, 'parity': 'N', 'timeout': 0.1},
@@ -40,7 +40,7 @@ def main():
                 'COM7': {'protocol': 'RS232', 'baudrate': 9600, 'bytesize': 8, 'stopbits': 1, 'parity': 'N', 'timeout': 0.1},
                 'COM8': {'protocol': 'RS232', 'baudrate': 9600, 'bytesize': 8, 'stopbits': 1, 'parity': 'N', 'timeout': 0.1},
                 'COM9': {'protocol': 'RS232', 'baudrate': 9600, 'bytesize': 8, 'stopbits': 1, 'parity': 'N', 'timeout': 0.1},
-                'tei49c': { 'type': 'TEI49C', 
+                'tei49c': { 'type': 'Thermo49C', 
                             'id': int(f"{args.ID}"), 
                             'serial_number': 'unknown', 
                             'port': f"COM{args.COM}",
@@ -54,7 +54,7 @@ def main():
                             'sampling_interval': 1,
                             'staging_zip': True,
                             },
-                'tei49i': { 'type': 'TEI49I', 
+                'tei49i': { 'type': 'Thermo49I', 
                             'id': int(f"{args.ID}"), 
                             'serial_number': 'unknown', 
                             'socket': {'host': f"{args.host}", 'port': 9880, 'timeout': 5, 'sleep': 0.5},
@@ -71,10 +71,10 @@ def main():
                             }}
         # print(cfg)
         if args.type=='tei49i':
-            tei49i = TEI49I(name='tei49i', config=cfg, serial_com=serial_com)
+            tei49i = Thermo49i(name='tei49i', config=cfg)
             tei49i.get_all_lrec()
         elif args.type=='tei49c':
-            tei49c = TEI49C(name='tei49c', config=cfg)
+            tei49c = Thermo49C(name='tei49c', config=cfg)
             tei49c.get_all_rec()
         else:
             print("Argument '-t' must be one of tei49c|tei49i.")
