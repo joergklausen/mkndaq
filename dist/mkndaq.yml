@@ -25,9 +25,13 @@ sftp:
     proxy:
         socks5:             # proxy url (leave empty if no proxy is used)
         port: 1080
-# dxs:
-#     host: https://servicedevt.meteoswiss.ch/dxs/api/v1/fileupload
-#     key: ~/.ssh/dxs_key.txt
+
+s3:
+    endpoint_url: 'https://servicedevt.meteoswiss.ch/'
+    aws_s3_bucket_name: 'ch.meteoswiss.gawkenya'
+    aws_region: 'eu-central-1'
+    aws_access_key_id: 'gawkenya_native'
+    aws_secret_access_key: ~/.aws/minio-devt-secret-key
 
 # serial interface configuration
 COM1:

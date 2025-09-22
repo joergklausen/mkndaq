@@ -7,3 +7,4 @@ setuptools
 colorama
 future
 polars
+s3fs
