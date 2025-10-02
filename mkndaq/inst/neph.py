@@ -936,7 +936,7 @@ class NEPH:
         Returns:
             datetime.datetime: Date and time of instrument
         """
-        # response = datetime()
+        response = datetime(1,1,1)
         try:
             if self._protocol=="acoem":
                 msg = self._acoem_construct_message(4, 1)
@@ -1277,6 +1277,9 @@ class NEPH:
 
                     # reset self._data
                     self._data = str()
+
+                    # reset self._data_file 
+                    self.data_file = str()
             return
 
         except Exception as err:
