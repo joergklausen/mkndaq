@@ -32,6 +32,7 @@ s3:
     aws_region: 'eu-central-1'
     aws_access_key_id: 'gawkenya_native'
     aws_secret_access_key: ~/.aws/minio-devt-secret-key
+    prefix: mkn
 
 # serial interface configuration
 COM1:
