@@ -259,6 +259,26 @@ def main():
 
                 schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
 
+            if cfg.get('fidas', None):
+                from mkndaq.inst.fidas import FIDAS
+                fidas = FIDAS(config=cfg)
+                fidas.setup_schedules()
+
+                if s3fsc:
+                    s3fsc.setup_transfer_schedules(
+                        local_path=fidas.staging_path,
+                        key_prefix=fidas.remote_path,
+                        interval=fidas.reporting_interval,
+                        remove_on_success=False,
+                    )
+                if sftp:
+                    remote_path = (PurePosixPath(sftp.remote_path) / fidas.remote_path).as_posix()
+                    sftp.setup_transfer_schedules(local_path=fidas.staging_path,
+                                                  remote_path=remote_path,
+                                                  interval=fidas.reporting_interval)
+
+                schedule.every(fetch).seconds.do(run_threaded, fidas.print_parsed_record)
+
         except Exception as err:
             logger.error(err)
 

@@ -5,12 +5,17 @@ import time
 from pathlib import Path
 from typing import Any
 
+import colorama
 import polars as pl
 import schedule
+
 from mkndaq.utils.utils import setup_logging
+
 
 class FIDAS:
     def __init__(self, config: dict, name: str='fidas'):
+        colorama.init(autoreset=True)
+
         self.name = name
 
         # configure logging
@@ -23,11 +28,14 @@ class FIDAS:
         self.port = config[name]['socket']['port']
         self.buffer_size = config[name]['socket']['buffer_size']
 
-        self.data_dir = Path(config['root']).expanduser() / config['data'] / config[name]['data_path']
-        self.staging_dir = Path(config['root']).expanduser() / config['staging'] / config[name]['staging_path']
+        self.data_path = Path(config['root']).expanduser() / config['data'] / config[name]['data_path']
+        self.staging_path = Path(config['root']).expanduser() / config['staging'] / config[name]['staging_path']
+
+        self.remote_path = config[name]['remote_path']
 
         self.raw_record_interval = config[name]['raw_record_interval']
         self.aggregation_period = config[name]['aggregation_period']
+        self.reporting_interval = config[name]['reporting_interval']
 
         self.sock = None
         self.buffer = ""
@@ -68,7 +76,7 @@ class FIDAS:
         try:
             id_part, rest = record.split('<', 1)
             data_part, checksum = rest.split('>', 1)
-            parsed = {"id": int(id_part.strip()), "checksum": checksum.strip()}
+            self.parsed = {"id": int(id_part.strip()), "checksum": checksum.strip()}
 
             if data_part.startswith("sendVal"):
                 data_part = data_part[len("sendVal"):].strip()
@@ -82,19 +90,27 @@ class FIDAS:
                         val = float(v.strip())
                     except ValueError:
                         val = float('nan')
-                    parsed[key] = val
+                    self.parsed[key] = val
 
-            return parsed
+            return self.parsed
         except Exception as err:
             self.logger.error(f"Failed to parse record: {err}")
             return {}
 
+    def print_parsed_record(self, keys=['60', '61', '62', '63', '64']):
+        """Print latest parsed record"""
+        if self.parsed:
+            result = "; ".join(f"{k}: {int(self.parsed[k])}" for k in keys if k in self.parsed and self.parsed[k] is not None)
+            self.logger.debug(colorama.Fore.GREEN + f"[{self.name}] {result}")
+        else:
+            self.logger.warning(colorama.Fore.YELLOW + f"[{self.name}] no valid data retrieved." + colorama.Fore.GREEN)
+
     def collect_raw_record(self):
         self.logger.debug("[collect_raw_record] called")
-        record = self.receive_udp_record()
-        self.logger.debug(record[:90])
-        if record:
-            parsed = self.parse_record(record)
+        self.raw_record = self.receive_udp_record()
+        self.logger.debug(self.raw_record[:90])
+        if self.raw_record:
+            parsed = self.parse_record(self.raw_record)
             if parsed:
                 self.raw_records.append(parsed)
                 self.logger.debug("[collect_raw_record] raw_record appended")
@@ -153,16 +169,26 @@ class FIDAS:
             self.current_hour = now.replace(minute=0, second=0, microsecond=0)
 
     def ensure_data_path(self, dt: datetime.datetime) -> Path:
-        folder = self.data_dir / f"{dt.year:04d}" / f"{dt.month:02d}" / f"{dt.day:02d}"
+        folder = self.data_path / f"{dt.year:04d}" / f"{dt.month:02d}" / f"{dt.day:02d}"
         folder.mkdir(parents=True, exist_ok=True)
         filename = f"fidas-{dt.year:04d}{dt.month:02d}{dt.day:02d}{dt.hour:02d}.parquet"
         return folder / filename
 
     def ensure_staging_path(self, dt: datetime.datetime) -> Path:
-        folder = self.staging_dir
+        folder = self.staging_path
         folder.mkdir(parents=True, exist_ok=True)
         filename = f"fidas-{dt.year:04d}{dt.month:02d}{dt.day:02d}{dt.hour:02d}.parquet"
         return folder / filename
+
+    def setup_schedules(self):
+        try:
+            schedule.every(self.raw_record_interval).seconds.do(self.collect_raw_record)
+            schedule.every(self.aggregation_period).minutes.do(self.compute_raw_data_median)
+            schedule.every(1).hours.do(self.save_hourly, stage=True)
+            self.logger.info(schedule.get_jobs())
+        except Exception as err:
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
+
 
     def run(self):
         self.logger.info("=== Starting FIDAS DAQ =======")
