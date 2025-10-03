@@ -112,7 +112,7 @@ def main():
                         local_path=tei49c.staging_path,
                         key_prefix=tei49c.remote_path,
                         interval=tei49c.reporting_interval,
-                        remove_on_success=True,
+                        remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49c.remote_path).as_posix()
@@ -133,7 +133,7 @@ def main():
                         local_path=tei49i.staging_path,
                         key_prefix=tei49i.remote_path,
                         interval=tei49i.reporting_interval,
-                        remove_on_success=True,
+                        remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49i.remote_path).as_posix()
@@ -154,7 +154,7 @@ def main():
                         local_path=tei49i_2.staging_path,
                         key_prefix=tei49i_2.remote_path,
                         interval=tei49i_2.reporting_interval,
-                        remove_on_success=True,
+                        remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49i_2.remote_path).as_posix()
@@ -176,7 +176,7 @@ def main():
                         local_path=g2401.staging_path,
                         key_prefix=g2401.remote_path,
                         interval=g2401.reporting_interval,
-                        remove_on_success=True,
+                        remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / g2401.remote_path).as_posix()
@@ -196,7 +196,7 @@ def main():
                         local_path=meteo.staging_path,
                         key_prefix=meteo.remote_path,
                         interval=meteo.reporting_interval,
-                        remove_on_success=True,
+                        remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / meteo.remote_path).as_posix()
@@ -218,14 +218,14 @@ def main():
                         local_path=ae33.staging_path_data,
                         key_prefix=ae33.remote_path_data,
                         interval=ae33.reporting_interval,
-                        remove_on_success=True,
+                        remove_on_success=False,
                     )
                     # logs
                     s3fsc.setup_transfer_schedules(
                         local_path=ae33.staging_path_logs,
                         key_prefix=ae33.remote_path_logs,
                         interval=ae33.reporting_interval,
-                        remove_on_success=True,
+                        remove_on_success=False,
                     )
                 if sftp:
                     remote_path_data = (PurePosixPath(sftp.remote_path) / ae33.remote_path_data).as_posix()
@@ -249,7 +249,7 @@ def main():
                         local_path=ne300.staging_path,
                         key_prefix=ne300.remote_path,
                         interval=ne300.reporting_interval,
-                        remove_on_success=True,
+                        remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / ne300.remote_path).as_posix()
