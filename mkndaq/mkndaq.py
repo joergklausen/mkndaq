@@ -114,7 +114,7 @@ def main():
                         interval=tei49c.reporting_interval,
                         remove_on_success=True,
                     )
-                elif sftp:
+                if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49c.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
                                                   remote_path=remote_path,
@@ -135,7 +135,7 @@ def main():
                         interval=tei49i.reporting_interval,
                         remove_on_success=True,
                     )
-                elif sftp:
+                if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49i.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=tei49i.staging_path,
                                                   remote_path=remote_path,
@@ -156,7 +156,7 @@ def main():
                         interval=tei49i_2.reporting_interval,
                         remove_on_success=True,
                     )
-                elif sftp:
+                if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49i_2.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=tei49i_2.staging_path,
                                                   remote_path=remote_path,
@@ -178,7 +178,7 @@ def main():
                         interval=g2401.reporting_interval,
                         remove_on_success=True,
                     )
-                elif sftp:
+                if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / g2401.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=g2401.staging_path,
                                                   remote_path=remote_path,
@@ -198,7 +198,7 @@ def main():
                         interval=meteo.reporting_interval,
                         remove_on_success=True,
                     )
-                elif sftp:
+                if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / meteo.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=meteo.staging_path,
                                                   remote_path=remote_path,
@@ -227,7 +227,7 @@ def main():
                         interval=ae33.reporting_interval,
                         remove_on_success=True,
                     )
-                elif sftp:
+                if sftp:
                     remote_path_data = (PurePosixPath(sftp.remote_path) / ae33.remote_path_data).as_posix()
                     remote_path_logs = (PurePosixPath(sftp.remote_path) / ae33.remote_path_logs).as_posix()
                     sftp.setup_transfer_schedules(local_path=ae33.staging_path_data,
@@ -251,126 +251,13 @@ def main():
                         interval=ne300.reporting_interval,
                         remove_on_success=True,
                     )
-                elif sftp:
+                if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / ne300.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=ne300.staging_path,
                                                   remote_path=remote_path,
                                                   interval=ne300.reporting_interval)
 
                 schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
-
-
-
-        # # decide on file transfer mechanism
-        # s3fsc_cfg = cfg.get("s3fsc", {})
-        # s3fsc = None
-        # sftp = None
-        # if s3fsc_cfg:
-        #     s3fsc = S3FSC(**s3fsc_cfg)
-        # else:
-        #     sftp = SFTPClient(config=cfg)
-
-        # # setup staging
-        # staging = os.path.join(os.path.expanduser(cfg['root']), cfg['staging'])
-
-        # # stage most recent config file
-        # logger.info(f"Staging current config file {config_file}")
-        # copy_file(source=config_file, target=staging, logger=logger)
-
-        # # initialize instruments, get and set configurations and define schedules
-        # # NB: In case more instruments should be handled, the relevant calls need to be included here below.
-        # try:
-        #     if cfg.get('tei49c', None):
-        #         from mkndaq.inst.thermo import Thermo49C
-        #         tei49c = Thermo49C(name='tei49c', config=cfg)
-        #         tei49c.get_config()
-        #         tei49c.set_config()
-        #         tei49c.setup_schedules()
-        #         if sftp:
-        #             remote_path = (PurePosixPath(sftp.remote_path) / tei49c.remote_path).as_posix()
-        #             sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
-        #                                         remote_path=remote_path,
-        #                                         interval=tei49c.reporting_interval)
-        #         schedule.every(6).hours.at(':00').do(run_threaded, tei49c.set_datetime)
-        #         schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
-        #     if cfg.get('tei49i', None):
-        #         from mkndaq.inst.thermo import Thermo49i
-        #         tei49i = Thermo49i(name='tei49i', config=cfg)
-        #         tei49i.setup_schedules()
-        #         if sftp:
-        #             remote_path = (PurePosixPath(sftp.remote_path) / tei49i.remote_path).as_posix()
-        #             # sftp.transfer_files(local_path=tei49i.staging_path, remote_path=remote_path)
-        #             sftp.setup_transfer_schedules(local_path=tei49i.staging_path,
-        #                                         remote_path=remote_path,
-        #                                         interval=tei49i.reporting_interval)
-        #         schedule.every().day.at('00:00').do(run_threaded, tei49i.set_datetime)
-        #         schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
-        #     if cfg.get('tei49i_2', None):
-        #         from mkndaq.inst.thermo import Thermo49i
-        #         tei49i_2 = Thermo49i(name='tei49i_2', config=cfg)
-        #         tei49i_2.setup_schedules()
-        #         if sftp:
-        #             remote_path = os.path.join(sftp.remote_path, tei49i_2.remote_path)
-        #             # sftp.transfer_files(local_path=tei49i_2.staging_path, remote_path=remote_path)
-        #             sftp.setup_transfer_schedules(local_path=tei49i_2.staging_path,
-        #                                         remote_path=remote_path,
-        #                                         interval=tei49i_2.reporting_interval)
-        #         schedule.every().day.at('00:00').do(run_threaded, tei49i_2.set_datetime)
-        #         schedule.every(fetch+5).seconds.do(run_threaded, tei49i_2.print_o3)
-        #     if cfg.get('g2401', None):
-        #         from mkndaq.inst.g2401 import G2401
-        #         g2401 = G2401('g2401', config=cfg)
-        #         g2401.store_and_stage_files()
-        #         schedule.every(cfg['g2401']['reporting_interval']).minutes.do(run_threaded, g2401.store_and_stage_files)
-        #         if sftp:
-        #             remote_path = (PurePosixPath(sftp.remote_path) / g2401.remote_path).as_posix()
-        #             # sftp.transfer_files(local_path=g2401.staging_path, remote_path=remote_path)
-        #             sftp.setup_transfer_schedules(local_path=g2401.staging_path,
-        #                                         remote_path=remote_path,
-        #                                         interval=g2401.reporting_interval)
-        #         schedule.every(fetch).seconds.do(run_threaded, g2401.print_co2_ch4_co)
-        #     if cfg.get('meteo', None):
-        #         from mkndaq.inst.meteo import METEO
-        #         meteo = METEO('meteo', config=cfg)
-        #         meteo.store_and_stage_files()
-        #         if sftp:
-        #             remote_path = (PurePosixPath(sftp.remote_path) / meteo.remote_path).as_posix()
-        #             # sftp.transfer_files(local_path=meteo.staging_path, remote_path=remote_path)
-        #             sftp.setup_transfer_schedules(local_path=meteo.staging_path,
-        #                                         remote_path=remote_path,
-        #                                         interval=meteo.reporting_interval)
-        #         schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
-        #         schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.print_meteo)
-        #     if cfg.get('ae33', None):
-        #         from mkndaq.inst.ae33 import AE33
-        #         ae33 = AE33(name='ae33', config=cfg)
-        #         ae33.setup_schedules()
-        #         if sftp:
-        #             remote_path_data = (PurePosixPath(sftp.remote_path) / ae33.remote_path_data).as_posix()
-        #             remote_path_logs = (PurePosixPath(sftp.remote_path) / ae33.remote_path_logs).as_posix()
-        #             # sftp.transfer_files(local_path=ae33.staging_path_data, remote_path=remote_path_data)
-        #             # sftp.transfer_files(local_path=ae33.staging_path_logs, remote_path=remote_path_logs)
-        #             sftp.setup_transfer_schedules(local_path=ae33.staging_path_data,
-        #                                         remote_path=remote_path_data,
-        #                                         interval=ae33.reporting_interval)
-        #             sftp.setup_transfer_schedules(local_path=ae33.staging_path_logs,
-        #                                         remote_path=remote_path_logs,
-        #                                         interval=ae33.reporting_interval)
-        #         # schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_data)
-        #         # schedule.every(cfg['ae33']['sampling_interval']).minutes.at(':00').do(ae33.get_new_log_entries)
-        #         schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
-        #     if cfg.get('ne300', None):
-        #         from mkndaq.inst.neph import NEPH
-
-        #         # ne300 = NEPH(name='ne300', config=cfg)
-        #         ne300 = NEPH('ne300', cfg, verbosity=0)
-        #         ne300.setup_schedules()
-        #         if sftp:
-        #             remote_path = (PurePosixPath(sftp.remote_path) / ne300.remote_path).as_posix()
-        #             sftp.setup_transfer_schedules(local_path=ne300.staging_path,
-        #                                         remote_path=remote_path,
-        #                                         interval=ne300.reporting_interval)
-        #             schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
 
         except Exception as err:
             logger.error(err)
@@ -390,8 +277,8 @@ def main():
         # align start with a multiple-of-minute timestamp
         seconds_left = seconds_to_next_n_minutes(1)
         while seconds_left > 0:
-            print(f"Time remaining: {seconds_left:0.0f} s", end="\r")
-            dt = 0.2
+            print(f"Time remaining (s): {seconds_left:0.0f}", end="\r")
+            dt = 0.1
             time.sleep(dt)
             seconds_left -= dt
         logger.info("Beginning data acquisition and file transfer ...")
