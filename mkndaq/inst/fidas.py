@@ -39,6 +39,7 @@ class FIDAS:
 
         self.sock = None
         self.buffer = ""
+        self.parsed: dict[str, Any] = {}
         self.raw_records: list[dict[str, Any]] = []
         self.df_raw_data_median = pl.DataFrame()
         self.current_hour = datetime.datetime.now(datetime.timezone.utc).replace(minute=0, second=0, microsecond=0)
@@ -84,7 +85,6 @@ class FIDAS:
             for pair in data_part.split(';'):
                 if '=' in pair:
                     k, v = pair.split('=', 1)
-#                    key = f"val_{int(k.strip())}"
                     key = f"{int(k.strip())}"
                     try:
                         val = float(v.strip())
@@ -106,14 +106,14 @@ class FIDAS:
             self.logger.warning(colorama.Fore.YELLOW + f"[{self.name}] no valid data retrieved." + colorama.Fore.GREEN)
 
     def collect_raw_record(self):
-        self.logger.debug("[collect_raw_record] called")
+        # self.logger.debug("[collect_raw_record] called")
         self.raw_record = self.receive_udp_record()
         self.logger.debug(self.raw_record[:90])
         if self.raw_record:
             parsed = self.parse_record(self.raw_record)
             if parsed:
                 self.raw_records.append(parsed)
-                self.logger.debug("[collect_raw_record] raw_record appended")
+                # self.logger.debug("[collect_raw_record] raw_record appended")
         else:
             self.logger.warning("[collect_raw_record] raw_record is empty")
 
