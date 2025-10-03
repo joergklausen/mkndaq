@@ -4,7 +4,6 @@ Define a class NE300 facilitating communication with a Acoem NE-300 nephelometer
 @author: joerg.klausen@meteoswiss.ch
 """
 
-import datetime as dt
 import logging
 import os
 import socket
@@ -16,8 +15,6 @@ from datetime import datetime, timedelta, timezone
 
 import colorama
 import schedule
-
-# from mkndaq.utils import datetimebin
 
 class NEPH:
     """
@@ -393,8 +390,8 @@ class NEPH:
                     data = dict(zip(keys, values))
                     for k, v in data.items():
                         data[k] = round(struct.unpack('>f', v)[0], digits) if (k>1000 and len(v)>0) else v
-                    data['logging_interval'] = int.from_bytes(records[i][8:12], byteorder='big')
-                    data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8], byteorder='big')).strftime('%Y-%m-%d %H:%M:%S')
+                    data['logging_interval'] = int.from_bytes(records[i][8:12], byteorder='big') # type: ignore
+                    data['dtm'] = self._acoem_timestamp_to_datetime(int.from_bytes(records[i][4:8], byteorder='big')).strftime('%Y-%m-%d %H:%M:%S') # type: ignore
                     if verbosity==1:
                         self.logger.debug(data)
                     if verbosity>1:
@@ -1344,7 +1341,7 @@ class NEPH:
             self.logger.debug(colorama.Fore.GREEN + f"[{self.name}] {data}")
 
         except Exception as err:
-            self.logger.error(colorama.Fore.RED + f"[{self.name}] print_ssp_bssp: {err}")
+            self.logger.error(colorama.Fore.RED + f"[{self.name}] print_ssp_bssp: {err}" + colorama.Fore.GREEN)
     
 
     # def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
