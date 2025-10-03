@@ -21,6 +21,8 @@ def main():
             verify=config["s3"].get("verify", True),
             default_prefix=config["s3"].get("default_prefix", ""),
         )
+        print("[s3fsc] client configured")
+
     if SFTPClient and config.get("sftp"):
         # Optional fallback if S3 is not configured
         sftp = SFTPClient(config=config, name=name)
@@ -36,6 +38,7 @@ def main():
                 interval=fidas.reporting_interval,
                 remove_on_success=False,
             )
+            print("[s3fsc] schedules defined")
 
         if sftp:
             sftp.setup_transfer_schedules(interval=config[name]['reporting_interval'])
