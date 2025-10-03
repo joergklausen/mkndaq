@@ -104,7 +104,7 @@ class NEPH:
             # retrieve instrument id and other instrument info
             id = self.get_id(verbosity=verbosity)
             if id=={}:
-                self.logger.error(f"[{self.name}] Could not communicate with instrument. Protocol set to '{self._protocol}'. Please verify instrument settings.")
+                self.logger.error(colorama.Fore.RED + f"[{self.name}] Could not communicate with instrument. Protocol set to '{self._protocol}'. Please verify instrument settings." + colorama.Fore.GREEN)
             else:
                 self.logger.info(f"[{self.name}] Instrument identified itself as '{id}'.")
 
@@ -113,7 +113,7 @@ class NEPH:
                 if state==0:
                     self.logger.info(f"[{self.name}] Instrument current operation is 'ambient'.")
                 else:
-                    self.logger.warning(f"[{self.name}] Could not verify measurement mode as 'ambient'.")
+                    self.logger.warning(colorama.Fore.YELLOW + f"[{self.name}] Could not verify measurement mode as 'ambient'." + colorama.Fore.GREEN)
 
                 # get dtm from instrument, then set date and time
                 dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
@@ -138,7 +138,7 @@ class NEPH:
             self.data_file = str()
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
 
     def setup_schedules(self):
@@ -163,7 +163,7 @@ class NEPH:
                 raise ValueError(f"A reporting interval of {self.reporting_interval} is not supported.")
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
 
     def _acoem_checksum(self, x: bytes) -> bytes:
@@ -184,7 +184,7 @@ class NEPH:
             return cs
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
             return b''
 
 
@@ -205,7 +205,7 @@ class NEPH:
             return datetime(yyyy, mm, dd, HH, MM, SS)
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
             return datetime(1111, 1, 1)
 
 
@@ -221,7 +221,7 @@ class NEPH:
             return (int(yyyy + mm + dd + HH + MM + SS, base=2)).to_bytes(4, byteorder='big')
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
             return b''
 
 
@@ -313,7 +313,7 @@ class NEPH:
         data = dict()
         response_length = int(int.from_bytes(response[4:6], byteorder='big') / 4)
         if verbosity>1:
-            self.logger.debug(f"response length : {response_length}")
+            self.logger.debug(colorama.Fore.WHITE + f"response length : {response_length}" + colorama.Fore.GREEN)
 
         items_bytes = [response[i:(i+4)] for i in range(6, (response_length + 1) * 4 + 2, 4)]
         if verbosity>1:
@@ -486,7 +486,7 @@ class NEPH:
         while self._tcpip_line_is_busy:
             time.sleep(0.1)
             if time.perf_counter() > (t0 + 3 * self.socktout):
-                self.logger.warning("'_tcpip_comm_wait_for_line' timed out!")
+                self.logger.warning(colorama.Fore.YELLOW + "'_tcpip_comm_wait_for_line' timed out!" + colorama.Fore.GREEN)
                 break
         return
 
@@ -576,7 +576,7 @@ class NEPH:
                 response = self._tcpip_comm(message, verbosity=verbosity)
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
-                self.logger.warning("Not implemented.")
+                self.logger.warning(colorama.Fore.YELLOW + "Not implemented." + colorama.Fore.GREEN)
                 return []
         except Exception as err:
             self.logger.error(err)
@@ -666,7 +666,7 @@ class NEPH:
                 data = dict(zip(parameters, items))
                 return data
             else:
-                self.logger.warning("Not implemented.")
+                self.logger.warning(colorama.Fore.YELLOW + "Not implemented." + colorama.Fore.GREEN)
                 return dict()
         except Exception as err:
             self.logger.error(err)
@@ -730,7 +730,7 @@ class NEPH:
                 response = self._tcpip_comm(message, verbosity=verbosity)
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
             else:
-                self.logger.warning("Not implemented.")
+                self.logger.warning(colorama.Fore.YELLOW + "Not implemented." + colorama.Fore.GREEN)
                 return list()
         except Exception as err:
             self.logger.error(err)
@@ -812,7 +812,7 @@ class NEPH:
                 # while response:=self._tcpip_comm(message, verbosity=verbosity):
                 #     data.append(self._acoem_decode_logged_data(response=response, verbosity=verbosity))
             else:
-                self.logger.warning("Not implemented. For the aurora protocol, try 'get_all_data' or 'accumulate_new_data'.")
+                self.logger.warning(colorama.Fore.YELLOW + "Not implemented. For the aurora protocol, try 'get_all_data' or 'accumulate_new_data'." + colorama.Fore.GREEN)
                 return list(dict())
         except Exception as err:
             self.logger.error(err)
@@ -1009,7 +1009,7 @@ class NEPH:
         if resp==1:
             self.logger.info(f"Instrument switched to ZERO CHECK")
         else:
-            self.logger.warning(f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'.")
+            self.logger.warning(colorama.Fore.YELLOW + f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'." + colorama.Fore.GREEN)
         while now < dtm + timedelta(minutes=self.zero_check_duration):
             now = datetime.now(timezone.utc)
             time.sleep(1)
@@ -1026,7 +1026,7 @@ class NEPH:
         if resp==2:
             self.logger.info(f"Instrument switched to SPAN CHECK")
         else:
-            self.logger.warning(f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'.")
+            self.logger.warning(colorama.Fore.YELLOW + f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'." + colorama.Fore.GREEN)
         while now < dtm + timedelta(minutes=self.span_check_duration):
             now = datetime.now(timezone.utc)
             time.sleep(1)
@@ -1168,7 +1168,7 @@ class NEPH:
                 raise ValueError("Protocol not recognized.")
             return data
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
             return dict()
 
 
@@ -1241,12 +1241,17 @@ class NEPH:
             return 
         
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
 
-    def _save_data(self) -> None:
+    def _save_data(self) -> str | None:
         try:
             self.logger.debug(f"[{self.name}] _save_data")
+
+            if not self._data or not self._data.strip():
+                self.logger.info(f"[{self.name}] no data to save (skipping file creation).")
+                self.data_file = str()
+                return None
 
             now = datetime.now()
             timestamp = now.strftime(self._file_timestamp_format)
@@ -1254,33 +1259,26 @@ class NEPH:
             mm = now.strftime('%m')
             dd = now.strftime('%d')
           
-            if self._data:
-                # create appropriate file name and write mode
-                self.data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
-                os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
-                # configure file mode, open file and write to it
-                if os.path.exists(self.data_file):
-                    mode = 'a'
-                    header = str()
-                else:
-                    mode = 'w'
-                    header = f"{','.join(str(n) for n in self.get_data_log_config())}\n"
+            # create appropriate file name and write mode
+            self.data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
+            os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
+            if os.path.exists(self.data_file):
+                header = str()
+            else:
+                header = f"{','.join(str(n) for n in self.get_data_log_config())}\n"
 
-                with open(file=self.data_file, mode=mode) as fh:
+            with open(file=self.data_file, mode='a') as fh:
+                if header:
                     fh.write(header)
-                    fh.write(self._data)
-                    # self.logger.debug(f"[{self.name}] {self._data}")
-                    self.logger.info(f"[{self.name}] file saved: {self.data_file}")
+                fh.write(self._data)
+                self.logger.info(f"[{self.name}] file saved: {self.data_file}")
 
-                    # reset self._data
-                    self._data = str()
-
-                    # reset self._data_file 
-                    self.data_file = str()
+                # reset self._data
+                self._data = str()
             return
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
 
     def _stage_file(self):
@@ -1289,36 +1287,19 @@ class NEPH:
         try:
             self.logger.debug(f"[{self.name}]: ._stage_file")
 
-            # if table=='Data':
-            #     file = self.data_file
-            #     ext = '.dat'
-            #     path = self.staging_path
-            # elif table=='Log':
-            #     file = self.log_file
-            #     ext = '.log'
-            #     path = self._log_staging_path
-            # else:
-            #     raise ValueError(f"not implemented")
+            if not self.data_file or not os.path.isfile(self.data_file):
+                self.logger.info(f"[{self.name}] no source file to stage (skipping).")
+                return
 
-            # if file:
-            #     if self.staging_zip:
-            #         file_staged = os.path.join(path, os.path.basename(file).replace(ext, '.zip'))
-            #         with zipfile.ZipFile(file_staged, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            #             zf.write(file, os.path.basename(file))
-            #     else:
-            #         file_staged = os.path.join(path, os.path.basename(file))
-            #         shutil.copy(src=file, dst=file_staged)
-            #     self.logger.info(f"[{self.name}] file staged: {file_staged}")
-            if self.data_file:
-                archive = os.path.join(self.staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
-                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                    zf.write(self.data_file, os.path.basename(self.data_file))
-                    self.logger.info(f"file staged: {archive}")            
-                    # reset
-                    self.data_file = str()
+            archive = os.path.join(self.staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
+            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.write(self.data_file, os.path.basename(self.data_file))
+                self.logger.info(f"file staged: {archive}")            
+                # reset
+                self.data_file = str()
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
 
     def _save_and_stage_data(self):
@@ -1326,11 +1307,11 @@ class NEPH:
             self.logger.debug(f"[{self.name}] ._save_and_stage_data")
         
             self._save_data()
-            self._stage_file()
-            return
+            if self.data_file:
+                self._stage_file()
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
 
     def print_ssp_bssp(self) -> None:
@@ -1342,83 +1323,6 @@ class NEPH:
 
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_ssp_bssp: {err}" + colorama.Fore.GREEN)
-    
-
-    # def get_new_data(self, sep: str=",", save: bool=True, verbosity: int=0) -> str:
-    #     """
-    #     For the acoem format: Retrieve all readings from (now - get_data_interval) until now.
-    #     For the aurora format: Retrieve all readings from current cursor.
-        
-    #     Args:
-    #         sep (str, optional): Separator to use for output and file, respectively. Defaults to ",".
-    #         save (bool, optional): Should data be saved to file? Defaults to True.
-    #         verbosity (int, optional): _description_. Defaults to 0.
-
-    #     Raises:
-    #         Warning: _description_
-    #         ValueError: _description_
-
-    #     Returns:
-    #         str: data retrieved from logger as decoded string, including line breaks.
-    #     """
-    #     try:
-    #         dtm = time.strftime('%Y-%m-%d %H:%M:%S')
-    #         print(f"{dtm} .get_new_data (name={self.name}, save={save})")
-
-
-    #         if self._protocol=='acoem':
-    #             if self.sampling_interval is None:
-    #                 raise ValueError("'get_data_interval' cannot be None.")
-    #             tmp = []
-
-    #             # define period ro retrieve and update state variable
-    #             start = self._start_datalog
-    #             end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-    #             self._start_datalog = end + timedelta(seconds=self.data_log_interval)
-
-    #             # retrieve data
-    #             self._tcpip_comm_wait_for_line()            
-    #             data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
-    #             if verbosity>0:
-    #                 print(data)
-
-    #             # prepare result
-    #             for d in data:
-    #                 values = [str(d.pop('dtm'))] + [str(value) for key, value in d.items()]
-    #                 tmp.append(sep.join(values))
-    #             data = '\n'.join(tmp) + '\n'
-
-    #         elif self._protocol=='aurora':
-    #             data = self._tcpip_comm(f"***D\r".encode()).decode()
-    #             data = data.replace('\r\n\n', '\r\n').replace(", ", ",").replace(",", sep)
-    #         else:
-    #             raise ValueError("Protocol not recognized.")
-            
-    #         if verbosity>0:
-    #             self.logger.info(data)
-
-    #         if save:
-    #             if self.reporting_interval is None:
-    #                 raise ValueError("'reporting_interval' cannot be None.")
-                
-    #             # generate the datafile name
-    #             self.__datafile = os.path.join(self.datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-    #                                         "".join([self.name, "-",
-    #                                                 datetimebin.dtbin(self.reporting_interval), ".dat"]))
-
-    #             os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
-    #             with open(self.__datafile, "at", encoding='utf8') as fh:
-    #                 fh.write(data)
-    #                 fh.close()
-
-    #             if self.staging_path:
-    #                 self.stage_data_file()
-
-    #         return data
-        
-    #     except Exception as err:
-    #         self.logger.error(err)
-    #         return str()
 
 
 # %%
