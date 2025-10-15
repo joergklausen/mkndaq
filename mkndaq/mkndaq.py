@@ -109,14 +109,14 @@ def main():
                 # === S3 transfer scheduling ===
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
-                        local_path=tei49c.staging_path,
+                        local_path=str(tei49c.staging_path),
                         key_prefix=tei49c.remote_path,
                         interval=tei49c.reporting_interval,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49c.remote_path).as_posix()
-                    sftp.setup_transfer_schedules(local_path=tei49c.staging_path,
+                    sftp.setup_transfer_schedules(local_path=str(tei49c.staging_path),
                                                   remote_path=remote_path,
                                                   interval=tei49c.reporting_interval)
 
@@ -130,14 +130,14 @@ def main():
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
-                        local_path=tei49i.staging_path,
+                        local_path=str(tei49i.staging_path),
                         key_prefix=tei49i.remote_path,
                         interval=tei49i.reporting_interval,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49i.remote_path).as_posix()
-                    sftp.setup_transfer_schedules(local_path=tei49i.staging_path,
+                    sftp.setup_transfer_schedules(local_path=str(tei49i.staging_path),
                                                   remote_path=remote_path,
                                                   interval=tei49i.reporting_interval)
 
@@ -151,14 +151,14 @@ def main():
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
-                        local_path=tei49i_2.staging_path,
+                        local_path=str(tei49i_2.staging_path),
                         key_prefix=tei49i_2.remote_path,
                         interval=tei49i_2.reporting_interval,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49i_2.remote_path).as_posix()
-                    sftp.setup_transfer_schedules(local_path=tei49i_2.staging_path,
+                    sftp.setup_transfer_schedules(local_path=str(tei49i_2.staging_path),
                                                   remote_path=remote_path,
                                                   interval=tei49i_2.reporting_interval)
 
@@ -173,14 +173,14 @@ def main():
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
-                        local_path=g2401.staging_path,
+                        local_path=str(g2401.staging_path),
                         key_prefix=g2401.remote_path,
                         interval=g2401.reporting_interval,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / g2401.remote_path).as_posix()
-                    sftp.setup_transfer_schedules(local_path=g2401.staging_path,
+                    sftp.setup_transfer_schedules(local_path=str(g2401.staging_path),
                                                   remote_path=remote_path,
                                                   interval=g2401.reporting_interval)
 
@@ -193,14 +193,14 @@ def main():
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
-                        local_path=meteo.staging_path,
+                        local_path=str(meteo.staging_path),
                         key_prefix=meteo.remote_path,
                         interval=meteo.reporting_interval,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / meteo.remote_path).as_posix()
-                    sftp.setup_transfer_schedules(local_path=meteo.staging_path,
+                    sftp.setup_transfer_schedules(local_path=str(meteo.staging_path),
                                                   remote_path=remote_path,
                                                   interval=meteo.reporting_interval)
 
@@ -215,14 +215,14 @@ def main():
                 if s3fsc:
                     # data
                     s3fsc.setup_transfer_schedules(
-                        local_path=ae33.staging_path_data,
+                        local_path=str(ae33.staging_path_data),
                         key_prefix=ae33.remote_path_data,
                         interval=ae33.reporting_interval,
                         remove_on_success=False,
                     )
                     # logs
                     s3fsc.setup_transfer_schedules(
-                        local_path=ae33.staging_path_logs,
+                        local_path=str(ae33.staging_path_logs),
                         key_prefix=ae33.remote_path_logs,
                         interval=ae33.reporting_interval,
                         remove_on_success=False,
@@ -230,10 +230,10 @@ def main():
                 if sftp:
                     remote_path_data = (PurePosixPath(sftp.remote_path) / ae33.remote_path_data).as_posix()
                     remote_path_logs = (PurePosixPath(sftp.remote_path) / ae33.remote_path_logs).as_posix()
-                    sftp.setup_transfer_schedules(local_path=ae33.staging_path_data,
+                    sftp.setup_transfer_schedules(local_path=str(ae33.staging_path_data),
                                                   remote_path=remote_path_data,
                                                   interval=ae33.reporting_interval)
-                    sftp.setup_transfer_schedules(local_path=ae33.staging_path_logs,
+                    sftp.setup_transfer_schedules(local_path=str(ae33.staging_path_logs),
                                                   remote_path=remote_path_logs,
                                                   interval=ae33.reporting_interval)
 
@@ -246,14 +246,14 @@ def main():
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
-                        local_path=ne300.staging_path,
+                        local_path=str(ne300.staging_path),
                         key_prefix=ne300.remote_path,
                         interval=ne300.reporting_interval,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / ne300.remote_path).as_posix()
-                    sftp.setup_transfer_schedules(local_path=ne300.staging_path,
+                    sftp.setup_transfer_schedules(local_path=str(ne300.staging_path),
                                                   remote_path=remote_path,
                                                   interval=ne300.reporting_interval)
 
@@ -266,14 +266,14 @@ def main():
 
             #     if s3fsc:
             #         s3fsc.setup_transfer_schedules(
-            #             local_path=fidas.staging_path,
+            #             local_path=str(fidas.staging_path),
             #             key_prefix=fidas.remote_path,
             #             interval=fidas.reporting_interval,
             #             remove_on_success=False,
             #         )
             #     if sftp:
             #         remote_path = (PurePosixPath(sftp.remote_path) / fidas.remote_path).as_posix()
-            #         sftp.setup_transfer_schedules(local_path=fidas.staging_path,
+            #         sftp.setup_transfer_schedules(local_path=str(fidas.staging_path),
             #                                       remote_path=remote_path,
             #                                       interval=fidas.reporting_interval)
 
@@ -292,7 +292,7 @@ def main():
 
         # # transfer any existing staged files
         # logger.info("Transfering existing staged files ... this could take a while")
-        # sftp.transfer_files(local_path=staging, remote_path=sftp.remote_path)
+        # sftp.transfer_files(local_path=str(staging), remote_path=sftp.remote_path)
 
         # align start with a multiple-of-minute timestamp
         seconds_left = seconds_to_next_n_minutes(1)
