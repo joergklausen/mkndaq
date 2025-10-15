@@ -149,7 +149,7 @@ class Thermo49C:
         _id = bytes([self._id])
         for i in range(3):
             try:
-                if self._serial.closed:
+                if not self._serial.is_open:
                     self._serial.open()
                 self._serial.reset_input_buffer()
                 self._serial.reset_output_buffer()
@@ -462,7 +462,7 @@ class Thermo49i:
         _id = bytes([self._id])
         for i in range(3):
             try:
-                if ser.closed:
+                if not ser.is_open:
                     ser.open()
                 ser.reset_input_buffer()
                 ser.reset_output_buffer()
@@ -513,7 +513,7 @@ class Thermo49i:
             if ser is None:
                 return ""
             try:
-                if not ser.closed:
+                if ser.is_open:
                     ser.close()
             except Exception:
                 pass
