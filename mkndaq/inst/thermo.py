@@ -69,7 +69,9 @@ class Thermo49C:
                                         bytesize=config[port]['bytesize'],
                                         parity=config[port]['parity'],
                                         stopbits=config[port]['stopbits'],
-                                        timeout=config[port]['timeout'])
+                                        timeout=config[port]['timeout'],
+                                        write_timeout=config.get('write_timeout', 2.0),
+                                        )
             except serial.SerialException as err:
                 self.logger.error(f"__init__ produced SerialException {err}")
                 pass
@@ -144,7 +146,15 @@ class Thermo49C:
             
             self._serial.write(id + (f"{cmd}\x0D").encode())
             time.sleep(0.5)
-            while self._serial.in_waiting > 0:
+
+            # test if this improves stability
+            self._serial.flush()
+            # end test
+
+            deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
+
+            # while (self._serial.in_waiting > 0):
+            while (self._serial.in_waiting > 0) and (time.monotonic() < deadline):
                 rcvd = rcvd + self._serial.read(1024)
                 time.sleep(0.1)
                 
@@ -525,7 +535,15 @@ class Thermo49i:
         try:
             self._serial.write(__id + (f"{cmd}\x0D").encode())
             time.sleep(0.5)
-            while self._serial.in_waiting > 0:
+
+            # test if this improves stability
+            self._serial.flush()
+            # end test
+
+            deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
+
+            # while (self._serial.in_waiting > 0):
+            while (self._serial.in_waiting > 0) and (time.monotonic() < deadline):
                 rcvd = rcvd + self._serial.read(1024)
                 time.sleep(0.1)
 
