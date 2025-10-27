@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='mkndaq',
-    version='0.9.0',
+    version='0.9.2',
     packages=['mkndaq', 'mkndaq.inst', 'mkndaq.tests', 'mkndaq.utils', 'sockslib'],
     url='',
     license='MIT',
