@@ -243,6 +243,7 @@ def main():
                 from mkndaq.inst.neph import NEPH
                 ne300 = NEPH('ne300', cfg, verbosity=0)
                 ne300.setup_schedules()
+                ne300.setup_zero_span_check_schedules()
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(

@@ -172,7 +172,7 @@ ne300:
     staging_zip: True
     remote_path: ne300
     verbosity: 2                    # 0: silent, 1: medium, 2: full
-    zero_span_check_interval: 4380  # set this to 4380 (=73 hrs) for production
+    zero_span_check_interval: 780   # set this to 4380 (=73 hrs) for production
     zero_check_duration: 20         # set this to 30 for production
     span_check_duration: 20         # set this to 30 for production
 

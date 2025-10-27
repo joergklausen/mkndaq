@@ -53,14 +53,21 @@ def setup_logging(file: str) -> logging.Logger:
         # create console handler which logs even debugging information
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)
-        
+
+        # file handler for selective INFO logging
+        info_fh = logging.FileHandler(filename=file)
+        info_fh.setLevel(logging.INFO)
+        info_fh.addFilter(lambda record: getattr(record, 'to_logfile', False))
+
         # create formatter and add it to the handlers
         formatter = logging.Formatter('%(asctime)s, %(levelname)s, %(name)s, %(message)s', datefmt="%Y-%m-%dT%H:%M:%S")
         fh.setFormatter(formatter)
+        info_fh.setFormatter(formatter)
         ch.setFormatter(formatter)
         
         # add the handlers to the logger
         logger.addHandler(fh)
+        logger.addHandler(info_fh)
         logger.addHandler(ch)
 
         return logger

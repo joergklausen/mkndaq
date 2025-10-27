@@ -55,7 +55,7 @@ class NEPH:
             # configure logging
             _logger = f"{os.path.basename(config['logging']['file'])}".split('.')[0]
             self.logger = logging.getLogger(f"{_logger}.{__name__}")
-            self.logger.info(f"[{self.name}] Initializing {self.type} (S/N: {self.serial_number})")
+            self.logger.info(f"[{self.name}] Initializing {self.type} (S/N: {self.serial_number})", extra={"to_logfile": True})
 
             self.verbosity = config[name]['verbosity']
 
@@ -88,6 +88,7 @@ class NEPH:
             self.reporting_interval = config[name]['reporting_interval']
 
             # zero and span check durations
+            self.zero_span_check_interval = config[name]['zero_span_check_interval']
             self.zero_check_duration = config[name]['zero_check_duration']
             self.span_check_duration = config[name]['span_check_duration']
 
@@ -106,22 +107,26 @@ class NEPH:
             if id=={}:
                 self.logger.error(colorama.Fore.RED + f"[{self.name}] Could not communicate with instrument. Protocol set to '{self._protocol}'. Please verify instrument settings." + colorama.Fore.GREEN)
             else:
-                self.logger.info(f"[{self.name}] Instrument identified itself as '{id}'.")
+                self.logger.info(f"[{self.name}] id reported: '{id}'.", extra={"to_logfile": True})
+
+                # get version
+                version = self.get_version()
+                self.logger.info(f"[{self.name}] firmware version reported: {version}.", extra={"to_logfile": True})            
 
                 # put instrument in ambient mode
                 state = self.do_ambient(verbosity=verbosity)
                 if state==0:
-                    self.logger.info(f"[{self.name}] Instrument current operation is 'ambient'.")
+                    self.logger.info(f"[{self.name}] current operation reported: 'ambient'.", extra={"to_logfile": True})
                 else:
                     self.logger.warning(colorama.Fore.YELLOW + f"[{self.name}] Could not verify measurement mode as 'ambient'." + colorama.Fore.GREEN)
 
                 # get dtm from instrument, then set date and time
                 dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
-                self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.")            
+                self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.", extra={"to_logfile": True})            
 
                 # get logging config
                 self._datalog_config = self.get_data_log_config()[1:]
-                self.logger.info(f"[{self.name}] Logging config reported by instrument: {self._datalog_config}.")
+                self.logger.info(f"[{self.name}] logging config reported: {self._datalog_config}.", extra={"to_logfile": True})
 
                 # set datalog interval
                 datalog_interval = self.set_datalog_interval(verbosity=verbosity)
@@ -162,6 +167,14 @@ class NEPH:
             else:
                 raise ValueError(f"A reporting interval of {self.reporting_interval} is not supported.")
 
+        except Exception as err:
+            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
+
+    def setup_zero_span_check_schedules(self):
+        try:
+            schedule.every(int(self.zero_span_check_interval)).minutes.do(self.do_zero)
+            schedule.every(int(self.zero_span_check_interval) + int(self.zero_check_duration)).minutes.do(self.do_span)
+            schedule.every(int(self.zero_span_check_interval) + int(self.span_check_duration)).minutes.do(self.do_ambient)
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
@@ -594,7 +607,7 @@ class NEPH:
         """
         try:
             if self._protocol=='acoem':
-                message = self._acoem_construct_message(1)
+                message = self._acoem_construct_message(2)
                 self._tcpip_comm_wait_for_line()
                 response = self._tcpip_comm(message, verbosity=verbosity)        
                 return self._acoem_bytes2int(response=response, verbosity=verbosity)
@@ -767,7 +780,6 @@ class NEPH:
     #     except Exception as err:
     #         self.logger.error(err)
     #         return list()
-
     
     def set_datalog_interval(self, verbosity: int=0) -> int:
         try:
@@ -778,7 +790,6 @@ class NEPH:
             self.logger.error(err)
             return int()
         
-
     def get_logged_data(self, start: datetime, end: datetime, verbosity: int=0) -> 'list[dict]':
         """
         A.3.8 Requests all logged data over a specific date range.
@@ -818,7 +829,6 @@ class NEPH:
             self.logger.error(err)
             return []
 
-
     def get_current_operation(self, verbosity: int=0) -> int:
         """
         Retrieves the operating state of the instrument. 
@@ -847,7 +857,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(err)
             return 9
-
 
     def set_current_operation(self, state: int=0, verify: bool=True, verbosity: int=0) -> int:
         """Sets the instrument operating state by actuating the internal valve.
@@ -886,7 +895,6 @@ class NEPH:
             self.logger.error(err)
             return 9
 
-
     def get_id(self, verbosity: int=0) -> 'dict[str, str]':
         """Get instrument type, s/w, firmware versions
 
@@ -923,7 +931,6 @@ class NEPH:
             self.logger.error(err)
             return dict()
 
-
     def get_datetime(self, verbosity: int=0) -> datetime:
         """Get date and time of instrument
 
@@ -952,7 +959,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(err)
             return response
-
 
     def get_set_datetime(self, dtm: datetime=datetime.now(timezone.utc), verbosity: int=0) -> 'tuple[dict, dict]':
         """Get and then set date and time of instrument
@@ -989,58 +995,57 @@ class NEPH:
             self.logger.error(err)
             return (dict(), dict())
 
+    # def _do_zero_span_check(self, verbosity: int=0) -> None:
+    #     """
+    #     Launch a zero check, followed by a span check. Finally, return to Ambient mode.
+    #     NB: Not to be used in operations, the wait loop is blocking
 
-    def do_zero_span_check(self, verbosity: int=0) -> None:
-        """
-        Launch a zero check, followed by a span check. Finally, return to Ambient mode.
+    #     Parameters:
+    #         verbosity (int, optional): ...
 
-        Parameters:
-            verbosity (int, optional): ...
+    #     Returns:
+    #         None
+    #     """
+    #     dtm = now = datetime.now(timezone.utc)
 
-        Returns:
-            None
-        """
-        dtm = now = datetime.now(timezone.utc)
-
-        # change operating state to ZERO
-        msg = f"Switching to ZERO CHECK mode ..."
-        self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
-        resp = self.do_zero(verbosity=verbosity)
-        if resp==1:
-            self.logger.info(f"Instrument switched to ZERO CHECK")
-        else:
-            self.logger.warning(colorama.Fore.YELLOW + f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'." + colorama.Fore.GREEN)
-        while now < dtm + timedelta(minutes=self.zero_check_duration):
-            now = datetime.now(timezone.utc)
-            time.sleep(1)
+    #     # change operating state to ZERO
+    #     msg = f"Switching to ZERO CHECK mode ..."
+    #     self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
+    #     resp = self.do_zero(verbosity=verbosity)
+    #     if resp==1:
+    #         self.logger.info(f"Instrument switched to ZERO CHECK")
+    #     else:
+    #         self.logger.warning(colorama.Fore.YELLOW + f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'." + colorama.Fore.GREEN)
+    #     while now < dtm + timedelta(minutes=self.zero_check_duration):
+    #         now = datetime.now(timezone.utc)
+    #         time.sleep(1)
         
-        # change operating state to SPAN
-        dtm = now = datetime.now(timezone.utc)
-        msg = f"Switching to SPAN CHECK mode ..."
-        self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
-        resp = self.do_span(verbosity=verbosity)
+    #     # change operating state to SPAN
+    #     dtm = now = datetime.now(timezone.utc)
+    #     msg = f"Switching to SPAN CHECK mode ..."
+    #     self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
+    #     resp = self.do_span(verbosity=verbosity)
         
-        # open CO2 cylinder valve by setting digital out to HIGH
-        # resp2 = self.set_value(7005, 1)
-        # msg = f"CO2 cylinder valve 
-        if resp==2:
-            self.logger.info(f"Instrument switched to SPAN CHECK")
-        else:
-            self.logger.warning(colorama.Fore.YELLOW + f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'." + colorama.Fore.GREEN)
-        while now < dtm + timedelta(minutes=self.span_check_duration):
-            now = datetime.now(timezone.utc)
-            time.sleep(1)
+    #     # open CO2 cylinder valve by setting digital out to HIGH
+    #     # resp2 = self.set_value(7005, 1)
+    #     # msg = f"CO2 cylinder valve 
+    #     if resp==2:
+    #         self.logger.info(f"Instrument switched to SPAN CHECK")
+    #     else:
+    #         self.logger.warning(colorama.Fore.YELLOW + f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'." + colorama.Fore.GREEN)
+    #     while now < dtm + timedelta(minutes=self.span_check_duration):
+    #         now = datetime.now(timezone.utc)
+    #         time.sleep(1)
         
-        # change operating state to AMBIENT
-        msg = f"Switching to AMBIENT mode."
-        self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
-        resp = self.do_ambient(verbosity=verbosity)
-        if resp==0:
-            self.logger.info(f"Instrument switched to AMBIENT mode")
-        else:
-            self.logger.warning(f"Instrument mode should be '0' (AMBIENT) but was returned as '{resp}'.")
-        return
-
+    #     # change operating state to AMBIENT
+    #     msg = f"Switching to AMBIENT mode."
+    #     self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
+    #     resp = self.do_ambient(verbosity=verbosity)
+    #     if resp==0:
+    #         self.logger.info(f"Instrument switched to AMBIENT mode")
+    #     else:
+    #         self.logger.warning(f"Instrument mode should be '0' (AMBIENT) but was returned as '{resp}'.")
+    #     return
 
     def do_span(self, verify: bool=True, verbosity: int=0) -> int:
         """
@@ -1055,7 +1060,6 @@ class NEPH:
         self._tcpip_comm_wait_for_line()
         return self.set_current_operation(state=2, verify=verify, verbosity=verbosity)
 
-
     def do_zero(self, verify: bool=True, verbosity: int=0) -> int:
         """
         Override digital IO control and DOZERO. Wrapper for set_current_operation.
@@ -1069,7 +1073,6 @@ class NEPH:
         self._tcpip_comm_wait_for_line()
         return self.set_current_operation(state=1, verify=verify, verbosity=verbosity)
     
-
     def do_ambient(self, verify: bool=True, verbosity: int=0) -> int:
         """
         Override digital IO control and return to ambient measurement. Wrapper for set_current_operation.
@@ -1082,8 +1085,6 @@ class NEPH:
         """
         self._tcpip_comm_wait_for_line()
         return self.set_current_operation(state=0, verify=verify, verbosity=verbosity)
-
-    
 
     # def get_status_word(self, verbosity: int=0) -> int:
     #     """
