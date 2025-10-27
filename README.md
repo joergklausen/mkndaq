@@ -7,35 +7,13 @@ Data acquisition of MKN data and transfer to MeteoSwiss. Supported instruments a
 zip files for periodic transfer via sftp.
 
 ## using poetry
-$ poetry add <package> to add to the environment
-
-### creating a stand-alone executable
-A stand-alone Windows 10 executable can be generated using pyinstaller [0].
-
-In VS Code, open a bash terminal, then activate your .venv, then navigate to /mkndaq
-
-``source .venv/Scripts/activate``
-``(.venv) user@host:~/<path>/mkndaq$``
-
-Execute
-
-``pyinstaller --onefile --name mkndaq.exe ./mkndaq/mkndaq.py``
-
-or (with logging)
-
-``pyinstaller --onefile --log-level=DEBUG --name mkndaq.exe ./mkndaq/mkndaq.py``
-``pyinstaller --onefile --log-level=DEBUG --name tei49x.exe ./tei49x.py``
-
-### usage
-Execute in a command window as
-
-``mkndaq [-s] -c <path to mkndaq.cfg>``.
+$ poetry add _"package"_ to add to the environment
 
 ### automation
 To automate execution and to safeguard against crashes, configure Windows task scheduler to launch the application at
 startup and every 5' thereafter. This is pre-configured and available as follows:
 - Open 'Schedule tasks' control panel
-- Import /dist/mkndaq.xml
+- Import /dist/mkndaq.xml  (This is an export from the Task Scheduler task definition.)
 - Verify that task is registered.
 
 ### Supported instruments
