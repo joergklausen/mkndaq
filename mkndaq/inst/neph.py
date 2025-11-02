@@ -12,9 +12,16 @@ import time
 import warnings
 import zipfile
 from datetime import datetime, timedelta, timezone
+import threading
 
 import colorama
 import schedule
+
+
+def _default_run_threaded(job, *args, **kwargs):
+    thread = threading.Thread(target=job, args=args, kwargs=kwargs, daemon=True)
+    thread.start()
+    return thread
 
 class NEPH:
     """
@@ -87,10 +94,26 @@ class NEPH:
             self.sampling_interval = config[name]['sampling_interval']
             self.reporting_interval = config[name]['reporting_interval']
 
-            # zero and span check durations
+            # zero and span check interval and durations
             self.zero_span_check_interval = config[name]['zero_span_check_interval']
             self.zero_check_duration = config[name]['zero_check_duration']
             self.span_check_duration = config[name]['span_check_duration']
+            if self.zero_span_check_interval % 60 != 0:
+                raise ValueError(
+                    f"zero_span_check_interval={self.zero_span_check_interval} must be a multiple of 60 minutes."
+                )
+            total_duration = self.zero_check_duration + self.span_check_duration
+            if total_duration >= 60:
+                raise ValueError(
+                    f"zero_check_duration + span_check_duration = {total_duration} must be < 60 minutes."
+                )
+            self._zero_span_check_hours = self.zero_span_check_interval // 60
+            self._span_offset_min = self.zero_check_duration                                # mm offset from :00
+            self._ambient_offset_min = self.zero_check_duration + self.span_check_duration  # mm offset from :00
+            self.logger.info(
+                "zero/span checks every %d hours, zero @ :00, span @ :%02d, return to ambient @ :%02d",
+                self._zero_span_check_hours, self._span_offset_min, self._ambient_offset_min,
+            )
 
             # configure saving, staging and remote path
             root = os.path.expanduser(config['root'])
@@ -145,38 +168,67 @@ class NEPH:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
-
-    def setup_schedules(self):
+    def setup_schedules(self, run_threaded=_default_run_threaded):
         try:
             # configure data acquisition schedule
-            schedule.every(int(self.sampling_interval)).minutes.at(':02').do(self._accumulate_new_data)
+            schedule.every(int(self.sampling_interval)).minutes.at(':02').do(run_threaded, self._accumulate_new_data)
+
+            # configure zero and span check schedules
+            self._setup_zero_span_check_schedules()
 
             # configure saving and staging schedules
             if self.reporting_interval==10:
                 self._file_timestamp_format = '%Y%m%d%H%M'
                 for minute in range(6):
-                    schedule.every(1).hour.at(f"{minute}0:05").do(self._save_and_stage_data)
+                    schedule.every(1).hour.at(f"{minute}0:05").do(run_threaded, self._save_and_stage_data)
             elif self.reporting_interval==60:
                 self._file_timestamp_format = '%Y%m%d%H'
                 # schedule.every().hour.at('00:01').do(self._save_and_stage_data)
-                schedule.every(1).hour.at('00:05').do(self._save_and_stage_data)
+                schedule.every(1).hour.at('00:05').do(run_threaded, self._save_and_stage_data)
             elif self.reporting_interval==1440:
                 self._file_timestamp_format = '%Y%m%d'
                 # schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
-                schedule.every(1).day.at('00:00:05').do(self._save_and_stage_data)
+                schedule.every(1).day.at('00:00:05').do(run_threaded, self._save_and_stage_data)
             else:
                 raise ValueError(f"A reporting interval of {self.reporting_interval} is not supported.")
-
+            
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
-    def setup_zero_span_check_schedules(self):
+    def _setup_zero_span_check_schedules(self, run_threaded=_default_run_threaded) -> None:
+        """
+        Zero/span/ambient checks aligned to the top of the hour:
+
+        - Zero:     every N hours at :00
+        - Span:     every N hours at :<zero_duration>
+        - Ambient:  every N hours at :<zero_duration + span_duration>
+
+        Assumes __init__ validated that:
+        - zero_span_check_interval is a multiple of 60
+        - zero_check_duration + span_check_duration < 60
+        """
         try:
-            schedule.every(int(self.zero_span_check_interval)).minutes.do(self.do_zero)
-            schedule.every(int(self.zero_span_check_interval) + int(self.zero_check_duration)).minutes.do(self.do_span)
-            schedule.every(int(self.zero_span_check_interval) + int(self.zero_check_duration) + int(self.span_check_duration)).minutes.do(self.do_ambient)
-        except Exception as err:
-            self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
+            # Zero at :00 every N hours
+            schedule.every(self._zero_span_check_hours).hours.at(":00").do(run_threaded, self.do_zero)
+            # Span offset within the hour
+            schedule.every(self._zero_span_check_hours).hours.at(f":{self._span_offset_min:02d}").do(run_threaded, self.do_span)
+            # Ambient offset within the hour
+            schedule.every(self._zero_span_check_hours).hours.at(f":{self._ambient_offset_min:02d}").do(run_threaded, self.do_ambient)
+
+            self.logger.info(
+                "Scheduled zero/span/ambient: every %d hour(s) at :00/:%02d/:%02d",
+                self._zero_span_check_hours, self._span_offset_min, self._ambient_offset_min
+            )
+        except Exception as err:  # pragma: no cover
+            self.logger.error("setup_zero_span_check_schedules failed: %s", err)
+
+    # def setup_zero_span_check_schedules(self):
+    #     try:
+    #         schedule.every(int(int(self.zero_span_check_interval) / 60)).hour.at(':00').do(self.do_zero)
+    #         schedule.every(int(self.zero_span_check_interval) + int(self.zero_check_duration)).minutes.do(self.do_span)
+    #         schedule.every(int(self.zero_span_check_interval) + int(self.zero_check_duration) + int(self.span_check_duration)).minutes.do(self.do_ambient)
+    #     except Exception as err:
+    #         self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
 
     def _acoem_checksum(self, x: bytes) -> bytes:
