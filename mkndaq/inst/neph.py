@@ -174,7 +174,7 @@ class NEPH:
         try:
             schedule.every(int(self.zero_span_check_interval)).minutes.do(self.do_zero)
             schedule.every(int(self.zero_span_check_interval) + int(self.zero_check_duration)).minutes.do(self.do_span)
-            schedule.every(int(self.zero_span_check_interval) + int(self.span_check_duration)).minutes.do(self.do_ambient)
+            schedule.every(int(self.zero_span_check_interval) + int(self.zero_check_duration) + int(self.span_check_duration)).minutes.do(self.do_ambient)
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
