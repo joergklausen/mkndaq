@@ -106,43 +106,50 @@ def main():
                 tei49c.set_config()
                 tei49c.setup_schedules()
 
-                # === S3 transfer scheduling ===
+                schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
+                schedule.every().day.at('00:03').do(run_threaded, tei49c.set_datetime)
+
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
                         local_path=str(tei49c.staging_path),
                         key_prefix=tei49c.remote_path,
                         interval=tei49c.reporting_interval,
+                        delay_transfer=3,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49c.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=str(tei49c.staging_path),
                                                   remote_path=remote_path,
-                                                  interval=tei49c.reporting_interval)
-
-                schedule.every(6).hours.at(':00').do(run_threaded, tei49c.set_datetime)
-                schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
+                                                  interval=tei49c.reporting_interval, 
+                                                  delay_transfer=5,
+                                                  remove_on_success=True,
+                                                  )
 
             if cfg.get('tei49i', None):
                 from mkndaq.inst.thermo import Thermo49i
                 tei49i = Thermo49i(name='tei49i', config=cfg)
                 tei49i.setup_schedules()
 
+                schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
+                schedule.every().day.at('00:05').do(run_threaded, tei49i.set_datetime)
+
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
                         local_path=str(tei49i.staging_path),
                         key_prefix=tei49i.remote_path,
                         interval=tei49i.reporting_interval,
+                        delay_transfer=2,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / tei49i.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=str(tei49i.staging_path),
                                                   remote_path=remote_path,
-                                                  interval=tei49i.reporting_interval)
-
-                schedule.every().day.at('00:00').do(run_threaded, tei49i.set_datetime)
-                schedule.every(fetch).seconds.do(run_threaded, tei49i.print_o3)
+                                                  interval=tei49i.reporting_interval,
+                                                  delay_transfer=5,
+                                                  remove_on_success=True,
+                                                  )
 
             if cfg.get('tei49i_2', None):
                 from mkndaq.inst.thermo import Thermo49i
@@ -169,6 +176,8 @@ def main():
                 from mkndaq.inst.g2401 import G2401
                 g2401 = G2401('g2401', config=cfg)
                 g2401.store_and_stage_files()
+
+                schedule.every(fetch).seconds.do(run_threaded, g2401.print_co2_ch4_co)
                 schedule.every(cfg['g2401']['reporting_interval']).minutes.do(run_threaded, g2401.store_and_stage_files)
 
                 if s3fsc:
@@ -176,36 +185,42 @@ def main():
                         local_path=str(g2401.staging_path),
                         key_prefix=g2401.remote_path,
                         interval=g2401.reporting_interval,
+                        delay_transfer=2,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / g2401.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=str(g2401.staging_path),
                                                   remote_path=remote_path,
-                                                  interval=g2401.reporting_interval)
-
-                schedule.every(fetch).seconds.do(run_threaded, g2401.print_co2_ch4_co)
+                                                  interval=g2401.reporting_interval,
+                                                  delay_transfer=5,
+                                                  remove_on_success=True,
+                                                  )
 
             if cfg.get('meteo', None):
                 from mkndaq.inst.meteo import METEO
                 meteo = METEO('meteo', config=cfg)
                 meteo.store_and_stage_files()
 
+                schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.print_meteo)
+                schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
+
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
                         local_path=str(meteo.staging_path),
                         key_prefix=meteo.remote_path,
                         interval=meteo.reporting_interval,
+                        delay_transfer=2,
                         remove_on_success=False,
                     )
                 if sftp:
                     remote_path = (PurePosixPath(sftp.remote_path) / meteo.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=str(meteo.staging_path),
                                                   remote_path=remote_path,
-                                                  interval=meteo.reporting_interval)
-
-                schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.store_and_stage_files)
-                schedule.every(cfg['meteo']['reporting_interval']).minutes.do(run_threaded, meteo.print_meteo)
+                                                  interval=meteo.reporting_interval,
+                                                  delay_transfer=5,
+                                                  remove_on_success=True,
+                                                  )
 
             if cfg.get('ae33', None):
                 from mkndaq.inst.ae33 import AE33
@@ -218,6 +233,7 @@ def main():
                         local_path=str(ae33.staging_path_data),
                         key_prefix=ae33.remote_path_data,
                         interval=ae33.reporting_interval,
+                        delay_transfer=2,
                         remove_on_success=False,
                     )
                     # logs
@@ -225,6 +241,7 @@ def main():
                         local_path=str(ae33.staging_path_logs),
                         key_prefix=ae33.remote_path_logs,
                         interval=ae33.reporting_interval,
+                        delay_transfer=2,
                         remove_on_success=False,
                     )
                 if sftp:
@@ -243,6 +260,8 @@ def main():
                 from mkndaq.inst.neph import NEPH
                 ne300 = NEPH('ne300', cfg, verbosity=0)
                 ne300.setup_schedules()
+
+                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
                 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
@@ -255,9 +274,10 @@ def main():
                     remote_path = (PurePosixPath(sftp.remote_path) / ne300.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=str(ne300.staging_path),
                                                   remote_path=remote_path,
-                                                  interval=ne300.reporting_interval)
-
-                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
+                                                  interval=ne300.reporting_interval,
+                                                  delay_transfer=5,
+                                                  remove_on_success=True,
+                                                  )
 
             # if cfg.get('fidas', None):
             #     from mkndaq.inst.fidas import FIDAS
@@ -288,7 +308,7 @@ def main():
         # transfer most recent log file and define schedule
         logger.info(f"Staging current log file {logfile}")
         copy_file(source=logfile, target=staging, logger=logger)
-        schedule.every(1).day.at('00:00').do(copy_file, source=logfile, target=staging, logger=logger)
+        schedule.every(1).day.at('00:03').do(copy_file, source=logfile, target=staging, logger=logger)
 
         # # transfer any existing staged files
         # logger.info("Transfering existing staged files ... this could take a while")
@@ -297,8 +317,8 @@ def main():
         # align start with a multiple-of-minute timestamp
         seconds_left = seconds_to_next_n_minutes(1)
         while seconds_left > 0:
-            print(f"Time remaining (s): {seconds_left:0.0f}", end="\r")
-            dt = 0.1
+            print(f"Time remaining (s): {seconds_left:02}", end="\r")
+            dt = 0.2
             time.sleep(dt)
             seconds_left -= dt
         logger.info("Beginning data acquisition and file transfer ...")

@@ -162,23 +162,23 @@ class AE33:
             self.logger.error(err)
 
 
-    def setup_schedules(self):
+    def setup_schedules(self, delay_job: int=1):
         try:
             # configure data acquisition schedule
             schedule.every(int(self.sampling_interval)).minutes.at(':00').do(self._accumulate_new_data, table='Data')
-            schedule.every(int(self.sampling_interval)).minutes.at(':01').do(self._accumulate_new_data, table='Log')
+            schedule.every(int(self.sampling_interval)).minutes.at(f':0{delay_job}').do(self._accumulate_new_data, table='Log')
 
             # configure saving and staging schedules
             if self.reporting_interval==10:
                 self._file_timestamp_format = '%Y%m%d%H%M'
                 for minute in range(6):
-                    schedule.every().hour.at(f"{minute}0:01").do(self._save_and_stage_data)
+                    schedule.every().hour.at(f"{minute}0:0{delay_job}").do(self._save_and_stage_data)
             elif self.reporting_interval==60:
                 self._file_timestamp_format = '%Y%m%d%H'
-                schedule.every().hour.at('00:01').do(self._save_and_stage_data)
+                schedule.every().hour.at(f'00:0{delay_job}').do(self._save_and_stage_data)
             elif self.reporting_interval==1440:
                 self._file_timestamp_format = '%Y%m%d'
-                schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
+                schedule.every().day.at(f'00:00:0{delay_job}').do(self._save_and_stage_data)
 
         except Exception as err:
             self.logger.error(err)

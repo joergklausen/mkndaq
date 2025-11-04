@@ -103,7 +103,7 @@ class Thermo49C:
             self.logger.error(err)
 
 
-    def setup_schedules(self):
+    def setup_schedules(self, delay_job: int=1):
         try:
             # configure folders needed
             os.makedirs(self.data_path, exist_ok=True)
@@ -113,19 +113,18 @@ class Thermo49C:
             schedule.every(self.sampling_interval).minutes.at(':00').do(self.accumulate_lrec)
 
             # configure saving and staging schedules
-            if self.reporting_interval==10:
-                self._file_timestamp_format = '%Y%m%d%H%M'
-                minutes = [f"{self.reporting_interval*n:02}" for n in range(6) if self.reporting_interval*n < 6]
-                for minute in minutes:
-                    schedule.every().hour.at(f"{minute}:01").do(self._save_and_stage_data)
-            elif self.reporting_interval==60:
+            if self.reporting_interval == 10:
                 self._file_timestamp_format = '%Y%m%d%H'
-                schedule.every().hour.at('00:01').do(self._save_and_stage_data)
-            elif self.reporting_interval==1440:
+                for minute in (0, 10, 20, 30, 40, 50):
+                    schedule.every().hour.at(f":{minute:02d}:{delay_job:02d}").do(self._save_and_stage_data)
+            elif (self.reporting_interval % 60) == 0 and self.reporting_interval < 1440:
                 self._file_timestamp_format = '%Y%m%d'
-                schedule.every().day.at('00:00:01').do(self._save_and_stage_data)
+                hours = self.reporting_interval // 60
+                schedule.every(hours).hours.at(f":00:{delay_job:02d}").do(self._save_and_stage_data)
+            elif self.reporting_interval == 1440:
+                schedule.every().day.at(f"00:00:{delay_job:02d}").do(self._save_and_stage_data)
             else:
-                raise ValueError(f"[{self.name}] unsupported reporting_interval.")
+                raise ValueError("'reporting_interval' must be 10 minutes, a multiple of 60 minutes (<1440), or 1440.")
 
         except Exception as err:
             self.logger.error(err)

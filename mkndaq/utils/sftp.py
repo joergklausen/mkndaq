@@ -7,7 +7,7 @@ Manage file transfer. Currently, sftp transfer to MeteoSwiss is supported.
 """
 import logging
 import os
-import re
+import threading
 from pathlib import Path, PurePosixPath
 from typing import Union, Optional, List
 
@@ -57,7 +57,7 @@ class SFTPClient:
             self.host = config['sftp']['host']
             self.usr = config['sftp']['usr']
             self.key = paramiko.RSAKey.from_private_key_file(\
-                Path(config['sftp']['key']).expanduser())
+                str(Path(config['sftp']['key']).expanduser()))
 
             # configure client proxy if needed
             if config['sftp']['proxy']['socks5']:
@@ -78,6 +78,10 @@ class SFTPClient:
 
         except Exception as err:
             self.logger.error(err)
+
+
+    # one lock per instance prevents overlapping transfers
+    _sched_lock = threading.Lock()
 
 
     def is_alive(self) -> bool:
@@ -431,29 +435,60 @@ class SFTPClient:
             self.logger.error(f"transfer_files failed: {err}")
 
 
-    def setup_transfer_schedules(self,
-                                 remove_on_success: bool=True,
-                                 interval: int=60,
-                                 local_path: Optional[str] = None,
-                                 remote_path: Optional[str] = None,
-                                 ):
+    def setup_transfer_schedules(
+        self,
+        remove_on_success: bool=True,
+        interval: int=60,
+        local_path: Optional[str] = None,
+        remote_path: Optional[str] = None,
+        delay_transfer: int = 5,            # seconds (offset after boundary)
+        ) -> None:
+        """
+        Schedule directory uploads at fixed intervals (minutes), aligned to boundaries:
+          - 10    -> every 10 minutes at 00,10,20,30,40,50 + delay_transfer seconds
+          - n*60  -> every n hours at :00 + delay_transfer seconds
+          - 1440  -> daily at 00:00 + delay_transfer seconds
+        """
         try:
-            if interval==10:
-                minutes = [f"{interval*n:02}" for n in range(6) if interval*n < 6]
-                for minute in minutes:
-                    schedule.every(1).hour.at(f"{minute}:10").do(self.transfer_files, remove_on_success, local_path, remote_path)
-            elif (interval % 60) == 0:
-                hrs = [f"{n:02}:00:10" for n in range(0, 24, interval // 60)]
-                for hr in hrs:
-                    schedule.every(1).day.at(hr).do(self.transfer_files, remove_on_success, local_path, remote_path)
-            elif interval==1440:
-                schedule.every(1).day.at('00:00:10').do(self.transfer_files, remove_on_success, local_path, remote_path)
+            if not (0 <= delay_transfer <= 59):
+                raise ValueError("delay_transfer must be between 0 and 59 seconds")
+
+            def _job():
+                # prevent overlap if a previous upload is still running
+                if not self._sched_lock.acquire(blocking=False):
+                    self.schedule_logger.warning("Skipping SFTP transfer: previous run still active")
+                    return
+                try:
+                    kwargs = dict(
+                        remove_on_success=remove_on_success,
+                        local_path=local_path,
+                        remote_path=remote_path,
+                    )
+                    # if min_age_seconds is not None:
+                    #     # only if your transfer_files() supports this parameter
+                    #     kwargs["min_age_seconds"] = int(min_age_seconds)
+                    self.transfer_files(**kwargs)
+                finally:
+                    self._sched_lock.release()
+
+            if interval == 10:
+                for minute in (0, 10, 20, 30, 40, 50):
+                    schedule.every().hour.at(f":{minute:02d}:{delay_transfer:02d}").do(_job)
+            elif (interval % 60) == 0 and interval < 1440:
+                hours = interval // 60
+                schedule.every(hours).hours.at(f":00:{delay_transfer:02d}").do(_job)
+            elif interval == 1440:
+                schedule.every().day.at(f"00:00:{delay_transfer:02d}").do(_job)
             else:
-                raise ValueError("'interval' must be 10 minutes or a multiple of 60 minutes and a maximum of 1440 minutes.")
+                raise ValueError("'interval' must be 10 minutes, a multiple of 60 minutes (<1440), or 1440.")
 
+            self.schedule_logger.debug(
+                "Scheduled SFTP transfer: interval=%s, local=%s, remote=%s, delay=%ss", # min_age=%s",
+                interval, local_path, remote_path, delay_transfer, # min_age_seconds
+            )
         except Exception as err:
-            self.schedule_logger.error(err)
-
+            self.schedule_logger.error(err)        
+        
 
 if __name__ == "__main__":
     pass

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import logging
-import os
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Dict, List, Optional, Union
 
 import boto3
-from botocore.config import Config as BotoConfig
 import schedule
+from botocore.config import Config as BotoConfig
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,11 @@ class S3FSC:
         except Exception:
             return False
 
-    # ---------- directory transfer (mkndaq replacement for SFTP) ----------
+    # ---------- directory transfer ----------
+
+    # one lock per instance prevents overlapping transfers
+    _sched_lock = threading.Lock()
+
 
     def transfer_files(
         self,
@@ -187,6 +192,8 @@ class S3FSC:
         remove_on_success: bool = True,
         local_path: Optional[Union[str, Path]] = None,
         key_prefix: Optional[Union[str, PurePosixPath]] = None,
+        # OPTIONAL:
+        min_age_seconds: Optional[int] = None,
     ) -> None:
         """
         Upload all files under local_path to s3://bucket/(default_prefix)/(key_prefix)/<relative path>.
@@ -207,6 +214,12 @@ class S3FSC:
                 # Walk
                 files = [p for p in local_base.rglob("*") if p.is_file()]
                 base = local_base
+
+            # NEW: age filter
+            if min_age_seconds:
+                now = time.time()
+                files = [p for p in files if now - p.stat().st_mtime >= min_age_seconds]
+
 
             if not files:
                 logger.debug("No files to transfer from '%s'", local_base)
@@ -236,51 +249,112 @@ class S3FSC:
         except Exception as err:
             logger.error("transfer_files failed: %s", err)
 
+    # def setup_transfer_schedules(
+    #     self,
+    #     *,
+    #     remove_on_success: bool = True,
+    #     interval: int = 60,                 # minutes
+    #     delay_transfer: int = 2,             # seconds
+    #     local_path: Optional[Union[str, Path]] = None,
+    #     key_prefix: Optional[Union[str, PurePosixPath]] = None,
+    # ) -> None:
+    #     """
+    #     Schedule directory uploads at fixed intervals (minutes).
+    #     Supported:
+    #       - 10  -> every 10 minutes, aligned to the top of the hour
+    #       - n*60 (e.g., 60, 120, ...) -> every n hours
+    #       - 1440 -> daily
+    #     """
+    #     try:
+    #         if delay_transfer > 9:
+    #             raise ValueError("delay_transfer must be less than 10 seconds")
+    #         if interval == 10:
+    #             for prefix in range(6):
+    #                 schedule.every().hour.at(f":{prefix}0:0{delay_transfer}").do(
+    #                     self.transfer_files,
+    #                     remove_on_success=remove_on_success,
+    #                     local_path=local_path,
+    #                     key_prefix=key_prefix,
+    #                 )
+    #         elif (interval % 60) == 0 and interval < 1440:
+    #             hours = interval // 60
+    #             schedule.every(hours).hour.at(f":00:0{delay_transfer}").do(
+    #                 self.transfer_files,
+    #                 remove_on_success=remove_on_success,
+    #                 local_path=local_path,
+    #                 key_prefix=key_prefix,
+    #             )
+    #         elif interval == 1440:
+    #             schedule.every().day.at(f"00:00:0{delay_transfer}").do(
+    #                 self.transfer_files,
+    #                 remove_on_success=remove_on_success,
+    #                 local_path=local_path,
+    #                 key_prefix=key_prefix,
+    #             )
+    #         else:
+    #             raise ValueError(
+    #                 "'interval' must be 10 minutes, a multiple of 60 minutes (<1440), or 1440."
+    #             )
+    #         self.schedule_logger.debug(
+    #             "Scheduled S3 transfer: interval=%s, local=%s, key_prefix=%s",
+    #             interval, local_path, key_prefix,
+    #         )
+    #     except Exception as err:
+    #         self.schedule_logger.error(err)
+
     def setup_transfer_schedules(
         self,
         *,
         remove_on_success: bool = True,
-        interval: int = 60,
+        interval: int = 60,                 # minutes
+        delay_transfer: int = 2,            # seconds (offset after boundary)
         local_path: Optional[Union[str, Path]] = None,
         key_prefix: Optional[Union[str, PurePosixPath]] = None,
+        # OPTIONAL: enable if transfer_files supports it
+        # min_age_seconds: Optional[int] = None,
     ) -> None:
         """
-        Schedule directory uploads at fixed intervals (minutes).
-        Supported:
-          - 10  -> every 10 minutes
-          - n*60 (e.g., 60, 120, ...) -> every n hours
-          - 1440 -> daily
+        Schedule directory uploads at fixed intervals (minutes), aligned to boundaries:
+          - 10    -> every 10 minutes at 00,10,20,30,40,50 + delay_transfer seconds
+          - n*60  -> every n hours at :00 + delay_transfer seconds
+          - 1440  -> daily at 00:00 + delay_transfer seconds
         """
         try:
+            if not (0 <= delay_transfer <= 59):
+                raise ValueError("delay_transfer must be between 0 and 59 seconds")
+
+            def _job():
+                # prevent overlap if a previous upload is still running
+                if not self._sched_lock.acquire(blocking=False):
+                    self.schedule_logger.warning("Skipping S3 transfer: previous run still active")
+                    return
+                try:
+                    kwargs = dict(
+                        remove_on_success=remove_on_success,
+                        local_path=local_path,
+                        key_prefix=key_prefix,
+                    )
+                    # if min_age_seconds is not None:
+                    #     # only if your transfer_files() supports this parameter
+                    #     kwargs["min_age_seconds"] = int(min_age_seconds)
+                    self.transfer_files(**kwargs)
+                finally:
+                    self._sched_lock.release()
+
             if interval == 10:
-                schedule.every(10).minutes.do(
-                    self.transfer_files,
-                    remove_on_success=remove_on_success,
-                    local_path=local_path,
-                    key_prefix=key_prefix,
-                )
+                for minute in (0, 10, 20, 30, 40, 50):
+                    schedule.every().hour.at(f":{minute:02d}:{delay_transfer:02d}").do(_job)
             elif (interval % 60) == 0 and interval < 1440:
                 hours = interval // 60
-                schedule.every(hours).hours.do(
-                    self.transfer_files,
-                    remove_on_success=remove_on_success,
-                    local_path=local_path,
-                    key_prefix=key_prefix,
-                )
+                schedule.every(hours).hours.at(f":00:{delay_transfer:02d}").do(_job)
             elif interval == 1440:
-                schedule.every().day.at("00:00:10").do(
-                    self.transfer_files,
-                    remove_on_success=remove_on_success,
-                    local_path=local_path,
-                    key_prefix=key_prefix,
-                )
+                schedule.every().day.at(f"00:00:{delay_transfer:02d}").do(_job)
             else:
-                raise ValueError(
-                    "'interval' must be 10 minutes, a multiple of 60 minutes (<1440), or 1440."
-                )
+                raise ValueError("'interval' must be 10 minutes, a multiple of 60 minutes (<1440), or 1440.")
+
             self.schedule_logger.debug(
-                "Scheduled S3 transfer: interval=%s, local=%s, key_prefix=%s",
-                interval, local_path, key_prefix,
+                "Scheduled S3 transfer: interval=%s, local=%s, key_prefix=%s, delay=%ss", # min_age=%s",
+                interval, local_path, key_prefix, delay_transfer, # min_age_seconds
             )
         except Exception as err:
             self.schedule_logger.error(err)
