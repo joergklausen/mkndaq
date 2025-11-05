@@ -343,10 +343,10 @@ class S3FSC:
 
             if interval == 10:
                 for minute in (0, 10, 20, 30, 40, 50):
-                    schedule.every().hour.at(f":{minute:02d}:{delay_transfer:02d}").do(_job)
+                    schedule.every(1).hours.at(f"{minute:02d}:{delay_transfer:02d}").do(_job)
             elif (interval % 60) == 0 and interval < 1440:
                 hours = interval // 60
-                schedule.every(hours).hours.at(f":00:{delay_transfer:02d}").do(_job)
+                schedule.every(hours).hours.at(f"00:{delay_transfer:02d}").do(_job)
             elif interval == 1440:
                 schedule.every().day.at(f"00:00:{delay_transfer:02d}").do(_job)
             else:

@@ -116,11 +116,11 @@ class Thermo49C:
             if self.reporting_interval == 10:
                 self._file_timestamp_format = '%Y%m%d%H'
                 for minute in (0, 10, 20, 30, 40, 50):
-                    schedule.every().hour.at(f":{minute:02d}:{delay_job:02d}").do(self._save_and_stage_data)
+                    schedule.every(1).hours.at(f"{minute:02d}:{delay_job:02d}").do(self._save_and_stage_data)
             elif (self.reporting_interval % 60) == 0 and self.reporting_interval < 1440:
                 self._file_timestamp_format = '%Y%m%d'
                 hours = self.reporting_interval // 60
-                schedule.every(hours).hours.at(f":00:{delay_job:02d}").do(self._save_and_stage_data)
+                schedule.every(hours).hours.at(f"00:{delay_job:02d}").do(self._save_and_stage_data)
             elif self.reporting_interval == 1440:
                 schedule.every().day.at(f"00:00:{delay_job:02d}").do(self._save_and_stage_data)
             else:
