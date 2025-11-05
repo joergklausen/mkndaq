@@ -323,32 +323,31 @@ class S3FSC:
             if not (0 <= delay_transfer <= 59):
                 raise ValueError("delay_transfer must be between 0 and 59 seconds")
 
-            def _job():
+            def _s3_transfer_files():
                 # prevent overlap if a previous upload is still running
                 if not self._sched_lock.acquire(blocking=False):
                     self.schedule_logger.warning("Skipping S3 transfer: previous run still active")
                     return
                 try:
-                    kwargs = dict(
-                        remove_on_success=remove_on_success,
-                        local_path=local_path,
-                        key_prefix=key_prefix,
-                    )
                     # if min_age_seconds is not None:
                     #     # only if your transfer_files() supports this parameter
                     #     kwargs["min_age_seconds"] = int(min_age_seconds)
-                    self.transfer_files(**kwargs)
+                    self.transfer_files(
+                        remove_on_success=remove_on_success,
+                        local_path=Path(local_path).resolve() if local_path is not None else None,
+                        key_prefix=PurePosixPath(key_prefix) if key_prefix is not None else None,
+                    )
                 finally:
                     self._sched_lock.release()
 
             if interval == 10:
                 for minute in (0, 10, 20, 30, 40, 50):
-                    schedule.every(1).hours.at(f"{minute:02d}:{delay_transfer:02d}").do(_job)
+                    schedule.every(1).hours.at(f"{minute:02d}:{delay_transfer:02d}").do(_s3_transfer_files)
             elif (interval % 60) == 0 and interval < 1440:
                 hours = interval // 60
-                schedule.every(hours).hours.at(f"00:{delay_transfer:02d}").do(_job)
+                schedule.every(hours).hours.at(f"00:{delay_transfer:02d}").do(_s3_transfer_files)
             elif interval == 1440:
-                schedule.every().day.at(f"00:00:{delay_transfer:02d}").do(_job)
+                schedule.every().day.at(f"00:00:{delay_transfer:02d}").do(_s3_transfer_files)
             else:
                 raise ValueError("'interval' must be 10 minutes, a multiple of 60 minutes (<1440), or 1440.")
 
