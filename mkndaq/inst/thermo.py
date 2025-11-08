@@ -7,6 +7,7 @@ Define a class TEI49I facilitating communication with a Thermo 49C and 49i instr
 import logging
 import os
 import socket
+import threading
 import time
 import zipfile
 from datetime import datetime
@@ -64,18 +65,27 @@ class Thermo49C:
             # configure serial port and open it
             port = config[name]['port']
             try:
-                self._serial = serial.Serial(port=port,
-                                        baudrate=config[port]['baudrate'],
-                                        bytesize=config[port]['bytesize'],
-                                        parity=config[port]['parity'],
-                                        stopbits=config[port]['stopbits'],
-                                        timeout=config[port]['timeout'],
-                                        write_timeout=config.get('write_timeout', 2.0),
-                                        )
+                # self._serial = serial.Serial(port=port,
+                #                         baudrate=config[port]['baudrate'],
+                #                         bytesize=config[port]['bytesize'],
+                #                         parity=config[port]['parity'],
+                #                         stopbits=config[port]['stopbits'],
+                #                         timeout=config[port]['timeout'],
+                #                         write_timeout=config.get('write_timeout', 2.0),
+                #                         )
+                self._io_lock = threading.Lock()
+                self._serial = serial.Serial(
+                    port=port,
+                    baudrate=config[port]['baudrate'],
+                    bytesize=config[port]['bytesize'],
+                    parity=config[port]['parity'],
+                    stopbits=config[port]['stopbits'],
+                    timeout=config[port]['timeout'],
+                    write_timeout=config[port].get('write_timeout', 2.0),
+                )
             except serial.SerialException as err:
                 self.logger.error(f"__init__ produced SerialException {err}")
                 pass
-
             # sampling, aggregation, reporting/storage
             self.sampling_interval = config[name]['sampling_interval']
             self.reporting_interval = config[name]['reporting_interval']
@@ -87,14 +97,14 @@ class Thermo49C:
             self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
             self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
             # self.archive_path = os.path.join(root, config[name]['archive'])
-            self._file_to_stage = str()
+            self._file_to_stage = ""
             self._zip = config[name]['staging_zip']
 
             # configure remote transfer
             self.remote_path = config[name]['remote_path']
 
             # initialize data response
-            self._data = str()
+            self._data = ""
 
             # self.get_config()
             # self.set_config()
@@ -130,48 +140,78 @@ class Thermo49C:
             self.logger.error(err)
 
 
-    def serial_comm(self, cmd: str) -> str:
-        """
-        Send a command and retrieve the response. Assumes an open connection and will try to open it if closed.
+    # def serial_comm(self, cmd: str) -> str:
+    #     """
+    #     Send a command and retrieve the response. Assumes an open connection and will try to open it if closed.
 
-        :param cmd: command sent to instrument
-        :return: response of instrument, decoded
-        """
-        id = bytes([self._id])
-        try:
-            rcvd = b''
-            if self._serial.closed:
-                self._serial.open()
+    #     :param cmd: command sent to instrument
+    #     :return: response of instrument, decoded
+    #     """
+    #     id = bytes([self._id])
+    #     try:
+    #         rcvd = b''
+    #         if self._serial.closed:
+    #             self._serial.open()
             
-            self._serial.write(id + (f"{cmd}\x0D").encode())
-            time.sleep(0.5)
+    #         self._serial.write(id + (f"{cmd}\x0D").encode())
+    #         time.sleep(0.5)
 
-            # test if this improves stability
-            self._serial.flush()
-            # end test
+    #         # test if this improves stability
+    #         self._serial.flush()
+    #         # end test
 
-            deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
+    #         deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
 
-            # while (self._serial.in_waiting > 0):
-            while (self._serial.in_waiting > 0) and (time.monotonic() < deadline):
-                rcvd = rcvd + self._serial.read(1024)
-                time.sleep(0.1)
+    #         # while (self._serial.in_waiting > 0):
+    #         while (self._serial.in_waiting > 0) and (time.monotonic() < deadline):
+    #             rcvd = rcvd + self._serial.read(1024)
+    #             time.sleep(0.1)
                 
-            rcvd = rcvd.decode()
-            # remove checksum after and including the '*'
-            rcvd = rcvd.split("*")[0]
-            # remove cmd echo
-            rcvd = rcvd.replace(cmd, "").strip()
-            return rcvd
+    #         rcvd = rcvd.decode()
+    #         # remove checksum after and including the '*'
+    #         rcvd = rcvd.split("*")[0]
+    #         # remove cmd echo
+    #         rcvd = rcvd.replace(cmd, "").strip()
+    #         return rcvd
 
-        except serial.SerialException as err:
-            self.logger.error(f"serial_comm SerialException: {err}")
-            pass
-            return str()
-        except Exception as err:
-            self.logger.error(f"serial_comm: {err}")
-            pass
-            return str()
+    #     except serial.SerialException as err:
+    #         self.logger.error(f"serial_comm SerialException: {err}")
+    #         pass
+    #         return ""
+    #     except Exception as err:
+    #         self.logger.error(f"serial_comm: {err}")
+    #         pass
+    #         return ""
+    def serial_comm(self, cmd: str, retries: int = 3) -> str:
+        _id = bytes([self._id])
+        for i in range(retries):
+            try:
+                if not self._serial.is_open:
+                    self._serial.open()
+                # clear stale buffers instead of flushing after write
+                self._serial.reset_input_buffer()
+                self._serial.reset_output_buffer()
+
+                self._serial.write(_id + (f"{cmd}\r").encode())  # uses write_timeout
+                rcvd = b""
+                deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
+                while time.monotonic() < deadline:
+                    if self._serial.in_waiting:
+                        rcvd += self._serial.read(self._serial.in_waiting)
+                        if b"*" in rcvd or rcvd.endswith(b"\r"):
+                            break
+                    time.sleep(0.05)
+
+                text = rcvd.decode(errors="ignore").split("*")[0].replace(cmd, "").strip()
+                if text:
+                    return text
+                raise serial.SerialTimeoutException("empty response")
+            except (serial.SerialTimeoutException, serial.SerialException) as err:
+                self.logger.error(f"serial_comm attempt {i+1}/{retries} failed: {err}")
+                try: self._serial.close()
+                except Exception: pass
+                time.sleep(min(0.5 * (2 ** i), 3.0))
+        return ""
 
 
     def get_config(self) -> list:
@@ -233,27 +273,40 @@ class Thermo49C:
             return list()
 
 
+    # def accumulate_lrec(self):
+    #     """
+    #     Send command, retrieve response from instrument and append to self._data.
+    #     """
+    #     try:
+    #         dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    #         lrec = self.serial_comm('lrec')
+
+    #         self._data += f"{dtm} {lrec}\n"
+    #         self.logger.debug(f"[{self.name}] {lrec[:60]}[...]")
+
+    #         return
+
+    #     except Exception as err:
+    #         self.logger.error(err)
     def accumulate_lrec(self):
-        """
-        Send command, retrieve response from instrument and append to self._data.
-        """
+        if not self._io_lock.acquire(blocking=False):
+            return
         try:
             dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             lrec = self.serial_comm('lrec')
-
             self._data += f"{dtm} {lrec}\n"
             self.logger.debug(f"[{self.name}] {lrec[:60]}[...]")
-
-            return
-
         except Exception as err:
             self.logger.error(err)
+        finally:
+            self._io_lock.release()
+
 
 
     def _save_data(self) -> None:
         try:
-            # data_file = str()
-            # self.data_file = str()
+            # data_file = ""
+            # self.data_file = ""
             if self._data:
                 # create appropriate file name and write mode
                 now = datetime.now()
@@ -267,7 +320,7 @@ class Thermo49C:
                 # configure file mode, open file and write to it
                 if os.path.exists(self.data_file):
                     mode = 'a'
-                    header = str()
+                    header = ""
                 else:
                     mode = 'w'
                     header = f"{self._data_header}\n"
@@ -278,7 +331,7 @@ class Thermo49C:
                     self.logger.info(f"[{self.name}] file saved: {self.data_file}")
 
                 # reset self._data
-                self._data = str()
+                self._data = ""
 
             return
 
@@ -311,19 +364,32 @@ class Thermo49C:
 
         except Exception as err:
             self.logger.error(err)
-            return str()
+            return ""
 
 
+    # def print_o3(self) -> None:
+    #     try:
+    #         o3 = self.get_o3().split()
+    #         if len(o3)==2:
+    #             self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
+    #         if len(o3)==3:
+    #             self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}")
+
+    #     except Exception as err:
+    #         self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
     def print_o3(self) -> None:
+        if not self._io_lock.acquire(blocking=False):
+            return
         try:
             o3 = self.get_o3().split()
-            if len(o3)==2:
+            if len(o3) == 2:
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
-            if len(o3)==3:
+            elif len(o3) == 3:
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}")
-
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
+        finally:
+            self._io_lock.release()
 
 
     def get_all_rec(self, capacity=[1790, 4096], save=True) -> str:
@@ -334,8 +400,8 @@ class Thermo49C:
         :return str response as decoded string
         """
         try:
-            data = str()
-            data_file = str()
+            data = ""
+            data_file = ""
 
             # lrec and srec capacity of logger
             CMD = ["lrec", "srec"]
@@ -382,7 +448,7 @@ class Thermo49C:
 
         except Exception as err:
             self.logger.error(err)
-            return str()
+            return ""
 
 
 class Thermo49i:
@@ -410,17 +476,19 @@ class Thermo49i:
             self._set_config = config[name]['set_config']
 
             self._serial_com = config.get(name, {}).get('serial', None)
+            self._io_lock = threading.Lock()
             if self._serial_com:
                 # configure serial port
                 port = config[name]['port']
-                self._serial = serial.Serial(port=port,
-                                            baudrate=config[port]['baudrate'],
-                                            bytesize=config[port]['bytesize'],
-                                            parity=config[port]['parity'],
-                                            stopbits=config[port]['stopbits'],
-                                            timeout=config[port]['timeout'])
-                # if self._serial.is_open:
-                #     self._serial.close()
+                self._serial = serial.Serial(
+                    port=port,
+                    baudrate=config[port]['baudrate'],
+                    bytesize=config[port]['bytesize'],
+                    parity=config[port]['parity'],
+                    stopbits=config[port]['stopbits'],
+                    timeout=config[port]['timeout'],
+                    write_timeout=config[port].get('write_timeout', 2.0),
+                )
                 self.logger.info(f"Serial port {port} successfully opened.")
             else:
                 # configure tcp/ip
@@ -445,7 +513,7 @@ class Thermo49i:
             self.remote_path = config[name]['remote_path']
 
             # initialize data response
-            self._data = str()
+            self._data = ""
 
         except Exception as err:
             self.logger.error(err)
@@ -464,7 +532,7 @@ class Thermo49i:
             # configure saving and staging schedules
             if self.reporting_interval==10:
                 self._file_timestamp_format = '%Y%m%d%H%M'
-                minutes = [f"{self.reporting_interval*n:02}" for n in range(6) if self.reporting_interval*n < 6]
+                minutes = [f"{self.reporting_interval*n:02}" for n in range(6) if self.reporting_interval*n < 60]
                 for minute in minutes:
                     schedule.every().hour.at(f"{minute}:01").do(self._save_and_stage_data)
             elif self.reporting_interval==60:
@@ -518,51 +586,81 @@ class Thermo49i:
 
         except Exception as err:
             self.logger.error(err)
-            return str()
+            return ""
 
 
-    def serial_comm(self, cmd: str, tidy=True) -> str:
-        """
-        Send a command and retrieve the response. Assumes an open connection.
+    # def serial_comm(self, cmd: str, tidy=True) -> str:
+    #     """
+    #     Send a command and retrieve the response. Assumes an open connection.
 
-        :param cmd: command sent to instrument
-        :param tidy: remove echo and checksum after '*'
-        :return: response of instrument, decoded
-        """
-        __id = bytes([self._id])
-        rcvd = b''
-        try:
-            self._serial.write(__id + (f"{cmd}\x0D").encode())
-            time.sleep(0.5)
+    #     :param cmd: command sent to instrument
+    #     :param tidy: remove echo and checksum after '*'
+    #     :return: response of instrument, decoded
+    #     """
+    #     __id = bytes([self._id])
+    #     rcvd = b''
+    #     try:
+    #         self._serial.write(__id + (f"{cmd}\x0D").encode())
+    #         time.sleep(0.5)
 
-            # test if this improves stability
-            self._serial.flush()
-            # end test
+    #         # test if this improves stability
+    #         self._serial.flush()
+    #         # end test
 
-            deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
+    #         deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
 
-            # while (self._serial.in_waiting > 0):
-            while (self._serial.in_waiting > 0) and (time.monotonic() < deadline):
-                rcvd = rcvd + self._serial.read(1024)
-                time.sleep(0.1)
+    #         # while (self._serial.in_waiting > 0):
+    #         while (self._serial.in_waiting > 0) and (time.monotonic() < deadline):
+    #             rcvd = rcvd + self._serial.read(1024)
+    #             time.sleep(0.1)
 
-            rcvd = rcvd.decode()
-            # remove checksum after and including the '*'
-            rcvd = rcvd.split("*")[0]
-            # remove echo before and including '\n'
-            rcvd = rcvd.replace(cmd, "").strip()
+    #         rcvd = rcvd.decode()
+    #         # remove checksum after and including the '*'
+    #         rcvd = rcvd.split("*")[0]
+    #         # remove echo before and including '\n'
+    #         rcvd = rcvd.replace(cmd, "").strip()
 
-            return rcvd
+    #         return rcvd
 
-        except Exception as err:
-            self.logger.error(err)
-            return str()
+    #     except Exception as err:
+    #         self.logger.error(err)
+    #         return ""
+    def serial_comm(self, cmd: str, retries: int = 3) -> str:
+        _id = bytes([self._id])
+        for i in range(retries):
+            try:
+                if not self._serial.is_open:
+                    self._serial.open()
+                # clear stale buffers instead of flushing after write
+                self._serial.reset_input_buffer()
+                self._serial.reset_output_buffer()
+
+                self._serial.write(_id + (f"{cmd}\r").encode())  # uses write_timeout
+                rcvd = b""
+                deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
+                while time.monotonic() < deadline:
+                    if self._serial.in_waiting:
+                        rcvd += self._serial.read(self._serial.in_waiting)
+                        if b"*" in rcvd or rcvd.endswith(b"\r"):
+                            break
+                    time.sleep(0.05)
+
+                text = rcvd.decode(errors="ignore").split("*")[0].replace(cmd, "").strip()
+                if text:
+                    return text
+                raise serial.SerialTimeoutException("empty response")
+            except (serial.SerialTimeoutException, serial.SerialException) as err:
+                self.logger.error(f"serial_comm attempt {i+1}/{retries} failed: {err}")
+                try: self._serial.close()
+                except Exception: pass
+                time.sleep(min(0.5 * (2 ** i), 3.0))
+        return ""
 
 
     def send_command(self, cmd: str) -> str:
         try:
             if self._serial_com:
-                if self._serial.closed:
+                if not self._serial.is_open:
                     self._serial.open()
                 response = self.serial_comm(cmd)
                 self._serial.close()
@@ -571,7 +669,7 @@ class Thermo49i:
             return response
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}")
-            return str()
+            return ""
 
 
     def get_config(self) -> list:
@@ -585,7 +683,7 @@ class Thermo49i:
         try:
             for cmd in self._get_config:
                 if self._serial_com:
-                    if self._serial.closed:
+                    if not self._serial.is_open:
                         self._serial.open()
                     cfg.append(self.serial_comm(cmd))
                     self._serial.close()
@@ -610,7 +708,7 @@ class Thermo49i:
         try:
             cmd = f"set date {time.strftime('%m-%d-%y')}"
             if self._serial_com:
-                if self._serial.closed:
+                if not self._serial.is_open:
                     self._serial.open()
                 dte = self.serial_comm(cmd)
                 self._serial.close()
@@ -620,7 +718,7 @@ class Thermo49i:
 
             cmd = f"set time {time.strftime('%H:%M:%S')}"
             if self._serial_com:
-                if self._serial.closed:
+                if not self._serial.is_open:
                     self._serial.open()
                 tme = self.serial_comm(cmd)
                 self._serial.close()
@@ -657,24 +755,35 @@ class Thermo49i:
             return list()
 
 
+    # def accumulate_lr00(self):
+    #     """
+    #     Send command, retrieve response from instrument and append to self._data.
+    #     """
+    #     try:
+    #         dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    #         if self._serial_com:
+    #             _ = self.serial_comm('lr00')
+    #         else:
+    #             _ = self.tcpip_comm('lr00')
+    #         self._data += f"{dtm} {_}\n"
+    #         self.logger.debug(f"[{self.name}] {_[:60]}[...]")
+
+    #         return
+
+    #     except Exception as err:
+    #         self.logger.error(err)
     def accumulate_lr00(self):
-        """
-        Send command, retrieve response from instrument and append to self._data.
-        """
         try:
+            if not self._io_lock.acquire(blocking=False):
+                return
             dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            if self._serial_com:
-                _ = self.serial_comm('lr00')
-            else:
-                _ = self.tcpip_comm('lr00')
+            _ = self.serial_comm('lr00') if self._serial_com else self.tcpip_comm('lr00')
             self._data += f"{dtm} {_}\n"
             self.logger.debug(f"[{self.name}] {_[:60]}[...]")
-
-            return
-
         except Exception as err:
             self.logger.error(err)
-
+        finally:
+            self._io_lock.release()
 
     def get_all_lrec(self, save: bool=True) -> str:
         """download entire buffer from instrument and save to file
@@ -683,8 +792,8 @@ class Thermo49i:
         :return str response as decoded string
         """
         try:
-            data = str()
-            file = str()
+            data = ""
+            file = ""
 
             # retrieve numbers of lrec stored in buffer
             cmd = "no of lrec"
@@ -761,7 +870,7 @@ class Thermo49i:
 
         except Exception as err:
             self.logger.error(err)
-            return str()
+            return ""
 
 
     def get_o3(self) -> str:
@@ -773,39 +882,50 @@ class Thermo49i:
 
         except Exception as err:
             self.logger.error(err)
-            return str()
+            return ""
 
 
+    # def print_o3(self) -> None:
+    #     try:
+    #         o3 = self.get_o3().split()
+    #         if len(o3)==2:
+    #             self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
+    #         if len(o3)==3:
+    #             self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()}  {float(o3[1]):0.1f} {o3[2]}")
+
+    #     except Exception as err:
+    #         self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
     def print_o3(self) -> None:
+        if not self._io_lock.acquire(blocking=False):
+            return
         try:
             o3 = self.get_o3().split()
-            if len(o3)==2:
+            if len(o3) == 2:
                 self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
-            if len(o3)==3:
-                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()}  {float(o3[1]):0.1f} {o3[2]}")
-
+            elif len(o3) == 3:
+                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}")
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
+        finally:
+            self._io_lock.release()
 
 
     def _save_data(self) -> None:
         try:
-            data_file = str()
-            self.data_file = str()
+            # data_file = ""
+            self.data_file = ""
             if self._data:
                 # create appropriate file name and write mode
                 now = datetime.now()
                 timestamp = now.strftime(self._file_timestamp_format)
-                yyyy = now.strftime('%Y')
-                mm = now.strftime('%m')
-                dd = now.strftime('%d')
+                yyyy, mm, dd = now.strftime('%Y'), now.strftime('%m'), now.strftime('%d')
                 data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
-                os.makedirs(os.path.dirname(data_file), exist_ok=True)
+                os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
 
                 # configure file mode, open file and write to it
                 if os.path.exists(self.data_file):
                     mode = 'a'
-                    header = str()
+                    header = ""
                 else:
                     mode = 'w'
                     header = 'pcdate pctime time date flags o3 hio3 cellai cellbi bncht lmpt o3lt flowa flowb pres\n'
@@ -813,12 +933,12 @@ class Thermo49i:
                 with open(file=data_file, mode=mode) as fh:
                     fh.write(header)
                     fh.write(self._data)
-                    self.logger.info(f"[{self.name}] file saved: {data_file}")
+                    self.logger.info(f"[{self.name}] file saved: {self.data_file}")
 
                 # reset self._data
-                self._data = str()
+                self._data = ""
 
-            self.data_file = data_file
+            # self.data_file = data_file
             return
 
         except Exception as err:
