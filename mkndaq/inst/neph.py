@@ -1347,7 +1347,7 @@ class NEPH:
             archive = os.path.join(self.staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                 zf.write(self.data_file, os.path.basename(self.data_file))
-                self.logger.info(f"file staged: {archive}")            
+                self.logger.info(f"[{self.name}] file staged: {archive}")            
                 # reset
                 self.data_file = str()
 
