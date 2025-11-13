@@ -367,18 +367,9 @@ class Thermo49C:
             return ""
 
 
-    # def print_o3(self) -> None:
-    #     try:
-    #         o3 = self.get_o3().split()
-    #         if len(o3)==2:
-    #             self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
-    #         if len(o3)==3:
-    #             self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}")
-
-    #     except Exception as err:
-    #         self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
     def print_o3(self) -> None:
-        if not self._io_lock.acquire(blocking=False):
+        acquired = self._io_lock.acquire(blocking=False)
+        if not acquired:
             return
         try:
             o3 = self.get_o3().split()
@@ -389,7 +380,8 @@ class Thermo49C:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
         finally:
-            self._io_lock.release()
+            if acquired:
+                self._io_lock.release()
 
 
     def get_all_rec(self, capacity=[1790, 4096], save=True) -> str:
@@ -896,7 +888,8 @@ class Thermo49i:
     #     except Exception as err:
     #         self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
     def print_o3(self) -> None:
-        if not self._io_lock.acquire(blocking=False):
+        acquired = self._io_lock.acquire(blocking=False)
+        if not acquired:
             return
         try:
             o3 = self.get_o3().split()
@@ -907,8 +900,8 @@ class Thermo49i:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
         finally:
-            self._io_lock.release()
-
+            if acquired:
+                self._io_lock.release()
 
     # def _save_data(self) -> None:
     #     try:
