@@ -910,36 +910,74 @@ class Thermo49i:
             self._io_lock.release()
 
 
+    # def _save_data(self) -> None:
+    #     try:
+    #         # data_file = ""
+    #         self.data_file = ""
+    #         if self._data:
+    #             # create appropriate file name and write mode
+    #             now = datetime.now()
+    #             timestamp = now.strftime(self._file_timestamp_format)
+    #             yyyy, mm, dd = now.strftime('%Y'), now.strftime('%m'), now.strftime('%d')
+    #             data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
+    #             os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
+
+    #             # configure file mode, open file and write to it
+    #             if os.path.exists(self.data_file):
+    #                 mode = 'a'
+    #                 header = ""
+    #             else:
+    #                 mode = 'w'
+    #                 header = 'pcdate pctime time date flags o3 hio3 cellai cellbi bncht lmpt o3lt flowa flowb pres\n'
+
+    #             with open(file=data_file, mode=mode) as fh:
+    #                 fh.write(header)
+    #                 fh.write(self._data)
+    #                 self.logger.info(f"[{self.name}] file saved: {self.data_file}")
+
+    #             # reset self._data
+    #             self._data = ""
+
+    #         # self.data_file = data_file
+    #         return
+
+    #     except Exception as err:
+    #         self.logger.error(err)
     def _save_data(self) -> None:
+        """Write accumulated data to a .dat file and clear the buffer."""
         try:
-            # data_file = ""
-            self.data_file = ""
             if self._data:
                 # create appropriate file name and write mode
                 now = datetime.now()
                 timestamp = now.strftime(self._file_timestamp_format)
-                yyyy, mm, dd = now.strftime('%Y'), now.strftime('%m'), now.strftime('%d')
-                data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
+                yyyy = now.strftime('%Y')
+                mm = now.strftime('%m')
+                dd = now.strftime('%d')
+
+                # store on the instance so _stage_file can use it
+                self.data_file = os.path.join(
+                    self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat"
+                )
                 os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
 
-                # configure file mode, open file and write to it
+                # configure file mode and header
                 if os.path.exists(self.data_file):
                     mode = 'a'
                     header = ""
                 else:
                     mode = 'w'
-                    header = 'pcdate pctime time date flags o3 hio3 cellai cellbi bncht lmpt o3lt flowa flowb pres\n'
+                    header = (
+                        "pcdate pctime time date flags o3 hio3 cellai cellbi "
+                        "bncht lmpt o3lt flowa flowb pres\n"
+                    )
 
-                with open(file=data_file, mode=mode) as fh:
+                with open(self.data_file, mode=mode) as fh:
                     fh.write(header)
                     fh.write(self._data)
                     self.logger.info(f"[{self.name}] file saved: {self.data_file}")
 
-                # reset self._data
+                # reset buffer
                 self._data = ""
-
-            # self.data_file = data_file
-            return
 
         except Exception as err:
             self.logger.error(err)
@@ -953,7 +991,7 @@ class Thermo49i:
                 archive = os.path.join(self.staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
                 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                     zf.write(self.data_file, os.path.basename(self.data_file))
-                    self.logger.info(f"file staged: {archive}")
+                    self.logger.info(f"[{self.name}] file staged: {archive}")
 
         except Exception as err:
             self.logger.error(err)
