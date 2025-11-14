@@ -110,7 +110,7 @@ class Thermo49C:
             # self.set_config()
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def setup_schedules(self, delay_job: int=1):
@@ -137,7 +137,7 @@ class Thermo49C:
                 raise ValueError("'reporting_interval' must be 10 minutes, a multiple of 60 minutes (<1440), or 1440.")
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     # def serial_comm(self, cmd: str) -> str:
@@ -207,7 +207,7 @@ class Thermo49C:
                     return text
                 raise serial.SerialTimeoutException("empty response")
             except (serial.SerialTimeoutException, serial.SerialException) as err:
-                self.logger.error(f"serial_comm attempt {i+1}/{retries} failed: {err}")
+                self.logger.error(f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}")
                 try: self._serial.close()
                 except Exception: pass
                 time.sleep(min(0.5 * (2 ** i), 3.0))
@@ -230,7 +230,7 @@ class Thermo49C:
             return cfg
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return list()
 
 
@@ -247,7 +247,7 @@ class Thermo49C:
             tme = self.serial_comm("time")
             self.logger.info(f"[{self.name}] Date and time set and reported as: {dte} {tme}")
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def set_config(self) -> list:
@@ -269,7 +269,7 @@ class Thermo49C:
             return cfg
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return list()
 
 
@@ -287,7 +287,7 @@ class Thermo49C:
     #         return
 
     #     except Exception as err:
-    #         self.logger.error(err)
+    #         self.logger.error(f"[{self.name}] {err}")
     def accumulate_lrec(self):
         if not self._io_lock.acquire(blocking=False):
             return
@@ -297,7 +297,7 @@ class Thermo49C:
             self._data += f"{dtm} {lrec}\n"
             self.logger.debug(f"[{self.name}] {lrec[:60]}[...]")
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
         finally:
             self._io_lock.release()
 
@@ -336,7 +336,7 @@ class Thermo49C:
             return
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def _stage_file(self):
@@ -350,7 +350,7 @@ class Thermo49C:
                     self.logger.info(f"file staged: {archive}")
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def _save_and_stage_data(self):
@@ -363,7 +363,7 @@ class Thermo49C:
             return self.serial_comm('O3')
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return ""
 
 
@@ -439,7 +439,7 @@ class Thermo49C:
             return data_file
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return ""
 
 
@@ -508,7 +508,7 @@ class Thermo49i:
             self._data = ""
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def setup_schedules(self):
@@ -537,7 +537,7 @@ class Thermo49i:
                 raise ValueError(f"[{self.name}] unsupported reporting_interval.")
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def tcpip_comm(self, cmd: str) -> str:
@@ -577,7 +577,7 @@ class Thermo49i:
             return rcvd
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return ""
 
 
@@ -615,7 +615,7 @@ class Thermo49i:
     #         return rcvd
 
     #     except Exception as err:
-    #         self.logger.error(err)
+    #         self.logger.error(f"[{self.name}] {err}")
     #         return ""
     def serial_comm(self, cmd: str, retries: int = 3) -> str:
         _id = bytes([self._id])
@@ -642,7 +642,7 @@ class Thermo49i:
                     return text
                 raise serial.SerialTimeoutException("empty response")
             except (serial.SerialTimeoutException, serial.SerialException) as err:
-                self.logger.error(f"serial_comm attempt {i+1}/{retries} failed: {err}")
+                self.logger.error(f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}")
                 try: self._serial.close()
                 except Exception: pass
                 time.sleep(min(0.5 * (2 ** i), 3.0))
@@ -687,7 +687,7 @@ class Thermo49i:
             return cfg
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return list()
 
 
@@ -719,7 +719,7 @@ class Thermo49i:
             self.logger.info(f"[{self.name}] Time set to: {tme}")
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def set_config(self) -> list:
@@ -743,7 +743,7 @@ class Thermo49i:
             return cfg
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return list()
 
 
@@ -763,7 +763,7 @@ class Thermo49i:
     #         return
 
     #     except Exception as err:
-    #         self.logger.error(err)
+    #         self.logger.error(f"[{self.name}] {err}")
     def accumulate_lr00(self):
         try:
             if not self._io_lock.acquire(blocking=False):
@@ -773,7 +773,7 @@ class Thermo49i:
             self._data += f"{dtm} {_}\n"
             self.logger.debug(f"[{self.name}] {_[:60]}[...]")
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
         finally:
             self._io_lock.release()
 
@@ -861,7 +861,7 @@ class Thermo49i:
             return data
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return ""
 
 
@@ -873,7 +873,7 @@ class Thermo49i:
                 return self.tcpip_comm('o3')
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
             return ""
 
 
@@ -935,7 +935,7 @@ class Thermo49i:
     #         return
 
     #     except Exception as err:
-    #         self.logger.error(err)
+    #         self.logger.error(f"[{self.name}] {err}")
     def _save_data(self) -> None:
         """Write accumulated data to a .dat file and clear the buffer."""
         try:
@@ -973,7 +973,7 @@ class Thermo49i:
                 self._data = ""
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def _stage_file(self):
@@ -987,7 +987,7 @@ class Thermo49i:
                     self.logger.info(f"[{self.name}] file staged: {archive}")
 
         except Exception as err:
-            self.logger.error(err)
+            self.logger.error(f"[{self.name}] {err}")
 
 
     def _save_and_stage_data(self):
@@ -1207,7 +1207,7 @@ class Thermo49i:
 #             tme = self.serial_comm(f"set time {time.strftime('%H:%M')}")
 #             self.logger.info(f"[{self.name}] Date and time set and reported as: {dte} {tme}")
 #         except Exception as err:
-#             self.logger.error(err)
+#             self.logger.error(f"[{self.name}] {err}")
 
 #     def set_config(self) -> List[str]:
 #         """Apply configuration commands defined in config; return successful responses."""
@@ -1275,7 +1275,7 @@ class Thermo49i:
 #             finally:
 #                 self._io_lock.release()
 #         except Exception as err:
-#             self.logger.error(err)
+#             self.logger.error(f"[{self.name}] {err}")
 
 #     # ---------- saving / staging ----------
 #     def _save_data(self) -> None:
@@ -1288,7 +1288,7 @@ class Thermo49i:
 #                 self.logger.info(colorama.Fore.GREEN + f"{self._file_to_stage.name} written.")
 #                 self._data = ""
 #         except Exception as err:
-#             self.logger.error(err)
+#             self.logger.error(f"[{self.name}] {err}")
 
 #     def _stage_file(self) -> None:
 #         """Zip the latest .dat file into the staging directory (if any)."""
@@ -1299,7 +1299,7 @@ class Thermo49i:
 #                     zf.write(self._file_to_stage, self._file_to_stage.name)
 #                 self.logger.info(f"file staged: {archive}")
 #         except Exception as err:
-#             self.logger.error(err)
+#             self.logger.error(f"[{self.name}] {err}")
 
 #     def _save_and_stage_data(self) -> None:
 #         """Save accumulated buffer and stage as a .zip file."""
@@ -1538,7 +1538,7 @@ class Thermo49i:
 #             tme = self.send_command(f"set time {time.strftime('%H:%M')}")
 #             self.logger.info(f"[{self.name}] Date and time set and reported as: {dte} {tme}")
 #         except Exception as err:
-#             self.logger.error(err)
+#             self.logger.error(f"[{self.name}] {err}")
 
 #     def set_config(self) -> List[str]:
 #         """Apply configuration commands defined in config; return successful responses."""
@@ -1610,7 +1610,7 @@ class Thermo49i:
 #             finally:
 #                 self._io_lock.release()
 #         except Exception as err:
-#             self.logger.error(err)
+#             self.logger.error(f"[{self.name}] {err}")
 
 #     # ---------- saving / staging ----------
 #     def _save_data(self) -> None:
@@ -1623,7 +1623,7 @@ class Thermo49i:
 #                 self.logger.info(colorama.Fore.GREEN + f"{self._file_to_stage.name} written.")
 #                 self._data = ""
 #         except Exception as err:
-#             self.logger.error(err)
+#             self.logger.error(f"[{self.name}] {err}")
 
 #     def _stage_file(self) -> None:
 #         """Zip the latest .dat file into the staging directory (if any)."""
@@ -1634,7 +1634,7 @@ class Thermo49i:
 #                     zf.write(self._file_to_stage, self._file_to_stage.name)
 #                 self.logger.info(f"file staged: {archive}")
 #         except Exception as err:
-#             self.logger.error(err)
+#             self.logger.error(f"[{self.name}] {err}")
 
 #     def _save_and_stage_data(self) -> None:
 #         """Save accumulated buffer and stage as a .zip file."""
