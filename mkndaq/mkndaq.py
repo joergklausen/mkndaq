@@ -279,6 +279,36 @@ def main():
                                                   remove_on_success=True,
                                                   )
 
+            if cfg.get('tapo', None):
+                from mkndaq.inst.tapo import Tapo
+
+                tapo = Tapo(name='tapo', config=cfg)
+
+                # Take one snapshot every snapshot_interval_seconds (from mkndaq.yml)
+                schedule.every(tapo.snapshot_interval_seconds).seconds.do(
+                    run_threaded, tapo.capture_snapshot
+                )
+
+                # File transfer of staged JPEGs (uses reporting_interval_minutes)
+                if s3fsc:
+                    s3fsc.setup_transfer_schedules(
+                        local_path=str(tapo.staging_path),
+                        key_prefix=tapo.remote_path,
+                        interval=tapo.reporting_interval,
+                        delay_transfer=2,
+                        remove_on_success=False,
+                    )
+                if sftp:
+                    remote_path = (PurePosixPath(sftp.remote_path) / tapo.remote_path).as_posix()
+                    sftp.setup_transfer_schedules(
+                        local_path=str(tapo.staging_path),
+                        remote_path=remote_path,
+                        interval=tapo.reporting_interval,
+                        delay_transfer=5,
+                        remove_on_success=True,
+                    )
+
+
             # if cfg.get('fidas', None):
             #     from mkndaq.inst.fidas import FIDAS
             #     fidas = FIDAS(config=cfg)
@@ -317,8 +347,8 @@ def main():
         # align start with a multiple-of-minute timestamp
         seconds_left = seconds_to_next_n_minutes(1)
         while seconds_left > 0:
-            print(f"Time remaining (s): {seconds_left:02}", end="\r")
-            dt = 0.2
+            print(f"Time remaining (s): {int(seconds_left):>3d}", end="\r")
+            dt = 0.5
             time.sleep(dt)
             seconds_left -= dt
         logger.info("Beginning data acquisition and file transfer ...")
