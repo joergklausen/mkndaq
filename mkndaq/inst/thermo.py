@@ -764,10 +764,13 @@ class Thermo49i:
 
     #     except Exception as err:
     #         self.logger.error(f"[{self.name}] {err}")
-    def accumulate_lr00(self):
+    def accumulate_lr00(self) -> None:
+        """Send lr00 command, append response to buffer; non-blocking lock."""
+        # Try to grab lock; return immediately if another job is using the IO channel.
+        if not self._io_lock.acquire(blocking=False):
+            return
+
         try:
-            if not self._io_lock.acquire(blocking=False):
-                return
             dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             _ = self.serial_comm('lr00') if self._serial_com else self.tcpip_comm('lr00')
             self._data += f"{dtm} {_}\n"
