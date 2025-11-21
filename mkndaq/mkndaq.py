@@ -54,8 +54,8 @@ def main():
     # setup logging
     logfile = os.path.join(os.path.expanduser(str(cfg['root'])),
                         cfg['logging']['file'])
-    logger = setup_logging(file=logfile, loglevel_console=cfg['logging']['console_level'],
-                           loglevel_file=cfg['logging']['file_level'])
+    logger = setup_logging(file=logfile, loglevel_console=cfg['logging']['level_console'],
+                           loglevel_file=cfg['logging']['level_file'])
 
     try:
         colorama.init(autoreset=True)
