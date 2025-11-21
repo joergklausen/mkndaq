@@ -29,7 +29,7 @@ def load_config(config_file: str) -> dict:
         return config
 
 
-def setup_logging(file: str) -> logging.Logger:
+def setup_logging(file: str, loglevel_console=logging.INFO, loglevel_file=logging.WARNING) -> logging.Logger:
     """Setup the main logging device
 
     Args:
@@ -48,11 +48,11 @@ def setup_logging(file: str) -> logging.Logger:
 
         # create file handler which logs warning and above messages
         fh = logging.FileHandler(file)
-        fh.setLevel(logging.WARNING)
+        fh.setLevel(loglevel_file)
 
-        # create console handler which logs even debugging information
+        # create console handler with log level
         ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
+        ch.setLevel(loglevel_console)
 
         # file handler for selective INFO logging
         info_fh = logging.FileHandler(filename=file)

@@ -54,7 +54,8 @@ def main():
     # setup logging
     logfile = os.path.join(os.path.expanduser(str(cfg['root'])),
                         cfg['logging']['file'])
-    logger = setup_logging(file=logfile)
+    logger = setup_logging(file=logfile, loglevel_console=cfg['logging']['console_level'],
+                           loglevel_file=cfg['logging']['file_level'])
 
     try:
         colorama.init(autoreset=True)
@@ -68,7 +69,7 @@ def main():
                     break
 
         # Inform user on what's going on
-        logger.info(f"==  MKNDAQ ({version}) started =====================")
+        logger.info(f"==  MKNDAQ ({version}) started =====================", extra={'to_logfile': True})
 
         # decide on file transfer mechanism
         s3fsc = None
@@ -268,6 +269,7 @@ def main():
                         local_path=str(ne300.staging_path),
                         key_prefix=ne300.remote_path,
                         interval=ne300.reporting_interval,
+                        delay_transfer=2,
                         remove_on_success=False,
                     )
                 if sftp:
