@@ -65,14 +65,6 @@ class Thermo49C:
             # configure serial port and open it
             port = config[name]['port']
             try:
-                # self._serial = serial.Serial(port=port,
-                #                         baudrate=config[port]['baudrate'],
-                #                         bytesize=config[port]['bytesize'],
-                #                         parity=config[port]['parity'],
-                #                         stopbits=config[port]['stopbits'],
-                #                         timeout=config[port]['timeout'],
-                #                         write_timeout=config.get('write_timeout', 2.0),
-                #                         )
                 self._io_lock = threading.Lock()
                 self._serial = serial.Serial(
                     port=port,
@@ -86,7 +78,7 @@ class Thermo49C:
                 # track repeated communication failures and back off if necessary
                 self._fail_count = 0
                 self._max_fail_before_cooldown = 5   # consecutive failing commands
-                self._cooldown_seconds = 300         # pause 5 minutes after repeated failures
+                self._cooldown_seconds = 120         # pause 2 minutes after repeated failures
                 self._cooldown_until = 0.0           # unix timestamp until which we stay quiet
 
             except serial.SerialException as err:
@@ -146,58 +138,41 @@ class Thermo49C:
             self.logger.error(f"[{self.name}] {err}")
 
 
-    # def serial_comm(self, cmd: str, retries: int = 3) -> str:
-    #     _id = bytes([self._id])
-    #     for i in range(retries):
-    #         try:
-    #             if not self._serial.is_open:
-    #                 self._serial.open()
-    #             # clear stale buffers instead of flushing after write
-    #             self._serial.reset_input_buffer()
-    #             self._serial.reset_output_buffer()
-
-    #             self._serial.write(_id + (f"{cmd}\r").encode())  # uses write_timeout
-    #             rcvd = b""
-    #             deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
-    #             while time.monotonic() < deadline:
-    #                 if self._serial.in_waiting:
-    #                     rcvd += self._serial.read(self._serial.in_waiting)
-    #                     if b"*" in rcvd or rcvd.endswith(b"\r"):
-    #                         break
-    #                 time.sleep(0.05)
-
-    #             text = rcvd.decode(errors="ignore").split("*")[0].replace(cmd, "").strip()
-    #             if text:
-    #                 return text
-    #             raise serial.SerialTimeoutException("empty response")
-    #         except (serial.SerialTimeoutException, serial.SerialException) as err:
-    #             self.logger.error(f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}")
-    #             try: self._serial.close()
-    #             except Exception: pass
-    #             time.sleep(min(0.5 * (2 ** i), 3.0))
-    #     return ""
     def serial_comm(self, cmd: str, retries: int = 3) -> str:
         _id = bytes([self._id])
+
         for i in range(retries):
             try:
                 if not self._serial.is_open:
                     self._serial.open()
 
-                # clear stale buffers instead of flushing after write
-                self._serial.reset_input_buffer()
-                self._serial.reset_output_buffer()
+                # clear stale buffers once per call (first attempt only)
+                if i == 0:
+                    self._serial.reset_input_buffer()
+                    self._serial.reset_output_buffer()
 
+                # send command
                 self._serial.write(_id + (f"{cmd}\r").encode())  # uses write_timeout
+
+                # read with bounded deadline
                 rcvd = b""
-                deadline = time.monotonic() + max(self._serial.timeout or 1.5, 1.5)
+                timeout = self._serial.timeout or 1.5
+                deadline = time.monotonic() + max(timeout, 1.5)
                 while time.monotonic() < deadline:
-                    if self._serial.in_waiting:
-                        rcvd += self._serial.read(self._serial.in_waiting)
+                    waiting = self._serial.in_waiting
+                    if waiting:
+                        rcvd += self._serial.read(waiting)
                         if b"*" in rcvd or rcvd.endswith(b"\r"):
                             break
                     time.sleep(0.05)
 
-                text = rcvd.decode(errors="ignore").split("*")[0].replace(cmd, "").strip()
+                text = (
+                    rcvd.decode(errors="ignore")
+                    .split("*")[0]
+                    .replace(cmd, "")
+                    .strip()
+                )
+
                 if text:
                     # success: reset fail counter and cooldown
                     self._fail_count = 0
@@ -209,7 +184,9 @@ class Thermo49C:
 
             except (serial.SerialTimeoutException, serial.SerialException, OSError) as err:
                 # OSError covers the ClearCommError/WriteFile "handle is invalid" cases on Windows
-                self.logger.error(f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}")
+                self.logger.error(
+                    f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}"
+                )
 
                 # be defensive: close the port if it's in a weird state
                 try:
@@ -221,11 +198,12 @@ class Thermo49C:
                 # bump failure count and maybe enter a longer cooldown
                 self._fail_count = getattr(self, "_fail_count", 0) + 1
                 max_fail = getattr(self, "_max_fail_before_cooldown", 5)
+                cooldown = getattr(self, "_cooldown_seconds", 120)
                 if self._fail_count >= max_fail:
-                    self._cooldown_until = time.time() + getattr(self, "_cooldown_seconds", 300)
+                    self._cooldown_until = time.time() + cooldown
                     self.logger.error(
                         f"[{self.name}] communication failing repeatedly; "
-                        f"backing off for {self._cooldown_seconds}s."
+                        f"backing off for {cooldown}s."
                     )
                     # don't keep retrying in this call; just return ""
                     break
@@ -296,18 +274,6 @@ class Thermo49C:
             return list()
 
 
-    # def accumulate_lrec(self):
-    #     if not self._io_lock.acquire(blocking=False):
-    #         return
-    #     try:
-    #         dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    #         lrec = self.serial_comm('lrec')
-    #         self._data += f"{dtm} {lrec}\n"
-    #         self.logger.debug(f"[{self.name}] {lrec[:60]}[...]")
-    #     except Exception as err:
-    #         self.logger.error(f"[{self.name}] {err}")
-    #     finally:
-    #         self._io_lock.release()
     def accumulate_lrec(self):
         # If we recently saw repeated failures, stay quiet for a while.
         if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
