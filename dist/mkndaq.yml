@@ -166,7 +166,7 @@ ne300:
         angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
         interval: 60
     sampling_interval: 5            # minutes. logger retrieval interval
-    reporting_interval: 10
+    reporting_interval: 60
     data_path: ne300
     staging_path: ne300
     staging_zip: True
