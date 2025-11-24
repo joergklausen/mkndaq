@@ -83,6 +83,12 @@ class Thermo49C:
                     timeout=config[port]['timeout'],
                     write_timeout=config[port].get('write_timeout', 2.0),
                 )
+                # track repeated communication failures and back off if necessary
+                self._fail_count = 0
+                self._max_fail_before_cooldown = 5   # consecutive failing commands
+                self._cooldown_seconds = 300         # pause 5 minutes after repeated failures
+                self._cooldown_until = 0.0           # unix timestamp until which we stay quiet
+
             except serial.SerialException as err:
                 self.logger.error(f"__init__ produced SerialException {err}")
                 pass
@@ -140,61 +146,50 @@ class Thermo49C:
             self.logger.error(f"[{self.name}] {err}")
 
 
-    # def serial_comm(self, cmd: str) -> str:
-    #     """
-    #     Send a command and retrieve the response. Assumes an open connection and will try to open it if closed.
+    # def serial_comm(self, cmd: str, retries: int = 3) -> str:
+    #     _id = bytes([self._id])
+    #     for i in range(retries):
+    #         try:
+    #             if not self._serial.is_open:
+    #                 self._serial.open()
+    #             # clear stale buffers instead of flushing after write
+    #             self._serial.reset_input_buffer()
+    #             self._serial.reset_output_buffer()
 
-    #     :param cmd: command sent to instrument
-    #     :return: response of instrument, decoded
-    #     """
-    #     id = bytes([self._id])
-    #     try:
-    #         rcvd = b''
-    #         if self._serial.closed:
-    #             self._serial.open()
-            
-    #         self._serial.write(id + (f"{cmd}\x0D").encode())
-    #         time.sleep(0.5)
+    #             self._serial.write(_id + (f"{cmd}\r").encode())  # uses write_timeout
+    #             rcvd = b""
+    #             deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
+    #             while time.monotonic() < deadline:
+    #                 if self._serial.in_waiting:
+    #                     rcvd += self._serial.read(self._serial.in_waiting)
+    #                     if b"*" in rcvd or rcvd.endswith(b"\r"):
+    #                         break
+    #                 time.sleep(0.05)
 
-    #         # test if this improves stability
-    #         self._serial.flush()
-    #         # end test
-
-    #         deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
-
-    #         # while (self._serial.in_waiting > 0):
-    #         while (self._serial.in_waiting > 0) and (time.monotonic() < deadline):
-    #             rcvd = rcvd + self._serial.read(1024)
-    #             time.sleep(0.1)
-                
-    #         rcvd = rcvd.decode()
-    #         # remove checksum after and including the '*'
-    #         rcvd = rcvd.split("*")[0]
-    #         # remove cmd echo
-    #         rcvd = rcvd.replace(cmd, "").strip()
-    #         return rcvd
-
-    #     except serial.SerialException as err:
-    #         self.logger.error(f"serial_comm SerialException: {err}")
-    #         pass
-    #         return ""
-    #     except Exception as err:
-    #         self.logger.error(f"serial_comm: {err}")
-    #         pass
-    #         return ""
+    #             text = rcvd.decode(errors="ignore").split("*")[0].replace(cmd, "").strip()
+    #             if text:
+    #                 return text
+    #             raise serial.SerialTimeoutException("empty response")
+    #         except (serial.SerialTimeoutException, serial.SerialException) as err:
+    #             self.logger.error(f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}")
+    #             try: self._serial.close()
+    #             except Exception: pass
+    #             time.sleep(min(0.5 * (2 ** i), 3.0))
+    #     return ""
     def serial_comm(self, cmd: str, retries: int = 3) -> str:
         _id = bytes([self._id])
         for i in range(retries):
             try:
                 if not self._serial.is_open:
                     self._serial.open()
+
                 # clear stale buffers instead of flushing after write
                 self._serial.reset_input_buffer()
                 self._serial.reset_output_buffer()
 
                 self._serial.write(_id + (f"{cmd}\r").encode())  # uses write_timeout
                 rcvd = b""
-                deadline = time.monotonic() + max(self._serial.timeout or 1.0, 1.0)
+                deadline = time.monotonic() + max(self._serial.timeout or 1.5, 1.5)
                 while time.monotonic() < deadline:
                     if self._serial.in_waiting:
                         rcvd += self._serial.read(self._serial.in_waiting)
@@ -204,13 +199,41 @@ class Thermo49C:
 
                 text = rcvd.decode(errors="ignore").split("*")[0].replace(cmd, "").strip()
                 if text:
+                    # success: reset fail counter and cooldown
+                    self._fail_count = 0
+                    self._cooldown_until = 0.0
                     return text
+
+                # nothing useful received within deadline
                 raise serial.SerialTimeoutException("empty response")
-            except (serial.SerialTimeoutException, serial.SerialException) as err:
+
+            except (serial.SerialTimeoutException, serial.SerialException, OSError) as err:
+                # OSError covers the ClearCommError/WriteFile "handle is invalid" cases on Windows
                 self.logger.error(f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}")
-                try: self._serial.close()
-                except Exception: pass
+
+                # be defensive: close the port if it's in a weird state
+                try:
+                    if hasattr(self, "_serial") and self._serial.is_open:
+                        self._serial.close()
+                except Exception:
+                    pass
+
+                # bump failure count and maybe enter a longer cooldown
+                self._fail_count = getattr(self, "_fail_count", 0) + 1
+                max_fail = getattr(self, "_max_fail_before_cooldown", 5)
+                if self._fail_count >= max_fail:
+                    self._cooldown_until = time.time() + getattr(self, "_cooldown_seconds", 300)
+                    self.logger.error(
+                        f"[{self.name}] communication failing repeatedly; "
+                        f"backing off for {self._cooldown_seconds}s."
+                    )
+                    # don't keep retrying in this call; just return ""
+                    break
+
+                # short, bounded backoff between retries
                 time.sleep(min(0.5 * (2 ** i), 3.0))
+
+        # all retries exhausted or we bailed due to cooldown
         return ""
 
 
@@ -274,23 +297,25 @@ class Thermo49C:
 
 
     # def accumulate_lrec(self):
-    #     """
-    #     Send command, retrieve response from instrument and append to self._data.
-    #     """
+    #     if not self._io_lock.acquire(blocking=False):
+    #         return
     #     try:
     #         dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     #         lrec = self.serial_comm('lrec')
-
     #         self._data += f"{dtm} {lrec}\n"
     #         self.logger.debug(f"[{self.name}] {lrec[:60]}[...]")
-
-    #         return
-
     #     except Exception as err:
     #         self.logger.error(f"[{self.name}] {err}")
+    #     finally:
+    #         self._io_lock.release()
     def accumulate_lrec(self):
+        # If we recently saw repeated failures, stay quiet for a while.
+        if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
+            return
+
         if not self._io_lock.acquire(blocking=False):
             return
+
         try:
             dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             lrec = self.serial_comm('lrec')
@@ -300,7 +325,6 @@ class Thermo49C:
             self.logger.error(f"[{self.name}] {err}")
         finally:
             self._io_lock.release()
-
 
 
     def _save_data(self) -> None:
@@ -368,6 +392,10 @@ class Thermo49C:
 
 
     def print_o3(self) -> None:
+        # don't hammer the port while in cooldown
+        if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
+            return
+
         acquired = self._io_lock.acquire(blocking=False)
         if not acquired:
             return
