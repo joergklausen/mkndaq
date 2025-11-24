@@ -41,28 +41,28 @@ COM1:
     bytesize: 8
     stopbits: 1
     parity: N
-    timeout: 0.1
+    timeout: 1
 COM2:
     protocol: RS232     # don't change!
     baudrate: 9600
     bytesize: 8
     stopbits: 1
     parity: N
-    timeout: 0.1
+    timeout: 1
 COM3:
     protocol: RS232     # don't change!
     baudrate: 9600
     bytesize: 8
     stopbits: 1
     parity: N
-    timeout: 0.1
+    timeout: 1
 COM4:
     protocol: RS232     # don't change!
     baudrate: 9600
     bytesize: 8
     stopbits: 1
     parity: N
-    timeout: 0.1
+    timeout: 1
 
 # instrument specification
 tei49c:
