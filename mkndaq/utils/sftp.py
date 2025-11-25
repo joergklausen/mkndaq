@@ -386,7 +386,7 @@ class SFTPClient:
                 raise FileNotFoundError(f"Local path '{local_base}' does not exist.")
             remote_base = PurePosixPath(remote_path or self.remote_path)
 
-            self.logger.info(f"Starting file transfer: {local_base} -> {remote_base}")
+            self.logger.info(f"Starting SFTP file transfer: {local_base} -> {remote_base}")
 
             with paramiko.SSHClient() as ssh:
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

@@ -222,10 +222,12 @@ class S3FSC:
 
 
             if not files:
-                logger.debug("No files to transfer from '%s'", local_base)
+                logger.info("No files to transfer from '%s'", local_base)
                 return
 
             key_prefix_str = str(key_prefix).strip("/") if key_prefix else None
+
+            logger.info(f"Starting S3 file transfer: {local_base} -> {key_prefix_str}")
 
             for f in files:
                 key = self._make_final_key(f, base, key_prefix_str)
