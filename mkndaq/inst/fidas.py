@@ -14,6 +14,60 @@ from mkndaq.utils.utils import setup_logging
 
 class FIDAS:
     def __init__(self, config: dict, name: str='fidas'):
+        """FIDAS data acquisition class.
+
+        | Channel | Meaning (short)                   | Unit                             |
+        | ------: | --------------------------------- | -------------------------------- |
+        |  **0**  |                                   |                                  |
+        |  **14** | ? (values in the range 65-66)     |                                  |
+        |  **15** | ? (steps between 0 and 75)        |                                  |
+        |  **16** | ? (values ca 3300-3550)           |                                  |
+        |  **18** | ? (values between 12.5-13)        |                                  |
+        |  **19** | ? (values between 19-29)          |                                  |
+        |  **20** | ? (similar to 18)                 |                                  |
+        |  **21** | ? (strange pattern, ca 0.0-1.0)   |                                  |
+        |  **22** | ? (always 1, with small gaps)     |                                  |
+        |  **23** | Aerosol pump power                | %                                |
+        |  **23** | Aerosol pump power                | %                                |
+        |  **23** | Aerosol pump power                | %                                |
+        |  **23** | Aerosol pump power                | %                                |
+        |  **24** | IADS temperature                  | °C                               |
+        |  **26** | ?? LED temperature ??             | °C                               |
+        |  **27** | Volume flow                       | L/min                            |
+        |  **29** | ? 0.3-0.6 up to 20, large gap     |                                  |
+
+        |  **35** | Air Quality Index (AQI)           | % (AQI index, 0–101 range in UI) |
+        |  **36** | Infection Risk Index              | %                                |
+        |  **40** | Air temperature                   | °C                               |
+        |  **41** | Relative humidity                 | %                                |
+        |  **47** | Air pressure                      | hPa                              |
+        |  **50** | CO₂ concentration                 | ppm                              |
+        |  **51** | VOC mass concentration            | mg/m³                            |
+        |  **60** | Particle number concentration Cn  | particles/cm³                    |
+        |  **61** | PM₁ mass concentration            | µg/m³                            |
+        |  **62** | PM₂.₅ mass concentration          | µg/m³                            |
+        |  **63** | PM₄ mass concentration            | µg/m³                            |
+        |  **64** | PM₁₀ mass concentration           | µg/m³                            |
+        |  **65** | PM_total (TSP) mass concentration | µg/m³                            |
+
+        The data channels from channel 110 onward each give the number concentration in particles/cm³ for the specified interval. 
+        The following list shows the lower and upper limits of the intervals (X_uk, X_ok).
+        Examples:
+        |     Channel | Lower bound Xᵤₖ [µm] | Upper bound Xₒₖ [µm] |
+        | ----------: | -------------------- | -------------------- |
+        |         110 | 0.1778               | 0.1911               |
+        |         111 | 0.1911               | 0.2054               |
+        |         112 | 0.2054               | 0.2207               |
+        |         113 | 0.2207               | 0.2371               |
+        |         114 | 0.2371               | 0.2548               |
+        |           … | …                    | …                    |
+        | up to ~141+ | …                    | …                    |
+
+
+        Args:
+            config (dict): Configuration dictionary.
+            name (str, optional): Name of the instrument. Defaults to 'fidas'.
+        """
         colorama.init(autoreset=True)
 
         self.name = name
