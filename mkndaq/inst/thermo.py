@@ -281,7 +281,8 @@ class Thermo49C:
 
         rcvd = b""
         timeout = self._serial.timeout or 1.5
-        deadline = time.monotonic() + max(timeout, 1.5)
+        read_window = max(timeout, 2.0)  # give the 49C a bit more time
+        deadline = time.monotonic() + read_window
         while time.monotonic() < deadline:
             waiting = self._serial.in_waiting
             if waiting:
@@ -360,23 +361,25 @@ class Thermo49C:
             return list()
 
 
-    def accumulate_lrec(self):
+    def accumulate_lrec(self) -> None:
+        """Send lrec, append response to buffer, respecting cooldown.
+
+        Locking, retries and cooldown are handled by @with_serial on serial_comm().
+        """
         # If we recently saw repeated failures, stay quiet for a while.
         if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
             return
 
-        if not self._io_lock.acquire(blocking=False):
-            return
-
         try:
             dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            lrec = self.serial_comm('lrec')
+            lrec = self.serial_comm("lrec")  # @with_serial handles locking
+            if not lrec:
+                return  # no data, nothing to append
+
             self._data += f"{dtm} {lrec}\n"
             self.logger.debug(f"[{self.name}] {lrec[:60]}[...]")
         except Exception as err:
             self.logger.error(f"[{self.name}] {err}")
-        finally:
-            self._io_lock.release()
 
 
     def _save_data(self) -> None:
@@ -443,25 +446,27 @@ class Thermo49C:
             return ""
 
 
-    def print_o3(self) -> None:
-        # don't hammer the port while in cooldown
-        if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
-            return
+def print_o3(self) -> None:
+    """Log a one-shot O3 readout.
 
-        acquired = self._io_lock.acquire(blocking=False)
-        if not acquired:
-            return
-        try:
-            o3 = self.get_o3().split()
-            if len(o3) == 2:
-                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}")
-            elif len(o3) == 3:
-                self.logger.info(colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}")
-        except Exception as err:
-            self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
-        finally:
-            if acquired:
-                self._io_lock.release()
+    Locking and retries are handled by @with_serial on serial_comm().
+    """
+    # don't hammer the port while in cooldown
+    if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
+        return
+
+    try:
+        o3 = self.get_o3().split()
+        if len(o3) == 2:
+            self.logger.info(
+                colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}"
+            )
+        elif len(o3) == 3:
+            self.logger.info(
+                colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}"
+            )
+    except Exception as err:
+        self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
 
 
     def get_all_rec(self, capacity=[1790, 4096], save=True) -> str:
