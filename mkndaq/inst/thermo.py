@@ -328,6 +328,7 @@ class Thermo49C:
                         if rcvd and (now - last_rx) > idle_limit:
                             break
                         time.sleep(0.02)
+                self.logger.debug(f"[{self.name}] start: {start}, {cmd}: serial_comm received: {rcvd!r}")
 
                 # Tidy up: strip checksum and echo, then whitespace
                 text = (
