@@ -18,9 +18,62 @@ import schedule
 import serial
 
 
+# def with_serial(func):
+#     @functools.wraps(func)
+#     def wrapper(self, *args, retries: int = 3, **kwargs) -> str:
+#         # cooldown gate
+#         now = time.time()
+#         if getattr(self, "_cooldown_until", 0.0) > now:
+#             return ""
+
+#         # non-overlapping I/O
+#         if not self._io_lock.acquire(blocking=False):
+#             return ""
+
+#         try:
+#             last_err = None
+#             for i in range(retries):
+#                 try:
+#                     if not self._serial.is_open:
+#                         self._serial.open()
+#                     # one attempt: protocol-specific code
+#                     result = func(self, *args, **kwargs)
+#                     # success
+#                     self._fail_count = 0
+#                     self._cooldown_until = 0.0
+#                     return result
+#                 except (serial.SerialTimeoutException, serial.SerialException, OSError) as err:
+#                     last_err = err
+#                     self.logger.error(
+#                         f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}"
+#                     )
+#                     try:
+#                         if self._serial.is_open:
+#                             self._serial.close()
+#                     except Exception:
+#                         pass
+
+#                     self._fail_count = getattr(self, "_fail_count", 0) + 1
+#                     max_fail = getattr(self, "_max_fail_before_cooldown", 5)
+#                     cooldown = getattr(self, "_cooldown_seconds", 120)
+#                     if self._fail_count >= max_fail:
+#                         self._cooldown_until = time.time() + cooldown
+#                         self.logger.error(
+#                             f"[{self.name}] communication failing repeatedly; "
+#                             f"backing off for {cooldown}s."
+#                         )
+#                         break
+
+#                     time.sleep(min(0.5 * (2 ** i), 3.0))
+
+#             # all retries failed
+#             return ""
+#         finally:
+#             self._io_lock.release()
+#     return wrapper
 def with_serial(func):
     @functools.wraps(func)
-    def wrapper(self, *args, retries: int = 3, **kwargs) -> str:
+    def wrapper(self, cmd: str, *args, retries: int = 3, **kwargs) -> str:
         # cooldown gate
         now = time.time()
         if getattr(self, "_cooldown_until", 0.0) > now:
@@ -31,21 +84,39 @@ def with_serial(func):
             return ""
 
         try:
-            last_err = None
+            last_err: Exception | None = None
             for i in range(retries):
                 try:
                     if not self._serial.is_open:
                         self._serial.open()
-                    # one attempt: protocol-specific code
-                    result = func(self, *args, **kwargs)
-                    # success
-                    self._fail_count = 0
-                    self._cooldown_until = 0.0
-                    return result
+
+                    resp = func(self, cmd, *args, **kwargs)
+
+                    if resp:
+                        # success
+                        self._fail_count = 0
+                        self._cooldown_until = 0.0
+                        return resp
+
+                    # Empty / incomplete response -> treat like a soft timeout
+                    if i < retries - 1:
+                        self.logger.debug(
+                            f"[{self.name}] serial_comm attempt {i+1}/{retries} "
+                            f"returned empty for {cmd!r}; retrying..."
+                        )
+                    else:
+                        self.logger.error(
+                            f"[{self.name}] serial_comm empty response after "
+                            f"{retries} attempts for {cmd!r}"
+                        )
+
                 except (serial.SerialTimeoutException, serial.SerialException, OSError) as err:
                     last_err = err
-                    self.logger.error(
-                        f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}"
+                    # Only escalate to ERROR on the last attempt; warn before that
+                    level = logging.WARNING if i < retries - 1 else logging.ERROR
+                    self.logger.log(
+                        level,
+                        f"[{self.name}] serial_comm attempt {i+1}/{retries} failed for {cmd!r}: {err}",
                     )
                     try:
                         if self._serial.is_open:
@@ -53,23 +124,23 @@ def with_serial(func):
                     except Exception:
                         pass
 
-                    self._fail_count = getattr(self, "_fail_count", 0) + 1
-                    max_fail = getattr(self, "_max_fail_before_cooldown", 5)
-                    cooldown = getattr(self, "_cooldown_seconds", 120)
-                    if self._fail_count >= max_fail:
-                        self._cooldown_until = time.time() + cooldown
-                        self.logger.error(
-                            f"[{self.name}] communication failing repeatedly; "
-                            f"backing off for {cooldown}s."
-                        )
-                        break
+                # Backoff before next try
+                time.sleep(min(0.5 * (2 ** i), 3.0))
 
-                    time.sleep(min(0.5 * (2 ** i), 3.0))
-
-            # all retries failed
+            # All attempts failed or empty
+            self._fail_count = getattr(self, "_fail_count", 0) + 1
+            max_fail = getattr(self, "_max_fail_before_cooldown", 5)
+            cooldown = getattr(self, "_cooldown_seconds", 120)
+            if self._fail_count >= max_fail:
+                self._cooldown_until = time.time() + cooldown
+                self.logger.error(
+                    f"[{self.name}] communication failing repeatedly; "
+                    f"backing off for {cooldown}s."
+                )
             return ""
         finally:
             self._io_lock.release()
+
     return wrapper
 
 
@@ -194,206 +265,46 @@ class Thermo49C:
             self.logger.error(f"[{self.name}] {err}")
 
 
-    # def serial_comm(self, cmd: str, retries: int = 3) -> str:
-    #     _id = bytes([self._id])
-
-    #     for i in range(retries):
-    #         try:
-    #             if not self._serial.is_open:
-    #                 self._serial.open()
-
-    #             # clear stale buffers once per call (first attempt only)
-    #             if i == 0:
-    #                 self._serial.reset_input_buffer()
-    #                 self._serial.reset_output_buffer()
-
-    #             # send command
-    #             self._serial.write(_id + (f"{cmd}\r").encode())  # uses write_timeout
-
-    #             # read with bounded deadline
-    #             rcvd = b""
-    #             timeout = self._serial.timeout or 1.5
-    #             deadline = time.monotonic() + max(timeout, 1.5)
-    #             while time.monotonic() < deadline:
-    #                 waiting = self._serial.in_waiting
-    #                 if waiting:
-    #                     rcvd += self._serial.read(waiting)
-    #                     if b"*" in rcvd or rcvd.endswith(b"\r"):
-    #                         break
-    #                 time.sleep(0.05)
-
-    #             text = (
-    #                 rcvd.decode(errors="ignore")
-    #                 .split("*")[0]
-    #                 .replace(cmd, "")
-    #                 .strip()
-    #             )
-
-    #             if text:
-    #                 # success: reset fail counter and cooldown
-    #                 self._fail_count = 0
-    #                 self._cooldown_until = 0.0
-    #                 return text
-
-    #             # nothing useful received within deadline
-    #             raise serial.SerialTimeoutException("empty response")
-
-    #         except (serial.SerialTimeoutException, serial.SerialException, OSError) as err:
-    #             # OSError covers the ClearCommError/WriteFile "handle is invalid" cases on Windows
-    #             self.logger.error(
-    #                 f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}"
-    #             )
-
-    #             # be defensive: close the port if it's in a weird state
-    #             try:
-    #                 if hasattr(self, "_serial") and self._serial.is_open:
-    #                     self._serial.close()
-    #             except Exception:
-    #                 pass
-
-    #             # bump failure count and maybe enter a longer cooldown
-    #             self._fail_count = getattr(self, "_fail_count", 0) + 1
-    #             max_fail = getattr(self, "_max_fail_before_cooldown", 5)
-    #             cooldown = getattr(self, "_cooldown_seconds", 120)
-    #             if self._fail_count >= max_fail:
-    #                 self._cooldown_until = time.time() + cooldown
-    #                 self.logger.error(
-    #                     f"[{self.name}] communication failing repeatedly; "
-    #                     f"backing off for {cooldown}s."
-    #                 )
-    #                 # don't keep retrying in this call; just return ""
-    #                 break
-
-    #             # short, bounded backoff between retries
-    #             time.sleep(min(0.5 * (2 ** i), 3.0))
-
-    #     # all retries exhausted or we bailed due to cooldown
-    #     return ""
     @with_serial
-    def serial_comm(self, cmd: str, retries: int = 3) -> str:
-        """Send `cmd` to the TEI49C over serial and return the tidy reply."""
+    def serial_comm(self, cmd: str) -> str:
         _id = bytes([self._id])
 
-        # Derive a reasonable max read window from the port timeout
-        port_timeout = self._serial.timeout or 0.5
-        read_window = max(port_timeout * 2.0, 1.0)  # total wall-clock budget
-        idle_limit = 0.25  # how long we tolerate "no new bytes" once something arrived
+        # Clear stale buffers once per call
+        self._serial.reset_input_buffer()
+        self._serial.reset_output_buffer()
 
-        for i in range(retries):
-            try:
-                if not self._serial.is_open:
-                    self._serial.open()
+        # Send command
+        self._serial.write(_id + (f"{cmd}\r").encode())
+        self._serial.flush()
+        # Optional: tiny think-time for the 49C; safe to keep small
+        # time.sleep(0.05)
 
-                # Only purge buffers on the first attempt of this call
-                if i == 0:
-                    self._serial.reset_input_buffer()
-                    self._serial.reset_output_buffer()
+        rcvd = b""
+        timeout = self._serial.timeout or 1.0
+        # Allow a bit more than the per-byte timeout in total
+        deadline = time.monotonic() + max(2 * timeout, 2.0)
 
-                # Send command (instrument expects ID + cmd + CR)
-                self._serial.write(_id + (f"{cmd}\r").encode())
+        while time.monotonic() < deadline:
+            # Always try to read; let pyserial's timeout handle blocking
+            chunk = self._serial.read(1024)
+            if chunk:
+                rcvd += chunk
+                # Most TEI replies end with CR and may optionally have a '*checksum'
+                if b"*" in rcvd or rcvd.endswith(b"\r"):
+                    break
+            else:
+                # No bytes this iteration -> loop again until deadline
+                # (pyserial has already waited up to `timeout` for us)
+                pass
 
-                rcvd = b""
-                start = time.monotonic()
-                last_rx = start
-
-                while True:
-                    now = time.monotonic()
-                    if now - start > read_window:
-                        # hard stop: out of budget
-                        break
-
-                    waiting = self._serial.in_waiting
-                    if waiting:
-                        chunk = self._serial.read(waiting)
-                        if not chunk:
-                            # pyserial timed out mid-read; treat like no data
-                            continue
-
-                        rcvd += chunk
-                        last_rx = now
-
-                        # Stop as soon as the line "looks complete"
-                        if b"*" in rcvd:
-                            # checksum marker seen – typical for lrXX records
-                            break
-                        if (
-                            rcvd.endswith(b"\r")
-                            or rcvd.endswith(b"\n")
-                            or rcvd.endswith(b"\r\n")
-                        ):
-                            break
-                    else:
-                        # No new bytes right now. If we already have some data and
-                        # we've been idle for a bit, assume the line is done.
-                        if rcvd and (now - last_rx) > idle_limit:
-                            break
-                        time.sleep(0.02)
-                self.logger.debug(f"[{self.name}] start: {start}, {cmd}: serial_comm received: {rcvd!r}")
-
-                # Tidy up: strip checksum and echo, then whitespace
-                text = (
-                    rcvd.decode(errors="ignore")
-                    .split("*", 1)[0]          # drop checksum if present
-                    .replace(cmd, "", 1)       # remove leading echo only
-                    .strip()
-                )
-
-                if text:
-                    return text
-
-                # Got nothing meaningful within our window
-                raise serial.SerialTimeoutException(
-                    f"empty or incomplete response for {cmd!r}: {rcvd!r}"
-                )
-
-            except (serial.SerialTimeoutException, serial.SerialException, OSError) as err:
-                # Only shout on the last attempt; earlier ones are just diagnostics
-                log = self.logger.error if i == retries - 1 else self.logger.debug
-                log(f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}")
-
-                # Be defensive: close port on any communication failure
-                try:
-                    if self._serial.is_open:
-                        self._serial.close()
-                except Exception:
-                    pass
-
-                # Short exponential backoff between retries
-                time.sleep(min(0.5 * (2 ** i), 3.0))
-
-        # All attempts exhausted
-        return ""
-
-    # def serial_comm(self, cmd: str) -> str:
-    #     _id = bytes([self._id])
-
-    #     # clear stale buffers once per call
-    #     self._serial.reset_input_buffer()
-    #     self._serial.reset_output_buffer()
-
-    #     self._serial.write(_id + (f"{cmd}\r").encode())
-
-    #     rcvd = b""
-    #     timeout = self._serial.timeout or 1.5
-    #     read_window = max(timeout, 2.0)  # give the 49C a bit more time
-    #     deadline = time.monotonic() + read_window
-    #     while time.monotonic() < deadline:
-    #         waiting = self._serial.in_waiting
-    #         if waiting:
-    #             rcvd += self._serial.read(waiting)
-    #             if b"*" in rcvd or rcvd.endswith(b"\r"):
-    #                 break
-    #         time.sleep(0.05)
-
-    #     text = (
-    #         rcvd.decode(errors="ignore")
-    #         .split("*")[0]
-    #         .replace(cmd, "")
-    #         .strip()
-    #     )
-    #     if not text:
-    #         raise serial.SerialTimeoutException("empty response")
-    #     return text
+        text = (
+            rcvd.decode(errors="ignore")
+            .split("*")[0]  # drop checksum if present
+            .replace(cmd, "")
+            .strip()
+        )
+        # Important: don't raise here – let the wrapper decide how to treat ""
+        return text
 
 
     def get_config(self) -> list:
