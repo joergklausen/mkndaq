@@ -270,36 +270,129 @@ class Thermo49C:
     #     # all retries exhausted or we bailed due to cooldown
     #     return ""
     @with_serial
-    def serial_comm(self, cmd: str) -> str:
+    def serial_comm(self, cmd: str, retries: int = 3) -> str:
+        """Send `cmd` to the TEI49C over serial and return the tidy reply."""
         _id = bytes([self._id])
 
-        # clear stale buffers once per call
-        self._serial.reset_input_buffer()
-        self._serial.reset_output_buffer()
+        # Derive a reasonable max read window from the port timeout
+        port_timeout = self._serial.timeout or 0.5
+        read_window = max(port_timeout * 2.0, 1.0)  # total wall-clock budget
+        idle_limit = 0.25  # how long we tolerate "no new bytes" once something arrived
 
-        self._serial.write(_id + (f"{cmd}\r").encode())
+        for i in range(retries):
+            try:
+                if not self._serial.is_open:
+                    self._serial.open()
 
-        rcvd = b""
-        timeout = self._serial.timeout or 1.5
-        read_window = max(timeout, 2.0)  # give the 49C a bit more time
-        deadline = time.monotonic() + read_window
-        while time.monotonic() < deadline:
-            waiting = self._serial.in_waiting
-            if waiting:
-                rcvd += self._serial.read(waiting)
-                if b"*" in rcvd or rcvd.endswith(b"\r"):
-                    break
-            time.sleep(0.05)
+                # Only purge buffers on the first attempt of this call
+                if i == 0:
+                    self._serial.reset_input_buffer()
+                    self._serial.reset_output_buffer()
 
-        text = (
-            rcvd.decode(errors="ignore")
-            .split("*")[0]
-            .replace(cmd, "")
-            .strip()
-        )
-        if not text:
-            raise serial.SerialTimeoutException("empty response")
-        return text
+                # Send command (instrument expects ID + cmd + CR)
+                self._serial.write(_id + (f"{cmd}\r").encode())
+
+                rcvd = b""
+                start = time.monotonic()
+                last_rx = start
+
+                while True:
+                    now = time.monotonic()
+                    if now - start > read_window:
+                        # hard stop: out of budget
+                        break
+
+                    waiting = self._serial.in_waiting
+                    if waiting:
+                        chunk = self._serial.read(waiting)
+                        if not chunk:
+                            # pyserial timed out mid-read; treat like no data
+                            continue
+
+                        rcvd += chunk
+                        last_rx = now
+
+                        # Stop as soon as the line "looks complete"
+                        if b"*" in rcvd:
+                            # checksum marker seen – typical for lrXX records
+                            break
+                        if (
+                            rcvd.endswith(b"\r")
+                            or rcvd.endswith(b"\n")
+                            or rcvd.endswith(b"\r\n")
+                        ):
+                            break
+                    else:
+                        # No new bytes right now. If we already have some data and
+                        # we've been idle for a bit, assume the line is done.
+                        if rcvd and (now - last_rx) > idle_limit:
+                            break
+                        time.sleep(0.02)
+
+                # Tidy up: strip checksum and echo, then whitespace
+                text = (
+                    rcvd.decode(errors="ignore")
+                    .split("*", 1)[0]          # drop checksum if present
+                    .replace(cmd, "", 1)       # remove leading echo only
+                    .strip()
+                )
+
+                if text:
+                    return text
+
+                # Got nothing meaningful within our window
+                raise serial.SerialTimeoutException(
+                    f"empty or incomplete response for {cmd!r}: {rcvd!r}"
+                )
+
+            except (serial.SerialTimeoutException, serial.SerialException, OSError) as err:
+                # Only shout on the last attempt; earlier ones are just diagnostics
+                log = self.logger.error if i == retries - 1 else self.logger.debug
+                log(f"[{self.name}] serial_comm attempt {i+1}/{retries} failed: {err}")
+
+                # Be defensive: close port on any communication failure
+                try:
+                    if self._serial.is_open:
+                        self._serial.close()
+                except Exception:
+                    pass
+
+                # Short exponential backoff between retries
+                time.sleep(min(0.5 * (2 ** i), 3.0))
+
+        # All attempts exhausted
+        return ""
+
+    # def serial_comm(self, cmd: str) -> str:
+    #     _id = bytes([self._id])
+
+    #     # clear stale buffers once per call
+    #     self._serial.reset_input_buffer()
+    #     self._serial.reset_output_buffer()
+
+    #     self._serial.write(_id + (f"{cmd}\r").encode())
+
+    #     rcvd = b""
+    #     timeout = self._serial.timeout or 1.5
+    #     read_window = max(timeout, 2.0)  # give the 49C a bit more time
+    #     deadline = time.monotonic() + read_window
+    #     while time.monotonic() < deadline:
+    #         waiting = self._serial.in_waiting
+    #         if waiting:
+    #             rcvd += self._serial.read(waiting)
+    #             if b"*" in rcvd or rcvd.endswith(b"\r"):
+    #                 break
+    #         time.sleep(0.05)
+
+    #     text = (
+    #         rcvd.decode(errors="ignore")
+    #         .split("*")[0]
+    #         .replace(cmd, "")
+    #         .strip()
+    #     )
+    #     if not text:
+    #         raise serial.SerialTimeoutException("empty response")
+    #     return text
 
 
     def get_config(self) -> list:
