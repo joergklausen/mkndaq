@@ -23,8 +23,8 @@ class FIDAS:
         |  **15** | ? (steps between 0 and 75)        |                                  |
         |  **16** | ? (values ca 3300-3550)           |                                  |
         |  **18** | ? (values between 12.5-13)        |                                  |
-        |  **19** | ? (values between 19-29)          |                                  |
-        |  **20** | ? (similar to 18)                 |                                  |
+        |  **19** | LED status                        |                                  |               
+        |  **20** | General operating status          |                                  |
         |  **21** | ? (strange pattern, ca 0.0-1.0)   |                                  |
         |  **22** | ? (always 1, with small gaps)     |                                  |
         |  **23** | Aerosol pump power                | %                                |

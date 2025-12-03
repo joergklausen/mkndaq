@@ -1,17 +1,17 @@
 file: mkndaq.yml
-version: 2025-05-20
+version: 2025-12-03
 
 # local root directory
 root: ~/Documents/mkndaq
-
-# data directory, relative to root
-data: data
 
 # log directory, relative to root
 logging:
   file: mkndaq.log
   level_console: INFO
   level_file: ERROR
+
+# data directory, relative to root
+data: data
 
 # staging area for transfer, relative to root
 staging: staging

@@ -79,7 +79,7 @@ def main():
         if cfg.get("s3"):
             # You can control these via mkndaq.yml's s3.* or override here if needed
             s3fsc = S3FSC(
-                cfg,
+                config=cfg,
                 use_proxies=bool(cfg["s3"].get("use_proxies", True)),
                 addressing_style=cfg["s3"].get("addressing_style", "path"),
                 verify=cfg["s3"].get("verify", True),
@@ -123,7 +123,7 @@ def main():
                     sftp.setup_transfer_schedules(local_path=str(tei49c.staging_path),
                                                   remote_path=remote_path,
                                                   interval=tei49c.reporting_interval, 
-                                                  delay_transfer=5,
+                                                  delay_transfer=15,
                                                   remove_on_success=True,
                                                   )
 
@@ -148,7 +148,7 @@ def main():
                     sftp.setup_transfer_schedules(local_path=str(tei49i.staging_path),
                                                   remote_path=remote_path,
                                                   interval=tei49i.reporting_interval,
-                                                  delay_transfer=5,
+                                                  delay_transfer=15,
                                                   remove_on_success=True,
                                                   )
 
@@ -194,7 +194,7 @@ def main():
                     sftp.setup_transfer_schedules(local_path=str(g2401.staging_path),
                                                   remote_path=remote_path,
                                                   interval=g2401.reporting_interval,
-                                                  delay_transfer=5,
+                                                  delay_transfer=15,
                                                   remove_on_success=True,
                                                   )
 
@@ -219,10 +219,43 @@ def main():
                     sftp.setup_transfer_schedules(local_path=str(meteo.staging_path),
                                                   remote_path=remote_path,
                                                   interval=meteo.reporting_interval,
-                                                  delay_transfer=5,
+                                                  delay_transfer=15,
                                                   remove_on_success=True,
                                                   )
 
+            if cfg.get('ne300', None):
+                from mkndaq.inst.neph import NEPH
+                ne300 = NEPH('ne300', cfg, verbosity=0)
+                ne300.setup_schedules()
+
+                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
+                
+                if s3fsc:
+                    s3fsc.setup_transfer_schedules(
+                        local_path=str(ne300.staging_path),
+                        key_prefix=ne300.remote_path,
+                        interval=ne300.reporting_interval,
+                        delay_transfer=2,
+                        remove_on_success=False,
+                    )
+                logger.info(
+                    f"[ne300] S3 schedule: local_path={ne300.staging_path}, key_prefix={ne300.remote_path}, "
+                    f"interval={ne300.reporting_interval}"
+                )
+
+                if sftp:
+                    remote_path = (PurePosixPath(sftp.remote_path) / ne300.remote_path).as_posix()
+                    sftp.setup_transfer_schedules(local_path=str(ne300.staging_path),
+                                                  remote_path=remote_path,
+                                                  interval=ne300.reporting_interval,
+                                                  delay_transfer=15,
+                                                  remove_on_success=True,
+                                                  )
+                logger.info(
+                    f"[ne300] SFTP schedule: local_path={ne300.staging_path}, remote_path={remote_path}, "
+                    f"interval={ne300.reporting_interval}"
+                )
+            
             if cfg.get('ae33', None):
                 from mkndaq.inst.ae33 import AE33
                 ae33 = AE33(name='ae33', config=cfg)
@@ -250,46 +283,15 @@ def main():
                     remote_path_logs = (PurePosixPath(sftp.remote_path) / ae33.remote_path_logs).as_posix()
                     sftp.setup_transfer_schedules(local_path=str(ae33.staging_path_data),
                                                   remote_path=remote_path_data,
-                                                  interval=ae33.reporting_interval)
+                                                  interval=ae33.reporting_interval,
+                                                  delay_transfer=15,)
                     sftp.setup_transfer_schedules(local_path=str(ae33.staging_path_logs),
                                                   remote_path=remote_path_logs,
-                                                  interval=ae33.reporting_interval)
+                                                  interval=ae33.reporting_interval,
+                                                  delay_transfer=15,)
 
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
 
-            if cfg.get('ne300', None):
-                from mkndaq.inst.neph import NEPH
-                ne300 = NEPH('ne300', cfg, verbosity=0)
-                ne300.setup_schedules()
-
-                schedule.every(fetch).seconds.do(run_threaded, ne300.print_ssp_bssp)
-                
-                if s3fsc:
-                    s3fsc.setup_transfer_schedules(
-                        local_path=str(ne300.staging_path),
-                        key_prefix=ne300.remote_path,
-                        interval=ne300.reporting_interval,
-                        delay_transfer=2,
-                        remove_on_success=False,
-                    )
-                logger.info(
-                    f"[ne300] S3 schedule: local_path={ne300.staging_path}, key_prefix={ne300.remote_path}, "
-                    f"interval={ne300.reporting_interval}"
-                )
-
-                if sftp:
-                    remote_path = (PurePosixPath(sftp.remote_path) / ne300.remote_path).as_posix()
-                    sftp.setup_transfer_schedules(local_path=str(ne300.staging_path),
-                                                  remote_path=remote_path,
-                                                  interval=ne300.reporting_interval,
-                                                  delay_transfer=5,
-                                                  remove_on_success=True,
-                                                  )
-                logger.info(
-                    f"[ne300] SFTP schedule: local_path={ne300.staging_path}, remote_path={remote_path}, "
-                    f"interval={ne300.reporting_interval}"
-                )
-            
             if cfg.get('tapo', None):
                 from mkndaq.inst.tapo import Tapo
 
