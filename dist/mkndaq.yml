@@ -102,6 +102,60 @@ tei49c:
     remote_path: tei49c
     # get_data: lrec              # warning: will be removed with v0.8.0
 
+tei49c-ps:
+    type: Thermo 49C-PS
+    id: 49
+    serial_number: 49C-PS-xxxxx-xxx
+    port: COM3
+    get_config:
+        - date
+        - time
+        - mode
+        - gas unit
+        - range
+        - avg time
+        - temp comp
+        - pres comp
+        - format
+        - lrec format
+        - o3 coef
+        - o3 bkg
+    set_config:
+        - set mode remote
+        - set gas unit ppb
+        - set range 1
+        - set avg time 3
+        - set temp comp on
+        - set pres comp on
+        - set format 00
+        - set lrec format 00 02
+        - set save params
+    data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
+    sampling_interval: 1        # minutes. How often should data be requested from instrument?
+    reporting_interval: 10
+    data_path: tei49c-ps
+    staging_path: tei49c-ps
+    staging_zip: True
+    remote_path: tei49c-ps
+    levels:
+        - 500
+        - 100
+        - 0
+        - 50
+        - 20
+        - 70
+        - 0
+        - 80
+        - 30
+        - 10
+        - 60
+        - 5
+        - 40
+        - 90
+        - 200
+        - 300
+    duration_minutes: 15
+
 tei49i:
     type: Thermo 49i
     id: 49
@@ -174,7 +228,7 @@ ne300:
     verbosity: 2                    # 0: silent, 1: medium, 2: full
     zero_span_check_interval: 780   # set this to 4380 (=73 hrs) for production
     zero_check_duration: 20         # set this to 30 for production
-    span_check_duration: 0         # set this to 30 for production
+    span_check_duration: 20         # set this to 30 for production
 
 g2401:
     type: Picarro G2401
