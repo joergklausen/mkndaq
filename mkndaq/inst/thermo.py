@@ -451,27 +451,27 @@ class Thermo49C:
             return ""
 
 
-def print_o3(self) -> None:
-    """Log a one-shot O3 readout.
+    def print_o3(self) -> None:
+        """Log a one-shot O3 readout.
 
-    Locking and retries are handled by @with_serial on serial_comm().
-    """
-    # don't hammer the port while in cooldown
-    if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
-        return
+        Locking and retries are handled by @with_serial on serial_comm().
+        """
+        # don't hammer the port while in cooldown
+        if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
+            return
 
-    try:
-        o3 = self.get_o3().split()
-        if len(o3) == 2:
-            self.logger.info(
-                colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}"
-            )
-        elif len(o3) == 3:
-            self.logger.info(
-                colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}"
-            )
-    except Exception as err:
-        self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
+        try:
+            o3 = self.get_o3().split()
+            if len(o3) == 2:
+                self.logger.info(
+                    colorama.Fore.GREEN + f"[{self.name}] O3 {float(o3[0]):0.1f} {o3[1]}"
+                )
+            elif len(o3) == 3:
+                self.logger.info(
+                    colorama.Fore.GREEN + f"[{self.name}] {o3[0].upper()} {float(o3[1]):0.1f} {o3[2]}"
+                )
+        except Exception as err:
+            self.logger.error(colorama.Fore.RED + f"[{self.name}] print_o3: {err}")
 
 
     def get_all_rec(self, capacity=[1790, 4096], save=True) -> str:
