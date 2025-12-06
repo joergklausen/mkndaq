@@ -737,6 +737,19 @@ class NEPH:
             self.logger.error(err)
             return dict()
 
+    def set_datalog_param_index(
+        self, 
+        index_id: int, 
+        parameter_id: int, 
+        wavelength_config_id: int=0,
+        )
+        param_base = 2003
+        wavelength_base = 2026
+        angle_base = 2069
+        if index_id > 0 and index_id < 33:
+            param_index_id = param_base + index_id
+            wavelength_index_id = wavelength_base + index_id
+            angle_index_id = angle_base + index_id
 
     def set_value(self, parameter_id: int, value: int, verify: bool=True, verbosity: int=0) -> int:
         """A.3.6 Sets the value of an instrument parameter.

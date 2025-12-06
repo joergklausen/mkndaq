@@ -10,7 +10,7 @@ import yaml
 
 # Adjust this import to your actual package structure, e.g.:
 # from mkndaq.inst.thermo import Thermo49C
-from inst.thermo import Thermo49C
+from mkndaq.inst.thermo import Thermo49C
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,14 @@ class Thermo49CPS(Thermo49C):
         cal_cfg = config.get(name, {})
 
         # Sequence of levels (ppb) and dwell time per level (minutes).
-        self.levels: list[float] = [float(x) for x in cal_cfg.get("levels", [])]
+        self.levels: list[int] = [int(x) for x in cal_cfg.get("levels", [])]
         self.level_duration_minutes: int = int(cal_cfg.get("duration_minutes", 15))
 
         # Template for the remote command that sets the level.
         # The value (in ppb) is passed in as {value}.
         # -> adapt this to the real TEI49C-PS syntax if needed.
         self.level_cmd_template: str = cal_cfg.get(
-            "level_cmd_template", "set o3 {value:.1f}"
+            "level_cmd_template", "set o3 conc {value}"
         )
 
         # Track the last requested level (ppb).
@@ -48,17 +48,17 @@ class Thermo49CPS(Thermo49C):
     # ------------------------------------------------------------------
     # High-level API
     # ------------------------------------------------------------------
-    def set_o3_level(self, level_ppb: float) -> str:
+    def set_o3_level(self, level_ppb: int) -> str:
         """Set the calibrator ozone concentration (in ppb).
 
         The actual command string is controlled by ``level_cmd_template``.
-        By default this sends e.g. "set o3 80.0" for 80 ppb.
+        By default this sends e.g. "set o3 conc 80" for 80 ppb.
         """
-        cmd = self.level_cmd_template.format(value=float(level_ppb))
+        cmd = self.level_cmd_template.format(value=int(level_ppb))
         reply = self.serial_comm(cmd)  # same helper as in Thermo49C
         self.current_level = float(level_ppb)
         self.logger.info(
-            "[%s] set_o3_level -> %.1f ppb (cmd=%r, reply=%r)",
+            "[%s] set_o3_level -> %d ppb (cmd=%r, reply=%r)",
             self.name,
             self.current_level,
             cmd,
@@ -84,7 +84,7 @@ class Thermo49CPS(Thermo49C):
 
             # Append the current setpoint; empty if none has been set yet.
             setpoint_str = (
-                "" if self.current_level is None else f" {self.current_level:.1f}"
+                "" if self.current_level is None else f" {self.current_level}"
             )
             self._data += f"{dtm} {lrec}{setpoint_str}\n"
             self.logger.debug(
@@ -97,13 +97,13 @@ class Thermo49CPS(Thermo49C):
             self.logger.error("[%s] accumulate_lrec: %s", self.name, err)
 
 
-def set_o3_level(calibrator: Thermo49CPS, level_ppb: float) -> str:
+def set_o3_level(calibrator: Thermo49CPS, level_ppb: int) -> str:
     """Free-function wrapper for convenience."""
     return calibrator.set_o3_level(level_ppb)
 
 
-def load_config(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as fh:
+def load_config(config_path: Path) -> dict:
+    with config_path.open("r", encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 
 
@@ -131,7 +131,7 @@ def run_calibration(
     calibrator.setup_schedules()
     analyzer.setup_schedules()
 
-    levels: Sequence[float] = calibrator.levels
+    levels: Sequence[int] = calibrator.levels
     if not levels:
         logger.error("No 'levels' configured for %s in %s", cal_name, config_path)
         return
@@ -148,7 +148,7 @@ def run_calibration(
 
     for level in levels:
         calibrator.set_o3_level(level)
-        logger.info("Holding %.1f ppb for %d minutes", level, duration_min)
+        logger.info("Holding %d ppb for %d minutes", level, duration_min)
 
         end = time.time() + duration_min * 60
         while time.time() < end:
