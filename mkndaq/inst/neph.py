@@ -742,7 +742,7 @@ class NEPH:
         index_id: int, 
         parameter_id: int, 
         wavelength_config_id: int=0,
-        )
+        ):
         param_base = 2003
         wavelength_base = 2026
         angle_base = 2069
