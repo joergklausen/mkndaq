@@ -324,26 +324,26 @@ hmp110-inlet:
     id: 3     # mainfold
     serial_number: U2110086  # aerosol inlet manyfold
     port: COM5
-    data_header: 
+    data_header: dtm,T,RH,Td
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     reporting_interval: 60
-    data_path: hmp110-3
-    staging_path: hmp110-3
-    staging_zip: False
-    remote_path: hmp110-3
+    data_path: hmp110-inlet
+    staging_path: hmp110-inlet
+    staging_zip: True
+    remote_path: hmp110-inlet
 
 hmp110-ae33:
     type: Vaisala HMP110
     id: 4     # inlet AE33
     serial_number: U2110081  # inlet AE33
     port: COM5
-    data_header: 
+    data_header: dtm,T,RH,Td
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     reporting_interval: 60
-    data_path: hmp110-4
-    staging_path: hmp110-4
-    staging_zip: False
-    remote_path: hmp110-4
+    data_path: hmp110-ae33
+    staging_path: hmp110-ae33
+    staging_zip: True
+    remote_path: hmp110-ae33
 
 test:
     remote_path: test
