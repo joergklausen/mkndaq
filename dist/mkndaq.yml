@@ -63,6 +63,13 @@ COM4:
     stopbits: 1
     parity: N
     timeout: 1
+COM9:
+    protocol: RS485     # don't change!
+    baudrate: 19200
+    bytesize: 8
+    stopbits: 1
+    parity: N
+    timeout: 1
 
 # instrument specification
 tei49c:
@@ -106,7 +113,7 @@ tei49c-ps:
     type: Thermo 49C-PS
     id: 49
     serial_number: 49C-PS-xxxxx-xxx
-    port: COM3
+    port: COM2
     get_config:
         - date
         - time
@@ -154,6 +161,7 @@ tei49c-ps:
         - 90
         - 200
         - 300
+        - 0
     duration_minutes: 15
 
 tei49i:
