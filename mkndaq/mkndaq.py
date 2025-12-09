@@ -173,6 +173,33 @@ def main():
                 schedule.every().day.at('00:00').do(run_threaded, tei49i_2.set_datetime)
                 schedule.every(fetch+5).seconds.do(run_threaded, tei49i_2.print_o3)
 
+            if cfg.get('tei49c-ps', None):
+                from mkndaq.inst.thermo import Thermo49CPS
+                tei49cps = Thermo49CPS(name='tei49c-ps', config=cfg)
+                tei49cps.get_config()
+                tei49cps.set_config()
+                tei49cps.setup_schedules()
+
+                schedule.every(fetch).seconds.do(run_threaded, tei49cps.print_o3)
+                schedule.every().day.at('00:03').do(run_threaded, tei49c.set_datetime)
+
+                if s3fsc:
+                    s3fsc.setup_transfer_schedules(
+                        local_path=str(tei49cps.staging_path),
+                        key_prefix=tei49cps.remote_path,
+                        interval=tei49cps.reporting_interval,
+                        delay_transfer=3,
+                        remove_on_success=False,
+                    )
+                if sftp:
+                    remote_path = (PurePosixPath(sftp.remote_path) / tei49cps.remote_path).as_posix()
+                    sftp.setup_transfer_schedules(local_path=str(tei49cps.staging_path),
+                                                  remote_path=remote_path,
+                                                  interval=tei49cps.reporting_interval, 
+                                                  delay_transfer=15,
+                                                  remove_on_success=True,
+                                                  )
+
             if cfg.get('g2401', None):
                 from mkndaq.inst.g2401 import G2401
                 g2401 = G2401('g2401', config=cfg)

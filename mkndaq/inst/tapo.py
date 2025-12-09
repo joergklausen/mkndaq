@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import signal
 import time
 from datetime import datetime
@@ -36,6 +37,10 @@ import cv2  # type: ignore[import]
 
 # logger = logging.getLogger("mkndaq.mkndaq.inst.tapo")
 
+# microseconds: 10s open timeout; limit initial buffering; force TCP
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+    "rtsp_transport;tcp|stimeout;10000000|max_delay;5000000|rw_timeout;15000000"
+)
 
 def next_boundary(interval_s: int) -> float:
     """Seconds to sleep until the next wall-clock boundary for *interval_s*."""
