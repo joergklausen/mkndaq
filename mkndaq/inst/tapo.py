@@ -307,7 +307,7 @@ def _cli_main() -> None:
                 print("[WARN] Capture failed.")
             else:
                 ts = datetime.now().strftime("%Y%m%d%H%M%S")
-                outfile = outdir / f"{args.prefix}-{ts}.jpg"
+                outfile = outdir / f"{args.prefix}-{ts}.png"
                 cv2.imwrite(str(outfile), frame)
                 print(f"[INFO] Captured to {outfile}")
 

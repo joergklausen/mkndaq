@@ -63,7 +63,7 @@ COM4:
     stopbits: 1
     parity: N
     timeout: 1
-COM9:
+COM5:
     protocol: RS485     # don't change!
     baudrate: 19200
     bytesize: 8
@@ -319,11 +319,11 @@ tapo:
     staging_zip: False
     remote_path: tapo
 
-hmp110-3:
+hmp110-inlet:
     type: Vaisala HMP110
     id: 3     # mainfold
-    serial_number: U2110086  # mainfold
-    port: COM9
+    serial_number: U2110086  # aerosol inlet manyfold
+    port: COM5
     data_header: 
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     reporting_interval: 60
@@ -332,11 +332,11 @@ hmp110-3:
     staging_zip: False
     remote_path: hmp110-3
 
-hmp110-4:
+hmp110-ae33:
     type: Vaisala HMP110
     id: 4     # inlet AE33
     serial_number: U2110081  # inlet AE33
-    port: COM9
+    port: COM5
     data_header: 
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     reporting_interval: 60
