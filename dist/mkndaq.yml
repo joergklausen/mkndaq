@@ -312,8 +312,8 @@ tapo:
     image_format: png        # or: jpg
     jpeg_quality: 95         # only used if image_format = jpg
     png_compression: 3       # 0–9, only if image_format = png
-    snapshot_interval_seconds: 600          # seconds. How often should a snapshot be taken?
-    reporting_interval_minutes: 360
+    snapshot_interval_seconds: 3600          # seconds. How often should a snapshot be taken?
+    reporting_interval_minutes: 3600
     data_path: tapo
     staging_path: tapo
     staging_zip: False
