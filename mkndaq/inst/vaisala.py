@@ -5,16 +5,17 @@ import argparse
 import functools
 import logging
 import os
+import re
 import threading
 import time
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
 import schedule
 import serial
-from pymodbus.client import ModbusSerialClient
-import re
+# from pymodbus.client import ModbusSerialClient
 
 # Compile once at module import
 _HMP_READING_RE = re.compile(
@@ -293,6 +294,60 @@ class HMP110ASCII:
         except Exception as err:
             self.logger.error(f"[{self.name}] {err}")
 
+    def _save_data(self) -> None:
+        try:
+            # data_file = ""
+            # self.data_file = ""
+            if self._data:
+                # create appropriate file name and write mode
+                now = datetime.now()
+                timestamp = now.strftime(self._file_timestamp_format)
+                yyyy = now.strftime('%Y')
+                mm = now.strftime('%m')
+                dd = now.strftime('%d')
+                self.data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
+                os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
+
+                # configure file mode, open file and write to it
+                if os.path.exists(self.data_file):
+                    mode = 'a'
+                    header = ""
+                else:
+                    mode = 'w'
+                    header = f"{self._data_header}\n"
+
+                with open(file=self.data_file, mode=mode) as fh:
+                    fh.write(header)
+                    fh.write(self._data)
+                    self.logger.info(f"[{self.name}] file saved: {self.data_file}")
+
+                # reset self._data
+                self._data = ""
+
+            return
+
+        except Exception as err:
+            self.logger.error(f"[{self.name}] {err}")
+
+
+    def _stage_file(self):
+        """ Create zip file from self.data_file and stage archive.
+        """
+        try:
+            if self.data_file:
+                archive = os.path.join(self.staging_path, os.path.basename(self.data_file).replace('.dat', '.zip'))
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    zf.write(self.data_file, os.path.basename(self.data_file))
+                    self.logger.info(f"file staged: {archive}")
+
+        except Exception as err:
+            self.logger.error(f"[{self.name}] {err}")
+
+
+    def _save_and_stage_data(self):
+        self._save_data()
+        self._stage_file()
+
 
 """
 NB: This has not been tested!!
@@ -313,150 +368,149 @@ Assumptions
     T : register 3 (address 0x0002, occupies 0x0002–0x0003)
     Td: register 9 (address 0x0008, occupies 0x0008–0x0009, if enabled)
 """
-class HMP110Modbus:
-    """
-    Minimal Modbus RTU client for Vaisala HMP110.
+# class HMP110Modbus:
+#     """
+#     Minimal Modbus RTU client for Vaisala HMP110.
 
-    Parameters
-    ----------
-    port:
-        Serial port device (e.g. '/dev/ttyUSB0' on Linux, 'COM3' on Windows).
-    slave:
-        Modbus address of the probe (default factory setting is 240).
-    baudrate:
-        Serial baud rate. Default Modbus factory setting is 19200.
-    timeout:
-        Read timeout in seconds.
-    """
+#     Parameters
+#     ----------
+#     port:
+#         Serial port device (e.g. '/dev/ttyUSB0' on Linux, 'COM3' on Windows).
+#     slave:
+#         Modbus address of the probe (default factory setting is 240).
+#     baudrate:
+#         Serial baud rate. Default Modbus factory setting is 19200.
+#     timeout:
+#         Read timeout in seconds.
+#     """
 
-    def __init__(
-        self,
-        port: str = "/dev/ttyUSB0",
-        slave: int = 240,
-        baudrate: int = 19200,
-        timeout: float = 1.0,
-    ) -> None:
-        self.client = ModbusSerialClient(
-            port=port,
-            baudrate=baudrate,
-            parity="N",
-            stopbits=2,
-            bytesize=8,
-            timeout=timeout,
-        )
-        self.slave = slave
+#     def __init__(
+#         self,
+#         port: str = "/dev/ttyUSB0",
+#         slave: int = 240,
+#         baudrate: int = 19200,
+#         timeout: float = 1.0,
+#     ) -> None:
+#         self.client = ModbusSerialClient(
+#             port=port,
+#             baudrate=baudrate,
+#             parity="N",
+#             stopbits=2,
+#             bytesize=8,
+#             timeout=timeout,
+#         )
+#         self.slave = slave
 
-    def connect(self) -> bool:
-        """Open the serial connection."""
-        return bool(self.client.connect())
+#     def connect(self) -> bool:
+#         """Open the serial connection."""
+#         return bool(self.client.connect())
 
-    def close(self) -> None:
-        """Close the serial connection."""
-        self.client.close()
+#     def close(self) -> None:
+#         """Close the serial connection."""
+#         self.client.close()
 
-    @staticmethod
-    def _decode_float32(registers: list[int]) -> float:
-        """
-        Decode a 32-bit IEEE float from 2 Modbus registers.
+#     @staticmethod
+#     def _decode_float32(registers: list[int]) -> float:
+#         """
+#         Decode a 32-bit IEEE float from 2 Modbus registers.
 
-        HMP110 uses 2 registers per float, least significant word first.
-        """
-        decoder = BinaryPayloadDecoder.fromRegisters(
-            registers,
-            byteorder=Endian.BIG,    # bytes inside each 16-bit register
-            wordorder=Endian.LITTLE, # first register is low word
-        )
-        return float(decoder.decode_32bit_float())
+#         HMP110 uses 2 registers per float, least significant word first.
+#         """
+#         decoder = BinaryPayloadDecoder.fromRegisters(
+#             registers,
+#             byteorder=Endian.BIG,    # bytes inside each 16-bit register
+#             wordorder=Endian.LITTLE, # first register is low word
+#         )
+#         return float(decoder.decode_32bit_float())
 
-    def read_once(self) -> HMP110Reading:
-        """
-        Read RH, T, and dew point once from the probe.
+#     def read_once(self) -> HMP110Reading:
+#         """
+#         Read RH, T, and dew point once from the probe.
 
-        Returns
-        -------
-        HMP110Reading
-        """
-        # Read RH + T in one go (4 registers: 0..3)
-        result = self.client.read_holding_registers(
-            address=0,
-            count=4,
-            slave=self.slave,
-        )
-        if result.isError():
-            raise IOError(f"Modbus error reading RH/T: {result}")
+#         Returns
+#         -------
+#         HMP110Reading
+#         """
+#         # Read RH + T in one go (4 registers: 0..3)
+#         result = self.client.read_holding_registers(
+#             address=0,
+#             count=4,
+#             slave=self.slave,
+#         )
+#         if result.isError():
+#             raise IOError(f"Modbus error reading RH/T: {result}")
 
-        regs = result.registers
-        if len(regs) != 4:
-            raise IOError(f"Unexpected number of registers for RH/T: {len(regs)}")
+#         regs = result.registers
+#         if len(regs) != 4:
+#             raise IOError(f"Unexpected number of registers for RH/T: {len(regs)}")
 
-        rh = self._decode_float32(regs[0:2])
-        temperature = self._decode_float32(regs[2:4])
+#         rh = self._decode_float32(regs[0:2])
+#         temperature = self._decode_float32(regs[2:4])
 
-        # Dew/frost point (optional parameter; may not be enabled in your order code)
-        dew_point: Optional[float] = None
-        dp_result = self.client.read_holding_registers(
-            address=8,  # dew/frost point: register 9 (0x0008–0x0009)
-            count=2,
-            slave=self.slave,
-        )
-        if not dp_result.isError() and len(dp_result.registers) == 2:
-            try:
-                dew_point = self._decode_float32(dp_result.registers)
-            except Exception:
-                dew_point = None
+#         # Dew/frost point (optional parameter; may not be enabled in your order code)
+#         dew_point: Optional[float] = None
+#         dp_result = self.client.read_holding_registers(
+#             address=8,  # dew/frost point: register 9 (0x0008–0x0009)
+#             count=2,
+#             slave=self.slave,
+#         )
+#         if not dp_result.isError() and len(dp_result.registers) == 2:
+#             try:
+#                 dew_point = self._decode_float32(dp_result.registers)
+#             except Exception:
+#                 dew_point = None
 
-        return HMP110Reading(rh=rh, temperature=temperature, dew_point=dew_point)
+#         return HMP110Reading(rh=rh, temperature=temperature, dew_point=dew_point)
 
+# def main_modbus() -> None:
+#     parser = argparse.ArgumentParser(
+#         description="Read Vaisala HMP110 via RS-485 / Modbus RTU"
+#     )
+#     parser.add_argument(
+#         "--port",
+#         default="/dev/ttyUSB0",
+#         help="Serial port (e.g. /dev/ttyUSB0, /dev/ttyS0, COM3)",
+#     )
+#     parser.add_argument(
+#         "--slave",
+#         type=int,
+#         default=240,
+#         help="Modbus slave address (default: 240)",
+#     )
+#     parser.add_argument(
+#         "--interval",
+#         type=float,
+#         default=5.0,
+#         help="Seconds between reads (0 = read once and exit)",
+#     )
+#     args = parser.parse_args()
 
-def main_modbus() -> None:
-    parser = argparse.ArgumentParser(
-        description="Read Vaisala HMP110 via RS-485 / Modbus RTU"
-    )
-    parser.add_argument(
-        "--port",
-        default="/dev/ttyUSB0",
-        help="Serial port (e.g. /dev/ttyUSB0, /dev/ttyS0, COM3)",
-    )
-    parser.add_argument(
-        "--slave",
-        type=int,
-        default=240,
-        help="Modbus slave address (default: 240)",
-    )
-    parser.add_argument(
-        "--interval",
-        type=float,
-        default=5.0,
-        help="Seconds between reads (0 = read once and exit)",
-    )
-    args = parser.parse_args()
+#     sensor = HMP110Modbus(port=args.port, slave=args.slave)
 
-    sensor = HMP110Modbus(port=args.port, slave=args.slave)
+#     if not sensor.connect():
+#         raise SystemExit(f"Could not open serial port {args.port}")
 
-    if not sensor.connect():
-        raise SystemExit(f"Could not open serial port {args.port}")
-
-    try:
-        if args.interval <= 0:
-            reading = sensor.read_once()
-            line = f"RH={reading.rh:.1f} %  T={reading.temperature:.2f} °C"
-            if reading.dew_point is not None:
-                line += f"  Td={reading.dew_point:.2f} °C"
-            print(line)
-        else:
-            while True:
-                reading = sensor.read_once()
-                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                line = (
-                    f"{timestamp}  RH={reading.rh:.1f} %  "
-                    f"T={reading.temperature:.2f} °C"
-                )
-                if reading.dew_point is not None:
-                    line += f"  Td={reading.dew_point:.2f} °C"
-                print(line)
-                time.sleep(args.interval)
-    finally:
-        sensor.close()
+#     try:
+#         if args.interval <= 0:
+#             reading = sensor.read_once()
+#             line = f"RH={reading.rh:.1f} %  T={reading.temperature:.2f} °C"
+#             if reading.dew_point is not None:
+#                 line += f"  Td={reading.dew_point:.2f} °C"
+#             print(line)
+#         else:
+#             while True:
+#                 reading = sensor.read_once()
+#                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+#                 line = (
+#                     f"{timestamp}  RH={reading.rh:.1f} %  "
+#                     f"T={reading.temperature:.2f} °C"
+#                 )
+#                 if reading.dew_point is not None:
+#                     line += f"  Td={reading.dew_point:.2f} °C"
+#                 print(line)
+#                 time.sleep(args.interval)
+#     finally:
+#         sensor.close()
 
 def main_ascii() -> None:
     pass
