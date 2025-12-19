@@ -110,10 +110,13 @@ class NEPH:
             self._zero_span_check_hours = self.zero_span_check_interval // 60
             self._span_offset_min = self.zero_check_duration                                # mm offset from :00
             self._ambient_offset_min = self.zero_check_duration + self.span_check_duration  # mm offset from :00
-            self.logger.info(
-                "zero/span checks every %d hours, zero @ :00, span @ :%02d, return to ambient @ :%02d",
-                self._zero_span_check_hours, self._span_offset_min, self._ambient_offset_min,
-            )
+            if self.zero_span_check_interval > 0:
+                self.logger.info(
+                    "zero/span checks every %d hours, zero @ :00, span @ :%02d, return to ambient @ :%02d",
+                    self._zero_span_check_hours, self._span_offset_min, self._ambient_offset_min,
+                )
+            else:
+                self.logger.info("zero/span checks disabled.")
 
             # configure saving, staging and remote path
             root = os.path.expanduser(config['root'])
@@ -174,7 +177,8 @@ class NEPH:
             schedule.every(int(self.sampling_interval)).minutes.at(':02').do(run_threaded, self._accumulate_new_data)
 
             # configure zero and span check schedules
-            self._setup_zero_span_check_schedules()
+            if self.zero_span_check_interval > 0:
+                self._setup_zero_span_check_schedules()
 
             # configure saving and staging schedules
             if self.reporting_interval==10:
