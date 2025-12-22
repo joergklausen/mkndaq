@@ -741,19 +741,6 @@ class NEPH:
             self.logger.error(err)
             return dict()
 
-    def set_datalog_param_index(
-        self, 
-        index_id: int, 
-        parameter_id: int, 
-        wavelength_config_id: int=0,
-        ):
-        param_base = 2003
-        wavelength_base = 2026
-        angle_base = 2069
-        if index_id > 0 and index_id < 33:
-            param_index_id = param_base + index_id
-            wavelength_index_id = wavelength_base + index_id
-            angle_index_id = angle_base + index_id
 
     def set_value(self, parameter_id: int, value: int, verify: bool=True, verbosity: int=0) -> int:
         """A.3.6 Sets the value of an instrument parameter.
@@ -818,6 +805,20 @@ class NEPH:
             self.logger.error(err)
             return list()
 
+
+    # def set_datalog_param_index(
+    #     self, 
+    #     index_id: int, 
+    #     parameter_id: int, 
+    #     wavelength_config_id: int=0,
+    #     ):
+    #     param_base = 2003
+    #     wavelength_base = 2026
+    #     angle_base = 2069
+    #     if index_id > 0 and index_id < 33:
+    #         param_index_id = param_base + index_id
+    #         wavelength_index_id = wavelength_base + index_id
+    #         angle_index_id = angle_base + index_id
 
     # def set_data_log_config(self, verify: bool=False, verbosity: int=0) -> 'list[int]':
     #     """Pass datalog config to instrument. Verify configuration
@@ -1290,22 +1291,6 @@ class NEPH:
             if verbosity>0:
                 self.logger.info(data)
 
-            # if save:
-            #     if self.reporting_interval is None:
-            #         raise ValueError("'reporting_interval' cannot be None.")
-                
-            #     # generate the datafile name
-            #     self.__datafile = os.path.join(self.datadir, time.strftime("%Y"), time.strftime("%m"), time.strftime("%d"),
-            #                                 "".join([self.name, "-",
-            #                                         datetimebin.dtbin(self.reporting_interval), ".dat"]))
-
-            #     os.makedirs(os.path.dirname(self.__datafile), exist_ok=True)
-            #     with open(self.__datafile, "at", encoding='utf8') as fh:
-            #         fh.write(data)
-            #         fh.close()
-
-            #     if self.staging_path:
-            #         self.stage_data_file()
             self._data += data
 
             return 
@@ -1395,6 +1380,5 @@ class NEPH:
             self.logger.error(colorama.Fore.RED + f"[{self.name}] print_ssp_bssp: {err}" + colorama.Fore.GREEN)
 
 
-# %%
 if __name__ == "__main__":
     pass
