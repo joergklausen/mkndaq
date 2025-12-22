@@ -319,6 +319,57 @@ def main():
 
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
 
+            if cfg.get('hmp110-inlet', None):
+                from mkndaq.inst.vaisala import HMP110ASCII
+                hmp110_inlet = HMP110ASCII(name='hmp110-inlet', config=cfg)
+                hmp110_inlet.setup_schedules()
+
+                if s3fsc:
+                    s3fsc.setup_transfer_schedules(
+                        local_path=str(hmp110_inlet.staging_path),
+                        key_prefix=hmp110_inlet.remote_path,
+                        interval=hmp110_inlet.reporting_interval,
+                        delay_transfer=2,
+                        remove_on_success=False,
+                    )
+                if sftp:
+                    remote_path_data = (PurePosixPath(sftp.remote_path) / hmp110_inlet.remote_path).as_posix()
+                    remote_path_logs = (PurePosixPath(sftp.remote_path) / hmp110_inlet.remote_path).as_posix()
+                    sftp.setup_transfer_schedules(local_path=str(hmp110_inlet.staging_path),
+                                                  remote_path=remote_path_data,
+                                                  interval=hmp110_inlet.reporting_interval,
+                                                  delay_transfer=15,)
+                    sftp.setup_transfer_schedules(local_path=str(hmp110_inlet.staging_path),
+                                                  remote_path=remote_path_logs,
+                                                  interval=hmp110_inlet.reporting_interval,
+                                                  delay_transfer=15,)
+
+            if cfg.get('hmp110-ae33', None):
+                from mkndaq.inst.vaisala import HMP110ASCII
+                hmp110_ae33 = HMP110ASCII(name='hmp110-ae33', config=cfg)
+                hmp110_ae33.setup_schedules()
+
+                if s3fsc:
+                    s3fsc.setup_transfer_schedules(
+                        local_path=str(hmp110_ae33.staging_path),
+                        key_prefix=hmp110_ae33.remote_path,
+                        interval=hmp110_ae33.reporting_interval,
+                        delay_transfer=2,
+                        remove_on_success=False,
+                    )
+                if sftp:
+                    remote_path_data = (PurePosixPath(sftp.remote_path) / hmp110_ae33.remote_path).as_posix()
+                    remote_path_logs = (PurePosixPath(sftp.remote_path) / hmp110_ae33.remote_path).as_posix()
+                    sftp.setup_transfer_schedules(local_path=str(hmp110_ae33.staging_path),
+                                                  remote_path=remote_path_data,
+                                                  interval=hmp110_ae33.reporting_interval,
+                                                  delay_transfer=15,)
+                    sftp.setup_transfer_schedules(local_path=str(hmp110_ae33.staging_path),
+                                                  remote_path=remote_path_logs,
+                                                  interval=hmp110_ae33.reporting_interval,
+                                                  delay_transfer=15,)
+
+
             if cfg.get('tapo', None):
                 from mkndaq.inst.tapo import Tapo
 

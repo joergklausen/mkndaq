@@ -57,7 +57,7 @@ class Thermo49CPS(Thermo49C):
         cmd = self.level_cmd_template.format(value=int(level_ppb))
         reply = self.serial_comm(cmd)  # same helper as in Thermo49C
         self.current_level = float(level_ppb)
-        self.logger.info(
+        print(
             "[%s] set_o3_level -> %d ppb (cmd=%r, reply=%r)",
             self.name,
             self.current_level,
@@ -87,14 +87,14 @@ class Thermo49CPS(Thermo49C):
                 "" if self.current_level is None else f" {self.current_level}"
             )
             self._data += f"{dtm} {lrec}{setpoint_str}\n"
-            self.logger.debug(
+            print(
                 "[%s] lrec: %s ... (setpoint=%s)",
                 self.name,
                 lrec[:60],
                 self.current_level,
             )
         except Exception as err:  # defensive
-            self.logger.error("[%s] accumulate_lrec: %s", self.name, err)
+            print("[%s] accumulate_lrec: %s", self.name, err)
 
 
 def set_o3_level(calibrator: Thermo49CPS, level_ppb: int) -> str:
@@ -172,7 +172,7 @@ def main() -> None:
         "-c",
         "--config",
         type=Path,
-        default=Path("mkndaq.yml"),
+        default=Path("dist/mkndaq.yml"),
         help="Path to mkndaq.yml configuration file.",
     )
     parser.add_argument(
