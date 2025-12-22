@@ -860,7 +860,7 @@ class NEPH:
             self.logger.error(err)
             return int()
         
-    def get_logged_data(self, start: datetime, end: datetime, verbosity: int=0) -> 'list[dict]':
+    def get_logged_data(self, start: datetime, end: datetime, verbosity: int=0, raw: bool=False) -> 'list[dict]':
         """
         A.3.8 Requests all logged data over a specific date range.
 
@@ -887,6 +887,8 @@ class NEPH:
                 message = self._acoem_construct_message(command=7, payload=payload)
                 response = self._tcpip_comm(message, verbosity=verbosity)
                 data =  self._acoem_decode_logged_data(response=response, verbosity=verbosity)
+                if raw:
+                    return [{'raw': response}, {'data': data}]
                 return data
                 # # get next record
                 # message = self._acoem_construct_message(command=7, payload=bytes([4]))
