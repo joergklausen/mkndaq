@@ -151,13 +151,17 @@ class NEPH:
                 dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
                 self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.", extra={"to_logfile": True})            
 
-                # get logging config
-                self._datalog_config = self.get_data_log_config()[1:]
-                self.logger.info(f"[{self.name}] logging config reported: {self._datalog_config}.", extra={"to_logfile": True})
-
                 # set datalog interval
                 datalog_interval = self.set_datalog_interval(verbosity=verbosity)
                 self.logger.info(f"[{self.name}] Datalog interval set to {datalog_interval} seconds.")
+
+                # get logging config (=header ids)
+                cfg = self.get_data_log_config()[1:]  # drop the leading "number of fields"
+
+                # ensure 4035 and 2002 are present as the first two data columns after dtm
+                self._header = [4035, 2002] + [pid for pid in cfg if pid not in (4035, 2002)]
+
+                self.logger.info(f"[{self.name}] logging config reported: {self._header}.", extra={"to_logfile": True})
 
             # datetime to keep track of retrievals from datalog
             self._start_datalog = datetime.now(timezone.utc).replace(second=0, microsecond=0)
@@ -1070,15 +1074,19 @@ class NEPH:
             return int()
 
 
-    def get_data_log_config(self, verbosity: int=0) -> list:
+    def get_data_log_config(self, verbosity: int=0, insert_4035_2002: bool=True) -> list:
         """
         A.3.7 Return the list of parameter IDs currently being logged. 
         It is sent with zero message data length.
         The first 4 byte word of the response data is the number of fields being logged (0..500).
         Each following 4 byte word is the ID of the parameter.
+        
+        NB: Values '4035' (CURRENT_OPERATION) and '2002' (LOGGING_PERIOD) are always logged, 
+        even if not listed here.
 
         Args:
             verbosity (int, optional): Verbosity. Defaults to 0.
+            insert_4035_2002 (bool, optional): If True, ensure that 4035 and 2002 are included in the returned list. Defaults to True.
 
         Returns:
             list: Parameter IDs (integers) currently being logged
@@ -1087,7 +1095,13 @@ class NEPH:
             if self._protocol=='acoem':
                 message = self._acoem_construct_message(6)
                 response = self._tcpip_comm(message, verbosity=verbosity)
-                return self._acoem_bytes2int(response=response, verbosity=verbosity)
+                data_log_config = self._acoem_bytes2int(response=response, verbosity=verbosity)
+                if insert_4035_2002:
+                    if 4035 not in data_log_config:
+                        data_log_config.insert(1, 4035)
+                    if 2002 not in data_log_config:
+                        data_log_config.insert(2, 2002)
+                return data_log_config
             else:
                 self.logger.warning(colorama.Fore.YELLOW + "Not implemented." + colorama.Fore.GREEN)
                 return list()
@@ -1612,7 +1626,8 @@ class NEPH:
             if os.path.exists(self.data_file):
                 header = str()
             else:
-                header = f"{','.join(str(n) for n in self.get_data_log_config())}\n"
+                header_ids = ["dtm"] + [str(pid) for pid in self._header]
+                header = ",".join(header_ids) + "\n"
 
             with open(file=self.data_file, mode='a') as fh:
                 if header:
@@ -1622,7 +1637,7 @@ class NEPH:
 
                 # reset self._data
                 self._data = str()
-            return
+            return self.data_file
 
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
