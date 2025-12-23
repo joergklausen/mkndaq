@@ -126,6 +126,7 @@ def main():
                                                   delay_transfer=15,
                                                   remove_on_success=True,
                                                   )
+                logger.info(f"[tei49c] setup complete")
 
             if cfg.get('tei49i', None):
                 from mkndaq.inst.thermo import Thermo49i
@@ -151,6 +152,7 @@ def main():
                                                   delay_transfer=15,
                                                   remove_on_success=True,
                                                   )
+                logger.info(f"[tei49i] setup complete")
 
             if cfg.get('tei49i_2', None):
                 from mkndaq.inst.thermo import Thermo49i
@@ -224,6 +226,7 @@ def main():
                                                   delay_transfer=15,
                                                   remove_on_success=True,
                                                   )
+                logger.info(f"[g2401] setup complete")
 
             if cfg.get('meteo', None):
                 from mkndaq.inst.meteo import METEO
@@ -249,6 +252,7 @@ def main():
                                                   delay_transfer=15,
                                                   remove_on_success=True,
                                                   )
+                logger.info(f"[meteo] setup complete")
 
             if cfg.get('ne300', None):
                 from mkndaq.inst.neph import NEPH
@@ -282,7 +286,8 @@ def main():
                     f"[ne300] SFTP schedule: local_path={ne300.staging_path}, remote_path={remote_path}, "
                     f"interval={ne300.reporting_interval}"
                 )
-            
+                logger.info(f"[ne300] setup complete")
+
             if cfg.get('ae33', None):
                 from mkndaq.inst.ae33 import AE33
                 ae33 = AE33(name='ae33', config=cfg)
@@ -318,6 +323,7 @@ def main():
                                                   delay_transfer=15,)
 
                 schedule.every(fetch).seconds.do(run_threaded, ae33.print_ae33)
+                logger.info(f"[ae33] setup complete")
 
             if cfg.get('hmp110-inlet', None):
                 from mkndaq.inst.vaisala import HMP110ASCII
@@ -343,6 +349,7 @@ def main():
                                                   remote_path=remote_path_logs,
                                                   interval=hmp110_inlet.reporting_interval,
                                                   delay_transfer=15,)
+                logger.info(f"[hmp110-inlet] setup complete")
 
             if cfg.get('hmp110-ae33', None):
                 from mkndaq.inst.vaisala import HMP110ASCII
@@ -368,7 +375,7 @@ def main():
                                                   remote_path=remote_path_logs,
                                                   interval=hmp110_ae33.reporting_interval,
                                                   delay_transfer=15,)
-
+                logger.info(f"[hmp110-ae33] setup complete")
 
             if cfg.get('tapo', None):
                 from mkndaq.inst.tapo import Tapo
@@ -398,6 +405,7 @@ def main():
                         delay_transfer=5,
                         remove_on_success=True,
                     )
+                logger.info(f"[tapo] setup complete")
 
 
             # if cfg.get('fidas', None):
