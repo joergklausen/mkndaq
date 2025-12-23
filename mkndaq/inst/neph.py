@@ -476,146 +476,273 @@ class NEPH:
     #     else:
     #         return [dict()]
 
-    def _acoem_decode_logged_data(self, response: bytes, digits: int = 5, verbosity: int = 0) -> list[dict[Any, Any]]:
-        """
-        Decode the binary response received from the instrument after sending command 7
-        (Get Logged Data, ACOEM protocol).
+    # def _acoem_decode_logged_data(self, response: bytes, digits: int = 5, verbosity: int = 0) -> list[dict[Any, Any]]:
+    #     """
+    #     Decode the binary response received from the instrument after sending command 7
+    #     (Get Logged Data, ACOEM protocol).
 
-        Robustness improvements vs. previous implementation:
-        - No off-by-one truncation
-        - Sequential parsing (does not assume fixed record size)
-        - Supports multiple header records (key list can change mid-stream)
-        - Extracts instrument operation byte (same as CURRENT_OPERATION / 4035)
-        - Drops invalid parameter id 0 from returned dicts
+    #     Robustness improvements vs. previous implementation:
+    #     - No off-by-one truncation
+    #     - Sequential parsing (does not assume fixed record size)
+    #     - Supports multiple header records (key list can change mid-stream)
+    #     - Extracts instrument operation byte (same as CURRENT_OPERATION / 4035)
+    #     - Drops invalid parameter id 0 from returned dicts
+    #     """
+    #     result: list[dict[Any, Any]] = []
+
+    #     try:
+    #         if not response or len(response) < 8:
+    #             return [{"error": "empty/short response"}]
+
+    #         cmd = response[2]
+
+    #         # Error response
+    #         if cmd == 0:
+    #             err_code = response[7] if len(response) > 7 else 255
+    #             return [{"error": self._acoem_decode_error(error_code=err_code)}]
+
+    #         # Not a cmd-7 response
+    #         if cmd != 7:
+    #             return [{"error": f"unexpected command in response: {cmd}"}]
+
+    #         declared_body_len = int.from_bytes(response[4:6], byteorder="big")
+    #         body_start = 6
+    #         body_end = min(len(response), body_start + declared_body_len)
+    #         response_body = response[body_start:body_end]
+
+    #         offset = 0
+    #         keys: list[int] = []
+
+    #         def _safe_dtm(ts: int) -> str:
+    #             try:
+    #                 return self._acoem_timestamp_to_datetime(ts).strftime("%Y-%m-%d %H:%M:%S")
+    #             except Exception:
+    #                 return ""
+
+    #         while offset + 16 <= len(response_body):
+    #             record_type = response_body[offset]
+    #             current_operation = response_body[offset + 1]
+
+    #             ts = int.from_bytes(response_body[offset + 4 : offset + 8], byteorder="big")
+    #             logging_period = int.from_bytes(response_body[offset + 8 : offset + 12], byteorder="big")
+    #             n_fields = int.from_bytes(response_body[offset + 12 : offset + 16], byteorder="big")
+
+    #             record_len = 16 + (n_fields * 4)
+    #             if offset + record_len > len(response_body):
+    #                 if verbosity > 0:
+    #                     self.logger.warning(
+    #                         f"[{self.name}] Truncated logged-data record at offset {offset} "
+    #                         f"(need {record_len} bytes, have {len(response_body) - offset})."
+    #                     )
+    #                 break
+
+    #             fields = [
+    #                 response_body[offset + 16 + (i * 4) : offset + 16 + ((i + 1) * 4)]
+    #                 for i in range(n_fields)
+    #             ]
+
+    #             # if record_type == 1:
+    #             #     # header record: parameter IDs
+    #             #     keys = [int.from_bytes(b, byteorder="big") for b in fields]
+
+    #             # elif record_type == 0:
+    #             #     # data record
+    #             #     if not keys:
+    #             #         result.append(
+    #             #             {
+    #             #                 "record_type": record_type,
+    #             #                 # "current_operation": current_operation,
+    #             #                 4035: current_operation,
+    #             #                 # "logging_period": logging_period,
+    #             #                 2002: logging_period,
+    #             #                 "dtm": _safe_dtm(ts),
+    #             #                 "values_raw": fields,
+    #             #             }
+    #             #         )
+    #             #     else:
+    #             #         data: dict[Any, Any] = {}
+
+    #             #         for k, v in zip(keys, fields):
+    #             #             if k == 0:
+    #             #                 continue  # invalid parameter id
+
+    #             #             if k > 1000 and len(v) == 4:
+    #             #                 try:
+    #             #                     data[k] = round(struct.unpack(">f", v)[0], digits)
+    #             #                 except Exception:
+    #             #                     data[k] = v
+    #             #             else:
+    #             #                 data[k] = v
+
+    #             #         data[2002] = logging_period
+    #             #         # data["logging_period"] = logging_period
+    #             #         data["dtm"] = _safe_dtm(ts)
+    #             #         data[4035] = current_operation
+    #             #         # data["current_operation"] = current_operation
+    #             #         result.append(data)
+
+    #             # else:
+    #             #     # other record type
+    #             #     result.append(
+    #             #         {
+    #             #             "record_type": record_type,
+    #             #             # "current_operation": current_operation,
+    #             #             4035: current_operation,
+    #             #             # "logging_period": logging_period,
+    #             #             2002: logging_period,
+    #             #             "dtm": _safe_dtm(ts),
+    #             #             "fields_raw": fields,
+    #             #         }
+    #             #     )
+    #             # Build shared metadata once per record
+    #             base: dict[Any, Any] = {
+    #                 # "record_type": record_type,
+    #                 4035: current_operation,   # CURRENT_OPERATION
+    #                 2002: logging_period,      # LOGGING_PERIOD (your chosen key)
+    #                 "dtm": _safe_dtm(ts),
+    #             }
+
+    #             if record_type == 1:
+    #                 # header record
+    #                 keys = [int.from_bytes(b, byteorder="big") for b in fields]
+
+    #             elif record_type == 0:
+    #                 # data record
+    #                 if not keys:
+    #                     result.append({**base, "values_raw": fields})
+    #                 else:
+    #                     data: dict[Any, Any] = {}
+
+    #                     for k, v in zip(keys, fields):
+    #                         if k == 0:
+    #                             continue  # invalid parameter id
+
+    #                         if k > 1000 and len(v) == 4:
+    #                             try:
+    #                                 data[k] = round(struct.unpack(">f", v)[0], digits)
+    #                             except Exception:
+    #                                 data[k] = v
+    #                         else:
+    #                             data[k] = v
+
+    #                     result.append({**base, **data})
+
+    #             else:
+    #                 # other record type
+    #                 result.append({**base, "fields_raw": fields})
+
+    #         offset += record_len
+
+    #     except Exception as err:
+    #         # Ensure we still satisfy the declared return type
+    #         return [{"error": f"decode failed: {err!r}"}]
+
+    #     return result
+    def _acoem_decode_logged_data(
+        self,
+        response: bytes,
+        digits: int = 5,
+        verbosity: int = 0,
+    ) -> list[dict]:
         """
+        Decode the binary response received from the instrument after sending command 7.
+
+        Returns:
+            list[dict]: List of dictionaries, where keys are parameter ids and values are decoded values.
+                        Adds:
+                        - data[4035] = current operation (0 ambient, 1 zero, 2 span, 9 error/unknown)
+                        - data['logging_interval'] = logging period (seconds)
+                        - data['dtm'] = '%Y-%m-%d %H:%M:%S'
+        """
+        from typing import Any
+
         result: list[dict[Any, Any]] = []
 
+        # Defensive: empty / too short
+        if not response or len(response) < 8:
+            return result
+
+        cmd = response[2]
+
+        # Error response
+        if cmd == 0:
+            try:
+                return [{"communication_error": self._acoem_decode_error(error_code=response[7])}]
+            except Exception:
+                return [{"communication_error": "unknown"}]
+
+        # Not a logged-data response
+        if cmd != 7:
+            return result
+
         try:
-            if not response or len(response) < 8:
-                return [{"error": "empty/short response"}]
+            # Message layout:
+            # [0]=STX [1]=SID [2]=CMD [3]=ETX [4:6]=msg_len [6:6+msg_len]=body [..]=checksum+EOT
+            msg_len = int.from_bytes(response[4:6], byteorder="big")
 
-            cmd = response[2]
-
-            # Error response
-            if cmd == 0:
-                err_code = response[7] if len(response) > 7 else 255
-                return [{"error": self._acoem_decode_error(error_code=err_code)}]
-
-            # Not a cmd-7 response
-            if cmd != 7:
-                return [{"error": f"unexpected command in response: {cmd}"}]
-
-            declared_body_len = int.from_bytes(response[4:6], byteorder="big")
+            # Use declared length (robust), but don’t crash if packet is shorter than declared
             body_start = 6
-            body_end = min(len(response), body_start + declared_body_len)
-            response_body = response[body_start:body_end]
+            body_end = min(len(response), body_start + msg_len)
+            body = response[body_start:body_end]
 
+            if verbosity > 1:
+                self.logger.debug(f"message length (bytes): {msg_len}")
+                self.logger.debug(f"body length (bytes): {len(body)}")
+                self.logger.debug(f"body (bytes): {body!r}")
+
+            # Record format (per record):
+            # 0: record_type (1 byte)
+            # 1: instrument_operation (1 byte)
+            # 2..3: reserved (2 bytes)
+            # 4..7: timestamp (4 bytes)
+            # 8..11: logging_period (4 bytes)
+            # 12..15: n_fields (4 bytes)
+            # 16.. : fields (n_fields * 4 bytes)
             offset = 0
             keys: list[int] = []
 
             def _safe_dtm(ts: int) -> str:
-                try:
-                    return self._acoem_timestamp_to_datetime(ts).strftime("%Y-%m-%d %H:%M:%S")
-                except Exception:
-                    return ""
+                # Only called for non-header records
+                return self._acoem_timestamp_to_datetime(ts).strftime("%Y-%m-%d %H:%M:%S")
 
-            while offset + 16 <= len(response_body):
-                record_type = response_body[offset]
-                current_operation = response_body[offset + 1]
+            while offset + 16 <= len(body):
+                record_type = body[offset]
+                current_operation = body[offset + 1]
+                ts = int.from_bytes(body[offset + 4 : offset + 8], byteorder="big")
+                logging_period = int.from_bytes(body[offset + 8 : offset + 12], byteorder="big")
+                n_fields = int.from_bytes(body[offset + 12 : offset + 16], byteorder="big")
 
-                ts = int.from_bytes(response_body[offset + 4 : offset + 8], byteorder="big")
-                logging_period = int.from_bytes(response_body[offset + 8 : offset + 12], byteorder="big")
-                n_fields = int.from_bytes(response_body[offset + 12 : offset + 16], byteorder="big")
-
-                record_len = 16 + (n_fields * 4)
-                if offset + record_len > len(response_body):
+                record_len = 16 + 4 * n_fields
+                if offset + record_len > len(body):
                     if verbosity > 0:
-                        self.logger.warning(
-                            f"[{self.name}] Truncated logged-data record at offset {offset} "
-                            f"(need {record_len} bytes, have {len(response_body) - offset})."
+                        self.logger.debug(
+                            f"Truncated record at offset={offset}, need {record_len} bytes, have {len(body) - offset}."
                         )
                     break
 
-                fields = [
-                    response_body[offset + 16 + (i * 4) : offset + 16 + ((i + 1) * 4)]
-                    for i in range(n_fields)
-                ]
+                fields = [body[offset + 16 + i * 4 : offset + 20 + i * 4] for i in range(n_fields)]
 
                 if record_type == 1:
-                    # header record: parameter IDs
-                    keys = [int.from_bytes(b, byteorder="big") for b in fields]
-
-                # elif record_type == 0:
-                #     # data record
-                #     if not keys:
-                #         result.append(
-                #             {
-                #                 "record_type": record_type,
-                #                 # "current_operation": current_operation,
-                #                 4035: current_operation,
-                #                 # "logging_period": logging_period,
-                #                 2002: logging_period,
-                #                 "dtm": _safe_dtm(ts),
-                #                 "values_raw": fields,
-                #             }
-                #         )
-                #     else:
-                #         data: dict[Any, Any] = {}
-
-                #         for k, v in zip(keys, fields):
-                #             if k == 0:
-                #                 continue  # invalid parameter id
-
-                #             if k > 1000 and len(v) == 4:
-                #                 try:
-                #                     data[k] = round(struct.unpack(">f", v)[0], digits)
-                #                 except Exception:
-                #                     data[k] = v
-                #             else:
-                #                 data[k] = v
-
-                #         data[2002] = logging_period
-                #         # data["logging_period"] = logging_period
-                #         data["dtm"] = _safe_dtm(ts)
-                #         data[4035] = current_operation
-                #         # data["current_operation"] = current_operation
-                #         result.append(data)
-
-                # else:
-                #     # other record type
-                #     result.append(
-                #         {
-                #             "record_type": record_type,
-                #             # "current_operation": current_operation,
-                #             4035: current_operation,
-                #             # "logging_period": logging_period,
-                #             2002: logging_period,
-                #             "dtm": _safe_dtm(ts),
-                #             "fields_raw": fields,
-                #         }
-                #     )
+                    # Header record: parameter IDs
+                    # NOTE: header timestamp / logging_period are often 0 / undefined -> do NOT decode dtm here.
+                    keys = [int.from_bytes(f, byteorder="big") for f in fields]
+                    if verbosity > 1:
+                        self.logger.debug(f"Header record: n_fields={n_fields}, keys={keys}")
+                else:
                     # Build shared metadata once per record
                     base: dict[Any, Any] = {
-                        # "record_type": record_type,
-                        4035: current_operation,   # CURRENT_OPERATION
-                        2002: logging_period,      # LOGGING_PERIOD (your chosen key)
+                        4035: current_operation,          # CURRENT_OPERATION (from record header byte)
+                        "logging_interval": logging_period,
                         "dtm": _safe_dtm(ts),
                     }
 
-                    if record_type == 1:
-                        # header record
-                        keys = [int.from_bytes(b, byteorder="big") for b in fields]
-
-                    elif record_type == 0:
-                        # data record
-                        if not keys:
-                            result.append({**base, "values_raw": fields})
-                        else:
-                            data: dict[Any, Any] = {}
-
+                    if record_type == 0:
+                        # Data record
+                        if keys and len(keys) == len(fields):
+                            data: dict[Any, Any] = dict(base)
                             for k, v in zip(keys, fields):
                                 if k == 0:
-                                    continue  # invalid parameter id
+                                    continue  # invalid parameter id (often a symptom of old truncation)
 
                                 if k > 1000 and len(v) == 4:
                                     try:
@@ -625,19 +752,21 @@ class NEPH:
                                 else:
                                     data[k] = v
 
-                            result.append({**base, **data})
-
+                            result.append(data)
+                        else:
+                            # No header (or mismatch) — keep raw payload so we don’t silently lose data
+                            result.append({**base, "values_raw": fields})
                     else:
-                        # other record type
-                        result.append({**base, "fields_raw": fields})
+                        # Unknown record type — preserve raw
+                        result.append({**base, "record_type": record_type, "fields_raw": fields})
 
                 offset += record_len
 
-        except Exception as err:
-            # Ensure we still satisfy the declared return type
-            return [{"error": f"decode failed: {err!r}"}]
+            return result
 
-        return result
+        except Exception as err:
+            self.logger.error(err)
+            return result
 
 
     def _acoem_decode_error(self, error_code: int) -> str:
