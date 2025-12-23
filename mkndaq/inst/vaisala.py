@@ -14,11 +14,7 @@ from typing import Optional
 
 import schedule
 import serial
-<<<<<<< HEAD
-from pymodbus.client import ModbusSerialClient
-=======
 # from pymodbus.client import ModbusSerialClient
->>>>>>> aefc58e4acbc208ed25869bfbd1fc7be5e7f8943
 
 # Compile once at module import
 _HMP_READING_RE = re.compile(
@@ -300,11 +296,6 @@ class HMP110ASCII:
 
     def _save_data(self) -> None:
         try:
-<<<<<<< HEAD
-=======
-            # data_file = ""
-            # self.data_file = ""
->>>>>>> aefc58e4acbc208ed25869bfbd1fc7be5e7f8943
             if self._data:
                 # create appropriate file name and write mode
                 now = datetime.now()
@@ -312,11 +303,7 @@ class HMP110ASCII:
                 yyyy = now.strftime('%Y')
                 mm = now.strftime('%m')
                 dd = now.strftime('%d')
-<<<<<<< HEAD
-                self.data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.csv")
-=======
                 self.data_file = os.path.join(self.data_path, yyyy, mm, dd, f"{self.name}-{timestamp}.dat")
->>>>>>> aefc58e4acbc208ed25869bfbd1fc7be5e7f8943
                 os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
 
                 # configure file mode, open file and write to it
@@ -340,10 +327,7 @@ class HMP110ASCII:
         except Exception as err:
             self.logger.error(f"[{self.name}] {err}")
 
-<<<<<<< HEAD
-=======
 
->>>>>>> aefc58e4acbc208ed25869bfbd1fc7be5e7f8943
     def _stage_file(self):
         """ Create zip file from self.data_file and stage archive.
         """
@@ -357,10 +341,7 @@ class HMP110ASCII:
         except Exception as err:
             self.logger.error(f"[{self.name}] {err}")
 
-<<<<<<< HEAD
-=======
 
->>>>>>> aefc58e4acbc208ed25869bfbd1fc7be5e7f8943
     def _save_and_stage_data(self):
         self._save_data()
         self._stage_file()
@@ -479,10 +460,7 @@ Assumptions
 
 #         return HMP110Reading(rh=rh, temperature=temperature, dew_point=dew_point)
 
-<<<<<<< HEAD
 
-=======
->>>>>>> aefc58e4acbc208ed25869bfbd1fc7be5e7f8943
 # def main_modbus() -> None:
 #     parser = argparse.ArgumentParser(
 #         description="Read Vaisala HMP110 via RS-485 / Modbus RTU"
