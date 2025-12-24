@@ -13,7 +13,6 @@ import time
 import warnings
 import zipfile
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 import colorama
 import schedule
@@ -176,7 +175,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
-
     def setup_schedules(self, run_threaded=_default_run_threaded):
         try:
             # configure data acquisition schedule
@@ -205,7 +203,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
-
     def _setup_zero_span_check_schedules(self, run_threaded=_default_run_threaded) -> None:
         """
         Zero/span/ambient checks aligned to the top of the hour:
@@ -233,7 +230,6 @@ class NEPH:
         except Exception as err:  # pragma: no cover
             self.logger.error("setup_zero_span_check_schedules failed: %s", err)
 
-
     def _acoem_checksum(self, x: bytes) -> bytes:
         """
         Compute the checksum of all bytes except checksum and EOT by XORing bytes from left 
@@ -255,7 +251,6 @@ class NEPH:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
             return b''
 
-
     def _acoem_timestamp_to_datetime(self, timestamp: int) -> datetime:
         try:
             dtm = timestamp
@@ -276,7 +271,6 @@ class NEPH:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
             return datetime(1111, 1, 1)
 
-
     def _acoem_datetime_to_timestamp(self, dtm: datetime=datetime.now(timezone.utc)) -> bytes:
         try:
             SS = bin(dtm.time().second)[2:].zfill(6)
@@ -291,7 +285,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
             return b''
-
 
     def _acoem_construct_parameter_id(self, base_id: int, wavelength: int, angle: int) -> int:
         """
@@ -308,7 +301,6 @@ class NEPH:
         """
         return base_id * 1000000 + wavelength * 1000 + angle
     
-
     def _acoem_construct_message(self, command: int, parameter_id: int=0, payload: bytes=b'') -> bytes:
         """
         Construct ACOEM packet to be sent to instrument. See the ACOEM manual for explanations.
@@ -340,7 +332,6 @@ class NEPH:
         msg = bytes([2, self.serial_id, command, 3]) + (msg_len).to_bytes(2, byteorder='big') + msg_data
         return msg + self._acoem_checksum(msg) + bytes([4])
     
-
     def _acoem_bytes2int(self, response: bytes, verbosity: int=0) -> 'list[int]':
         """Convert byte response obtained from instrument into integers. 
     
@@ -365,7 +356,6 @@ class NEPH:
             items.append(item)
 
         return items
-
 
     def _acoem_response2values(self, parameters: 'list[int]', response: bytes, verbosity: int=0) -> dict:
         """Convert byte response obtained from instrument into integers, floats or datetime, depending on parameter.     
@@ -414,234 +404,6 @@ class NEPH:
 
         return data
 
-
-    # def _acoem_decode_logged_data(self, response: bytes, digits: int=5, verbosity: int=0) -> 'list[dict]':
-    #     """Decode the binary response received from the instrument after sending command 7.
-
-    #     Args:
-    #         response (bytes): See A.3.8 in the manual for more information
-    #         digits (int, optional): (maximum) number of digits for floats
-    #         verbosity (int, optional): _description_. Defaults to 0.
-
-    #     Returns:
-    #         list[dict]: List of dictionaries, where the keys are the parameter ids, and the values are the measured values.
-    #     """
-    #     # data = dict()
-    #     all = []
-    #     if response[2] == 7:
-    #         # command 7 (byte 3)
-    #         message_length = int(int.from_bytes(response[4:6], byteorder='big') / 4)
-    #         response_body = response[6:-2]
-    #         fields_per_record = int.from_bytes(response_body[12:16], byteorder='big')
-    #         items_per_record = fields_per_record + 4
-    #         number_of_records = message_length // items_per_record
-    #         if verbosity>1:
-    #             self.logger.debug(f"message length (items): {message_length}")
-    #             self.logger.debug(f"response body length  : {len(response_body)}")
-    #             self.logger.debug(f"response body (bytes) : {response_body}")
-    #             self.logger.debug(f"number of records     : {number_of_records}")
-
-    #         # parse bytearray into records and records into dict of header record(s) and data records
-    #         record_bytes = items_per_record * 4
-    #         records = [response_body[i * record_bytes:(i + 1) * record_bytes] for i in range(number_of_records)]
-    #         keys = []
-    #         values = []
-    #         for i in range(number_of_records):
-    #             if records[i][0]==1:
-    #                 # header record
-    #                 number_of_fields = int.from_bytes(records[i][12:16], byteorder='big')
-    #                 keys = [int.from_bytes(records[i][(16 +j*4):(16 + (j+1)*4)], byteorder='big') for j in range(number_of_fields)]
-    #             elif records[i][0]==0:
-    #                 # data record
-    #                 number_of_fields = int.from_bytes(records[i][12:16], byteorder="big")
-    #                 values = [records[i][16 + j*4:16 + (j+1)*4] for j in range(number_of_fields)]
-
-    #                 data = dict(zip(keys, values))
-
-    #                 # decode instrument operation (same as CURRENT_OPERATION / 4035)
-    #                 data["current_operation"] = records[i][1]
-
-    #                 # float decoding
-    #                 for k, v in data.items():
-    #                     if isinstance(k, int) and k > 1000 and isinstance(v, (bytes, bytearray)) and len(v) == 4:
-    #                         data[k] = round(struct.unpack(">f", v)[0], digits)
-
-    #                 data["logging_interval"] = int.from_bytes(records[i][8:12], byteorder="big")
-    #                 data["dtm"] = self._acoem_timestamp_to_datetime(
-    #                     int.from_bytes(records[i][4:8], byteorder="big")
-    #                 ).strftime("%Y-%m-%d %H:%M:%S")
-
-    #                 if verbosity > 1:
-    #                     self.logger.debug(f"type of record: {records[i][0]}")
-    #                     self.logger.debug(f"inst operation: {records[i][1]}")
-    #     elif response[2]==0:
-    #         # response error
-    #         return [{'comms_err': self._acoem_decode_error(error_code=response[7])}]
-    #     else:
-    #         return [dict()]
-
-    # def _acoem_decode_logged_data(self, response: bytes, digits: int = 5, verbosity: int = 0) -> list[dict[Any, Any]]:
-    #     """
-    #     Decode the binary response received from the instrument after sending command 7
-    #     (Get Logged Data, ACOEM protocol).
-
-    #     Robustness improvements vs. previous implementation:
-    #     - No off-by-one truncation
-    #     - Sequential parsing (does not assume fixed record size)
-    #     - Supports multiple header records (key list can change mid-stream)
-    #     - Extracts instrument operation byte (same as CURRENT_OPERATION / 4035)
-    #     - Drops invalid parameter id 0 from returned dicts
-    #     """
-    #     result: list[dict[Any, Any]] = []
-
-    #     try:
-    #         if not response or len(response) < 8:
-    #             return [{"error": "empty/short response"}]
-
-    #         cmd = response[2]
-
-    #         # Error response
-    #         if cmd == 0:
-    #             err_code = response[7] if len(response) > 7 else 255
-    #             return [{"error": self._acoem_decode_error(error_code=err_code)}]
-
-    #         # Not a cmd-7 response
-    #         if cmd != 7:
-    #             return [{"error": f"unexpected command in response: {cmd}"}]
-
-    #         declared_body_len = int.from_bytes(response[4:6], byteorder="big")
-    #         body_start = 6
-    #         body_end = min(len(response), body_start + declared_body_len)
-    #         response_body = response[body_start:body_end]
-
-    #         offset = 0
-    #         keys: list[int] = []
-
-    #         def _safe_dtm(ts: int) -> str:
-    #             try:
-    #                 return self._acoem_timestamp_to_datetime(ts).strftime("%Y-%m-%d %H:%M:%S")
-    #             except Exception:
-    #                 return ""
-
-    #         while offset + 16 <= len(response_body):
-    #             record_type = response_body[offset]
-    #             current_operation = response_body[offset + 1]
-
-    #             ts = int.from_bytes(response_body[offset + 4 : offset + 8], byteorder="big")
-    #             logging_period = int.from_bytes(response_body[offset + 8 : offset + 12], byteorder="big")
-    #             n_fields = int.from_bytes(response_body[offset + 12 : offset + 16], byteorder="big")
-
-    #             record_len = 16 + (n_fields * 4)
-    #             if offset + record_len > len(response_body):
-    #                 if verbosity > 0:
-    #                     self.logger.warning(
-    #                         f"[{self.name}] Truncated logged-data record at offset {offset} "
-    #                         f"(need {record_len} bytes, have {len(response_body) - offset})."
-    #                     )
-    #                 break
-
-    #             fields = [
-    #                 response_body[offset + 16 + (i * 4) : offset + 16 + ((i + 1) * 4)]
-    #                 for i in range(n_fields)
-    #             ]
-
-    #             # if record_type == 1:
-    #             #     # header record: parameter IDs
-    #             #     keys = [int.from_bytes(b, byteorder="big") for b in fields]
-
-    #             # elif record_type == 0:
-    #             #     # data record
-    #             #     if not keys:
-    #             #         result.append(
-    #             #             {
-    #             #                 "record_type": record_type,
-    #             #                 # "current_operation": current_operation,
-    #             #                 4035: current_operation,
-    #             #                 # "logging_period": logging_period,
-    #             #                 2002: logging_period,
-    #             #                 "dtm": _safe_dtm(ts),
-    #             #                 "values_raw": fields,
-    #             #             }
-    #             #         )
-    #             #     else:
-    #             #         data: dict[Any, Any] = {}
-
-    #             #         for k, v in zip(keys, fields):
-    #             #             if k == 0:
-    #             #                 continue  # invalid parameter id
-
-    #             #             if k > 1000 and len(v) == 4:
-    #             #                 try:
-    #             #                     data[k] = round(struct.unpack(">f", v)[0], digits)
-    #             #                 except Exception:
-    #             #                     data[k] = v
-    #             #             else:
-    #             #                 data[k] = v
-
-    #             #         data[2002] = logging_period
-    #             #         # data["logging_period"] = logging_period
-    #             #         data["dtm"] = _safe_dtm(ts)
-    #             #         data[4035] = current_operation
-    #             #         # data["current_operation"] = current_operation
-    #             #         result.append(data)
-
-    #             # else:
-    #             #     # other record type
-    #             #     result.append(
-    #             #         {
-    #             #             "record_type": record_type,
-    #             #             # "current_operation": current_operation,
-    #             #             4035: current_operation,
-    #             #             # "logging_period": logging_period,
-    #             #             2002: logging_period,
-    #             #             "dtm": _safe_dtm(ts),
-    #             #             "fields_raw": fields,
-    #             #         }
-    #             #     )
-    #             # Build shared metadata once per record
-    #             base: dict[Any, Any] = {
-    #                 # "record_type": record_type,
-    #                 4035: current_operation,   # CURRENT_OPERATION
-    #                 2002: logging_period,      # LOGGING_PERIOD (your chosen key)
-    #                 "dtm": _safe_dtm(ts),
-    #             }
-
-    #             if record_type == 1:
-    #                 # header record
-    #                 keys = [int.from_bytes(b, byteorder="big") for b in fields]
-
-    #             elif record_type == 0:
-    #                 # data record
-    #                 if not keys:
-    #                     result.append({**base, "values_raw": fields})
-    #                 else:
-    #                     data: dict[Any, Any] = {}
-
-    #                     for k, v in zip(keys, fields):
-    #                         if k == 0:
-    #                             continue  # invalid parameter id
-
-    #                         if k > 1000 and len(v) == 4:
-    #                             try:
-    #                                 data[k] = round(struct.unpack(">f", v)[0], digits)
-    #                             except Exception:
-    #                                 data[k] = v
-    #                         else:
-    #                             data[k] = v
-
-    #                     result.append({**base, **data})
-
-    #             else:
-    #                 # other record type
-    #                 result.append({**base, "fields_raw": fields})
-
-    #         offset += record_len
-
-    #     except Exception as err:
-    #         # Ensure we still satisfy the declared return type
-    #         return [{"error": f"decode failed: {err!r}"}]
-
-    #     return result
     def _acoem_decode_logged_data(
         self,
         response: bytes,
@@ -654,9 +416,9 @@ class NEPH:
         Returns:
             list[dict]: List of dictionaries, where keys are parameter ids and values are decoded values.
                         Adds:
-                        - data[4035] = current operation (0 ambient, 1 zero, 2 span, 9 error/unknown)
-                        - data['logging_interval'] = logging period (seconds)
                         - data['dtm'] = '%Y-%m-%d %H:%M:%S'
+                        - data[4035] = current operation (0 ambient, 1 zero, 2 span, 9 error/unknown)
+                        - data[2002] = logging period (seconds)
         """
         from typing import Any
 
@@ -772,7 +534,6 @@ class NEPH:
             self.logger.error(err)
             return result
 
-
     def _acoem_decode_error(self, error_code: int) -> str:
         """A.3.1 Return description of error code
 
@@ -794,7 +555,6 @@ class NEPH:
                      9: 'media busy',}
         return error_map[error_code]
     
-
     def _aurora_timestamp_to_date_time(self, fmt: str, dte: str, tme: str) -> datetime:
         """Convert a aurora timestamp to datetime
 
@@ -824,7 +584,6 @@ class NEPH:
             self.logger.error(err)
             return datetime(1111, 1, 1, 1, 1, 1)
         
-
     def _acoem_logged_data_to_string(self, data: 'list[dict]', sep: str=',') -> str:
         """Convert data retrieved using the get_logged_data to a string format ready for saving.
 
@@ -843,7 +602,6 @@ class NEPH:
 
         return '\n'.join(result)
 
-
     def _tcpip_comm_wait_for_line(self) -> None:                        
         t0 = time.perf_counter()
         while self._tcpip_line_is_busy:
@@ -852,7 +610,6 @@ class NEPH:
                 self.logger.warning(colorama.Fore.YELLOW + "'_tcpip_comm_wait_for_line' timed out!" + colorama.Fore.GREEN)
                 break
         return
-
 
     def _tcpip_comm(self, message: bytes, expect_response: bool=True, verbosity: int=0) -> bytes:
         """
@@ -922,7 +679,6 @@ class NEPH:
             self._tcpip_line_is_busy = False
             return b''
 
-    
     def get_instr_type(self, verbosity: int=0) -> list:
         """A.3.2 Requests details on the type of analyser being communicated with.
 
@@ -945,7 +701,6 @@ class NEPH:
             self.logger.error(err)
             return []
 
-
     def get_version(self, verbosity: int=0) -> list:
         """A.3.3 Requests the current firmware version running on the analyser.
 
@@ -967,7 +722,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(err)
             return []
-
 
     def reset(self, verbosity: int=0) -> None:
         """
@@ -992,8 +746,7 @@ class NEPH:
             return
         except Exception as err:
             self.logger.error(err)
-    
-
+  
     def get_values(self, parameters: 'list[int]', verbosity: int=0) -> dict:
         """
         Requests the value of one or more instrument parameters.
@@ -1035,7 +788,6 @@ class NEPH:
             self.logger.error(err)
             return dict()
 
-
     def set_value(self, parameter_id: int, value: int, verify: bool=True, verbosity: int=0) -> int:
         """A.3.6 Sets the value of an instrument parameter.
 
@@ -1073,7 +825,6 @@ class NEPH:
             self.logger.error(err)
             return int()
 
-
     def get_data_log_config(self, verbosity: int=0, insert_4035_2002: bool=True) -> list:
         """
         A.3.7 Return the list of parameter IDs currently being logged. 
@@ -1108,7 +859,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(err)
             return list()
-
 
     # def set_datalog_param_index(
     #     self, 
@@ -1155,7 +905,7 @@ class NEPH:
     #         self.logger.error(err)
     #         return list()
     
-    def set_datalog_interval(self, verbosity: int=0) -> int:
+    def set_datalog_interval(self) -> int:
         try:
             datalog_interval = self.set_value(parameter_id=2002, value=self.sampling_interval)
             return datalog_interval
@@ -1371,58 +1121,6 @@ class NEPH:
             self.logger.error(err)
             return (dict(), dict())
 
-    # def _do_zero_span_check(self, verbosity: int=0) -> None:
-    #     """
-    #     Launch a zero check, followed by a span check. Finally, return to Ambient mode.
-    #     NB: Not to be used in operations, the wait loop is blocking
-
-    #     Parameters:
-    #         verbosity (int, optional): ...
-
-    #     Returns:
-    #         None
-    #     """
-    #     dtm = now = datetime.now(timezone.utc)
-
-    #     # change operating state to ZERO
-    #     msg = f"Switching to ZERO CHECK mode ..."
-    #     self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
-    #     resp = self.do_zero(verbosity=verbosity)
-    #     if resp==1:
-    #         self.logger.info(f"Instrument switched to ZERO CHECK")
-    #     else:
-    #         self.logger.warning(colorama.Fore.YELLOW + f"Instrument mode should be '1' (ZERO CHECK) but was returned as '{resp}'." + colorama.Fore.GREEN)
-    #     while now < dtm + timedelta(minutes=self.zero_check_duration):
-    #         now = datetime.now(timezone.utc)
-    #         time.sleep(1)
-        
-    #     # change operating state to SPAN
-    #     dtm = now = datetime.now(timezone.utc)
-    #     msg = f"Switching to SPAN CHECK mode ..."
-    #     self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
-    #     resp = self.do_span(verbosity=verbosity)
-        
-    #     # open CO2 cylinder valve by setting digital out to HIGH
-    #     # resp2 = self.set_value(7005, 1)
-    #     # msg = f"CO2 cylinder valve 
-    #     if resp==2:
-    #         self.logger.info(f"Instrument switched to SPAN CHECK")
-    #     else:
-    #         self.logger.warning(colorama.Fore.YELLOW + f"Instrument mode should be '2' (SPAN CHECK) but was returned as '{resp}'." + colorama.Fore.GREEN)
-    #     while now < dtm + timedelta(minutes=self.span_check_duration):
-    #         now = datetime.now(timezone.utc)
-    #         time.sleep(1)
-        
-    #     # change operating state to AMBIENT
-    #     msg = f"Switching to AMBIENT mode."
-    #     self.logger.info(colorama.Fore.BLUE + f"[{self.name}] {msg}")
-    #     resp = self.do_ambient(verbosity=verbosity)
-    #     if resp==0:
-    #         self.logger.info(f"Instrument switched to AMBIENT mode")
-    #     else:
-    #         self.logger.warning(f"Instrument mode should be '0' (AMBIENT) but was returned as '{resp}'.")
-    #     return
-
     def do_span(self, verify: bool=True, verbosity: int=0) -> int:
         """
         Override digital IO control and DOSPAN. Wrapper for set_current_operation.
@@ -1474,7 +1172,6 @@ class NEPH:
     #     """
     #     return int(self._tcpip_comm(f"VI{self.serial_id}88\r".encode()).decode())
 
-
     # def get_all_data(self, verbosity: int=0) -> str:
     #     """
     #     Rewind the pointer of the data logger to the first entry, then retrieve all data (cf. B.4 ***R, B.3 ***D). 
@@ -1501,7 +1198,6 @@ class NEPH:
     #     except Exception as err:
     #         self.logger.error(err)
     #         return str()
-
 
     def get_current_data(self, add_params: list=[], strict: bool=False, sep: str=' ', verbosity: int=0) -> dict:
         """
@@ -1547,7 +1243,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
             return dict()
-
 
     def _accumulate_new_data(self, sep: str=",", verbosity: int=0) -> None:
         """
@@ -1604,7 +1299,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
-
     def _save_data(self) -> str | None:
         try:
             self.logger.debug(f"[{self.name}] _save_data")
@@ -1642,7 +1336,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
-
     def _stage_file(self):
         """ Stage file, optionally as .zip archive.
         """
@@ -1663,7 +1356,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
-
     def _save_and_stage_data(self):
         try:
             self.logger.debug(f"[{self.name}] ._save_and_stage_data")
@@ -1674,7 +1366,6 @@ class NEPH:
 
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
-
 
     def print_ssp_bssp(self) -> None:
         """Retrieve current readings and print."""
