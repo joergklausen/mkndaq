@@ -5,7 +5,7 @@ sockslib
 schedule
 setuptools
 colorama
-polars
+polars[rtcompat]
 s3fs
 boto3
 contourpy==1.3.3

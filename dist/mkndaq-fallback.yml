@@ -1,0 +1,350 @@
+file: mkndaq.yml
+version: 2025-12-03
+
+# local root directory
+root: ~/Documents/mkndaq
+
+# log directory, relative to root
+logging:
+  file: mkndaq.log
+  level_console: INFO
+  level_file: ERROR
+
+# data directory, relative to root
+data: data
+
+# staging area for transfer, relative to root
+staging: staging
+
+# file transfer
+sftp:
+    host: sftp.meteoswiss.ch
+    usr: gaw_mkn
+    remote: '.'
+    key: ~/.ssh/private-open-ssh-4096-mkn.ppk
+    proxy:
+        socks5:             # proxy url (leave empty if no proxy is used)
+        port: 1080
+
+s3:
+    endpoint_url: 'https://servicedevt.meteoswiss.ch/'
+    aws_s3_bucket_name: 'ch.meteoswiss.gawkenya'
+    aws_region: 'eu-central-1'
+    aws_access_key_id: 'gawkenya_native'
+    aws_secret_access_key: ~/.aws/minio-devt-secret-key
+    default_prefix: mkn
+
+# serial interface configuration
+COM1:
+    protocol: RS232     # don't change!
+    baudrate: 9600
+    bytesize: 8
+    stopbits: 1
+    parity: N
+    timeout: 1
+COM2:
+    protocol: RS232     # don't change!
+    baudrate: 9600
+    bytesize: 8
+    stopbits: 1
+    parity: N
+    timeout: 1
+COM3:
+    protocol: RS232     # don't change!
+    baudrate: 9600
+    bytesize: 8
+    stopbits: 1
+    parity: N
+    timeout: 1
+COM4:
+    protocol: RS232     # don't change!
+    baudrate: 9600
+    bytesize: 8
+    stopbits: 1
+    parity: N
+    timeout: 1
+COM5:
+    protocol: RS485     # don't change!
+    baudrate: 19200
+    bytesize: 8
+    stopbits: 1
+    parity: N
+    timeout: 1
+
+# instrument specification
+# tei49c:
+    # type: Thermo 49C
+    # id: 49
+    # serial_number: 49C-58106-318
+    # port: COM4
+    # get_config:
+        # - date
+        # - time
+        # - mode
+        # - gas unit
+        # - range
+        # - avg time
+        # - temp comp
+        # - pres comp
+        # - format
+        # - lrec format
+        # - o3 coef
+        # - o3 bkg
+    # set_config:
+        # - set mode remote
+        # - set gas unit ppb
+        # - set range 1
+        # - set avg time 3
+        # - set temp comp on
+        # - set pres comp on
+        # - set format 00
+        # - set lrec format 00 02
+        # - set save params
+    # data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
+    # sampling_interval: 1        # minutes. How often should data be requested from instrument?
+    # reporting_interval: 10
+    # data_path: tei49c
+    # staging_path: tei49c
+    # staging_zip: True
+    # remote_path: tei49c
+    # get_data: lrec              # warning: will be removed with v0.8.0
+
+# tei49c-ps:
+#     type: Thermo 49C-PS
+#     id: 49
+#     serial_number: 49C-PS-xxxxx-xxx
+#     port: COM2
+#     get_config:
+#         - date
+#         - time
+#         - mode
+#         - gas unit
+#         - range
+#         - avg time
+#         - temp comp
+#         - pres comp
+#         - format
+#         - lrec format
+#         - o3 coef
+#         - o3 bkg
+#     set_config:
+#         - set mode remote
+#         - set gas unit ppb
+#         - set range 1
+#         - set avg time 3
+#         - set temp comp on
+#         - set pres comp on
+#         - set format 00
+#         - set lrec format 00 02
+#         - set save params
+#     data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
+#     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+#     reporting_interval: 10
+#     data_path: tei49c-ps
+#     staging_path: tei49c-ps
+#     staging_zip: True
+#     remote_path: tei49c-ps
+#     levels:
+#         - 500
+#         - 100
+#         - 0
+#         - 50
+#         - 20
+#         - 70
+#         - 0
+#         - 80
+#         - 30
+#         - 10
+#         - 60
+#         - 5
+#         - 40
+#         - 90
+#         - 200
+#         - 300
+#         - 0
+#     duration_minutes: 15
+
+tei49i:
+    type: Thermo 49i
+    id: 49
+    serial_number: 49I-B1NAA-12103910681
+    socket:
+        host: 192.168.3.190
+        port: 9880
+        timeout: 5
+        sleep: 0.5
+    get_config:
+        - date
+        - time
+        - mode
+        - gas unit
+        - temp comp
+        - pres comp
+        - range
+        - format
+        - avg time
+        - lrec per
+        - lrec format
+        - o3 coef
+        - o3 bkg
+    set_config:
+        - set mode remote
+        - set gas unit ppb
+        - set temp comp on
+        - set pres comp on
+        - set range 1
+        - set format 00
+        - set avg time 3        # must be compatible with lrec per
+        - set lrec per 1        # must correspond to sampling_interval
+        - set lrec format 0     # ASCII no labels
+        - set save params
+    get_data: lr00
+    sampling_interval: 1        # minutes. How often should data be requested from instrument?
+    reporting_interval: 10
+    data_path: tei49i
+    staging_path: tei49i
+    staging_zip: True
+    remote_path: tei49i
+
+ne300:
+    type: NE300
+    protocol: acoem
+    serial_id: 0
+    serial_number: 23-0690
+    mac_number: 00:30:55:0A:78:78
+    socket:
+        host: 192.168.3.149
+        port: 32783
+        timeout: 5
+        sleep: 0.5
+    data_log:
+        parameters: [1000000, 2000000, 3000000, 6000000, 7000000, 8000000,
+                     11000000, 12000000, 13000000, 14000000, 15000000, 16000000,
+                     17000000, 18000000, 19000000, 20000000, 21000000, 26000000,
+                     5001, 5002, 5003, 5004, 5005, 5006,
+                     5010, 6007, 6008, 6001, 6002, 6003,
+                     4035, 4036]
+        wavelengths: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
+        angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
+        interval: 60
+    sampling_interval: 5            # minutes. logger retrieval interval
+    reporting_interval: 60
+    data_path: ne300
+    staging_path: ne300
+    staging_zip: True
+    remote_path: ne300
+    verbosity: 2                    # 0: silent, 1: medium, 2: full
+    zero_span_check_interval: 0   # set this to 4380 (=73 hrs) for production; 0 to disable
+    zero_check_duration: 20         # set this to 20 for production
+    span_check_duration: 20         # set this to 20 for production
+
+g2401:
+    type: Picarro G2401
+    serial_number: 3293-CFKADS2320
+    socket:
+        host: 192.168.4.102
+        port: 51020
+        timeout: 1
+        sleep: 0.5
+    netshare: DataLog_User_Sync
+    days_to_sync: 7                 # file synching from network drives to data directory
+    buckets: daily                  # Determines the expected directory structure and how files are found.
+    reporting_interval: 10          # minutes. How often should source be scanned and new files staged?
+    data_path: g2401
+    staging_path: g2401
+    staging_zip: True
+    remote_path: g2401
+
+ae33:
+    type: Magee AE33
+    id: 169
+    serial_number: AE33-S10-01394
+    MAC: C4-00-AD-D8-0A-AC
+    socket:
+        host: 192.168.3.137
+        port: 8002
+        timeout: 0.5
+        sleep: 0.5
+    get_config:
+        - HELLO
+    set_datetime: False             # Should date and time be set when initializing the instrument?
+    sampling_interval: 1            # minutes. How often should data be requested from instrument?
+    reporting_interval: 10
+    data_path: ae33
+    staging_path: ae33
+    staging_zip: True
+    remote_path: ae33
+
+# meteo:
+    # type: METEO
+    # source: c:/ftproot/meteo        # directory where data can be found
+    # pattern: VRXA00
+    # data_path: meteo
+    # staging_path: meteo
+    # reporting_interval: 10
+    # staging_zip: False
+    # remote_path: meteo
+
+fidas:
+    type: FIDAS
+    serial_number: 6082
+    socket:
+        host: 0.0.0.0
+        port: 56790
+        buffer_size: 8192
+        timeout: 0.5
+        sleep: 0.5
+    raw_record_interval: 5             # seconds. How often should data be read from instrument?
+    aggregation_period: 1            # minutes. What aggregate of data should be stored?
+    reporting_interval: 60
+    data_path: fidas
+    staging_path: fidas
+    # staging_zip: True
+    remote_path: fidas
+
+tapo:
+    type: Tapo C230 7785
+    mac: 78-20-51-42-77-85
+    ip_address: 192.168.200.164
+    username: ~/.tapo/tapo-account-username
+    password: ~/.tapo/tapo-account-password
+    stream: 1
+    image_format: png        # or: jpg
+    jpeg_quality: 95         # only used if image_format = jpg
+    png_compression: 3       # 0–9, only if image_format = png
+    snapshot_interval_seconds: 3600          # seconds. How often should a snapshot be taken?
+    reporting_interval_minutes: 60
+    data_path: tapo
+    staging_path: tapo
+    staging_zip: False
+    remote_path: tapo
+
+# hmp110-inlet:
+    # type: Vaisala HMP110
+    # id: 3     # mainfold
+    # serial_number: U2110086  # aerosol inlet manyfold
+    # port: COM5
+    # data_header: dtm,T,RH,Td
+    # sampling_interval: 1        # minutes. How often should data be requested from instrument?
+    # reporting_interval: 60
+    # data_path: hmp110-inlet
+    # staging_path: hmp110-inlet
+    # staging_zip: True
+    # remote_path: hmp110-inlet
+
+# hmp110-ae33:
+    # type: Vaisala HMP110
+    # id: 4     # inlet AE33
+    # serial_number: U2110081  # inlet AE33
+    # port: COM5
+    # data_header: dtm,T,RH,Td
+    # sampling_interval: 1        # minutes. How often should data be requested from instrument?
+    # reporting_interval: 60
+    # data_path: hmp110-ae33
+    # staging_path: hmp110-ae33
+    # staging_zip: True
+    # remote_path: hmp110-ae33
+
+test:
+    remote_path: test
+    staging_path: test

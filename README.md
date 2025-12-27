@@ -16,6 +16,44 @@ startup and every 5' thereafter. This is pre-configured and available as follows
 - Import /dist/mkndaq.xml  (This is an export from the Task Scheduler task definition.)
 - Verify that task is registered.
 
+### Fallback
+2025-12-26 / jkl
+
+Installation of MKNDAQ as a fall-back on Picarro Windows 10 Pro
+
+1. Install Windows git bash from https://git-scm.com/install/windows
+
+2. Install Python 3.13 from https://www.python.org/ftp/python/3.13.11/python-3.13.11-amd64.exe
+    - Use defaults, but then modify installation and pre-compile standard library, add Python to Environmet Variables
+
+3. Clone git repository
+    - Open CMD, create folder c:/users/picarro/git
+    - git clone https://github.com/joergklausen/mkndaq.git
+
+4. Create .venv
+    - C:\Users\picarro>C:\Users\picarro\AppData\Local\Programs\Python\Python313\python -m venv c:\Users\picarro\git\mkndaq\.venv
+
+5. Activate .venv
+    - c:\Users\picarro\git\mkndaq\.venv\Scripts>activate
+    
+6. Install requirements.txt
+    - cd c:/users/picarro/git/mkndaq
+    - py -m pip install --upgrade pip
+    - py -m pip install -r requirements.txt
+    - py -m pip install polars[rtcompat]    # light polars version for older CPUs
+
+7. Install private key
+    - cd c:/users/picarro/
+    - mkdir .ssh
+    - transfer private key file 
+    
+8. Install S3 key
+    - Create .aws, transfer key
+    
+9. Open Task Scheduler and import basic tasks
+    - ../dist/mkndaq-fallback.xml
+    - ../dist/fidas-fallback.xml
+
 ### Supported instruments
 #### TEI49C
 Serial communication using RS-232. Specify formats in
