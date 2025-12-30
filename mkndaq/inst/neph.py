@@ -93,7 +93,7 @@ class NEPH:
             self.data_log_parameters: list[int] = [int(x) for x in data_log_cfg.get('parameters', []) if x not in (None, '', 0)]
             self.data_log_wavelengths: list[int] = [int(x) for x in data_log_cfg.get('wavelengths', []) if x not in (None, '')]
             self.data_log_angles: list[int] = [int(x) for x in data_log_cfg.get('angles', []) if x not in (None, '')]
-            _dli = data_log_cfg.get('interval', None)
+            _dli = data_log_cfg.get('interval', 60)
             self.data_log_interval: int | None = int(_dli) if _dli not in (None, '', 0) else None
 
             # sampling, aggregation, reporting/storage
@@ -1070,9 +1070,9 @@ class NEPH:
         """
         try:
             if interval is None:
-                interval = self.data_log_interval if self.data_log_interval is not None else self.sampling_interval
+                interval = self.data_log_interval if self.data_log_interval is not None else 60
             if interval is None:
-                raise ValueError("No valid datalog interval configured (data_log.interval or sampling_interval).")
+                raise ValueError("No valid datalog interval configured (data_log.interval)")
             interval_i = int(interval)
             return self.set_value(parameter_id=2002, value=interval_i, verify=True, verbosity=verbosity)
         except Exception as err:
@@ -1435,7 +1435,7 @@ class NEPH:
                 # define period to retrieve and update state variable
                 start = self._start_datalog
                 end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-                self._start_datalog = end + timedelta(seconds=self.sampling_interval)
+                self._start_datalog = end - timedelta(seconds=self.sampling_interval)
 
                 # retrieve data
                 self.logger.info(f"[{self.name}] .accumulate_new_data from {start} to {end}")
