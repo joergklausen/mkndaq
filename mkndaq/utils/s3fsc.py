@@ -251,58 +251,6 @@ class S3FSC:
         except Exception as err:
             logger.error("transfer_files failed: %s", err)
 
-    # def setup_transfer_schedules(
-    #     self,
-    #     *,
-    #     remove_on_success: bool = True,
-    #     interval: int = 60,                 # minutes
-    #     delay_transfer: int = 2,             # seconds
-    #     local_path: Optional[Union[str, Path]] = None,
-    #     key_prefix: Optional[Union[str, PurePosixPath]] = None,
-    # ) -> None:
-    #     """
-    #     Schedule directory uploads at fixed intervals (minutes).
-    #     Supported:
-    #       - 10  -> every 10 minutes, aligned to the top of the hour
-    #       - n*60 (e.g., 60, 120, ...) -> every n hours
-    #       - 1440 -> daily
-    #     """
-    #     try:
-    #         if delay_transfer > 9:
-    #             raise ValueError("delay_transfer must be less than 10 seconds")
-    #         if interval == 10:
-    #             for prefix in range(6):
-    #                 schedule.every().hour.at(f":{prefix}0:0{delay_transfer}").do(
-    #                     self.transfer_files,
-    #                     remove_on_success=remove_on_success,
-    #                     local_path=local_path,
-    #                     key_prefix=key_prefix,
-    #                 )
-    #         elif (interval % 60) == 0 and interval < 1440:
-    #             hours = interval // 60
-    #             schedule.every(hours).hour.at(f":00:0{delay_transfer}").do(
-    #                 self.transfer_files,
-    #                 remove_on_success=remove_on_success,
-    #                 local_path=local_path,
-    #                 key_prefix=key_prefix,
-    #             )
-    #         elif interval == 1440:
-    #             schedule.every().day.at(f"00:00:0{delay_transfer}").do(
-    #                 self.transfer_files,
-    #                 remove_on_success=remove_on_success,
-    #                 local_path=local_path,
-    #                 key_prefix=key_prefix,
-    #             )
-    #         else:
-    #             raise ValueError(
-    #                 "'interval' must be 10 minutes, a multiple of 60 minutes (<1440), or 1440."
-    #             )
-    #         self.schedule_logger.debug(
-    #             "Scheduled S3 transfer: interval=%s, local=%s, key_prefix=%s",
-    #             interval, local_path, key_prefix,
-    #         )
-    #     except Exception as err:
-    #         self.schedule_logger.error(err)
 
     def setup_transfer_schedules(
         self,

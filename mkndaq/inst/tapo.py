@@ -51,7 +51,7 @@ def next_boundary(interval_s: int) -> float:
 
 
 class Tapo:
-    """Simple wrapper around a Tapo RTSP camera producing JPEG snapshots."""
+    """Simple wrapper around a Tapo RTSP camera producing JPEG or PNG snapshots."""
 
     def __init__(self, name: str, config: dict) -> None:
         self.name = name
