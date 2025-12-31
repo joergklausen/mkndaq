@@ -266,7 +266,7 @@ def main():
                         local_path=str(ne300.staging_path),
                         key_prefix=ne300.remote_path,
                         interval=ne300.reporting_interval,
-                        delay_transfer=2,
+                        delay_transfer=20,
                         remove_on_success=False,
                     )
                 logger.info(
@@ -279,7 +279,7 @@ def main():
                     sftp.setup_transfer_schedules(local_path=str(ne300.staging_path),
                                                   remote_path=remote_path,
                                                   interval=ne300.reporting_interval,
-                                                  delay_transfer=15,
+                                                  delay_transfer=30,
                                                   remove_on_success=True,
                                                   )
                 logger.info(
