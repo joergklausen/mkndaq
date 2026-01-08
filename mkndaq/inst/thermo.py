@@ -73,8 +73,6 @@ import serial
 #     return wrapper
 def with_serial(func):
     @functools.wraps(func)
-def with_serial(func):
-    @functools.wraps(func)
     def wrapper(self, cmd: str, *args, retries: int = 3, **kwargs) -> str:
         # cooldown gate
         now = time.time()
