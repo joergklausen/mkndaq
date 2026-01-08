@@ -36,9 +36,18 @@ def test_real_upload_roundtrip_with_mkndaq_yml(tmp_path: Path):
 
     date_suffix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     f = tmp_path / f"hello.world-{date_suffix}"
-    f.write_text("hello from mkndaq.yml integration test\n", encoding="utf-8")
+    msg = "Hello from S3 integration test\n"
+    msg += f"Generated at {datetime.now(timezone.utc).isoformat()}\n"
+    msg += "This is a test file for upload and head operations.\n"
+    msg += f"Endpoint: {cfg['s3']['endpoint_url']}\n"
+    msg += f"Bucket: {cfg['s3']['aws_s3_bucket_name']}\n"
+    msg += f"Region: {cfg['s3'].get('aws_region', '')}\n"
+    msg += f"Access Key ID: {cfg['s3']['aws_access_key_id']}\n"
+    msg += f"Key Prefix: {cfg['s3']['default_prefix']}\n"
+    msg += "\nYou can safely delete it.\n"
+    f.write_text(msg, encoding="utf-8")
 
-    key = s3.upload(f, key_prefix='test')
+    key = s3.upload(f, key_prefix=cfg['s3']['default_prefix'])
 
     head = s3.head(key)
     assert head["ResponseMetadata"]["HTTPStatusCode"] == 200
