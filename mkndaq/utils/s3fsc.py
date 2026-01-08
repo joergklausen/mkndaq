@@ -47,6 +47,11 @@ class S3Settings:
     verify: Union[bool, str] = True  # bool or path to CA bundle
     use_proxies: bool = True         # False disables proxies for this client only
     default_prefix: str = ""         # base key prefix in the bucket
+    # botocore timeouts / retries (per request)
+    connect_timeout: int = 3
+    read_timeout: int = 8
+    max_attempts: int = 2
+    retry_mode: str = "standard"     # 'standard' (or 'adaptive' if supported)
 
 
 class S3FSC:
@@ -65,6 +70,11 @@ class S3FSC:
         'verify': true,                # bool or '/path/to/ca.pem'
         'use_proxies': false,          # set false to bypass corp proxy
         'default_prefix': 'staging'    # base key prefix inside bucket
+        # optional botocore timeouts / retries (per request):
+        'connect_timeout': 3,
+        'read_timeout': 8,
+        'max_attempts': 2,
+        'retry_mode': 'standard',
       }
     """
 
@@ -77,6 +87,10 @@ class S3FSC:
         addressing_style: Optional[str] = None,
         verify: Optional[Union[bool, str]] = None,
         use_proxies: Optional[bool] = None,
+        connect_timeout: Optional[int] = None,
+        read_timeout: Optional[int] = None,
+        max_attempts: Optional[int] = None,
+        retry_mode: Optional[str] = None,
     ) -> None:
         s3 = (config or {}).get("s3", {})
         if not s3:
@@ -104,12 +118,22 @@ class S3FSC:
             verify=_coerce_verify(verify if verify is not None else s3.get("verify", True)),
             use_proxies=use_proxies if use_proxies is not None else bool(s3.get("use_proxies", True)),
             default_prefix=(default_prefix if default_prefix is not None else s3.get("default_prefix", "")),
+            connect_timeout=int(connect_timeout if connect_timeout is not None else s3.get("connect_timeout", 3)),
+            read_timeout=int(read_timeout if read_timeout is not None else s3.get("read_timeout", 8)),
+            max_attempts=int(max_attempts if max_attempts is not None else s3.get("max_attempts", 2)),
+            retry_mode=str(retry_mode if retry_mode is not None else s3.get("retry_mode", "standard")),
         )
         self.settings = settings
 
         if s3_client is None:
             proxies = None if settings.use_proxies else {}
-            cfg = BotoConfig(s3={"addressing_style": settings.addressing_style}, proxies=proxies)
+            cfg = BotoConfig(
+                s3={"addressing_style": settings.addressing_style},
+                proxies=proxies,
+                connect_timeout=settings.connect_timeout,
+                read_timeout=settings.read_timeout,
+                retries={"max_attempts": settings.max_attempts, "mode": settings.retry_mode},
+            )
             self.s3_client = boto3.client(
                 "s3",
                 endpoint_url=settings.endpoint_url,

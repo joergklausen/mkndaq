@@ -33,6 +33,10 @@ s3:
     aws_access_key_id: 'gawkenya_native'
     aws_secret_access_key: ~/.aws/minio-devt-secret-key
     default_prefix: mkn
+    connect_timeout: 3
+    read_timeout: 8
+    max_attempts: 2
+    retry_mode: standard
 
 # serial interface configuration
 COM1:
