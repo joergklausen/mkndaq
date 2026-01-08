@@ -73,22 +73,47 @@ import serial
 #     return wrapper
 def with_serial(func):
     @functools.wraps(func)
+def with_serial(func):
+    @functools.wraps(func)
     def wrapper(self, cmd: str, *args, retries: int = 3, **kwargs) -> str:
         # cooldown gate
         now = time.time()
         if getattr(self, "_cooldown_until", 0.0) > now:
             return ""
 
-        # non-overlapping I/O
-        if not self._io_lock.acquire(blocking=False):
+        # non-overlapping I/O (and be defensive if _io_lock was never created)
+        io_lock = getattr(self, "_io_lock", None)
+        if io_lock is None:
+            self._io_lock = threading.Lock()
+            io_lock = self._io_lock
+
+        if not io_lock.acquire(blocking=False):
             return ""
 
         try:
+            # ✅ IMPORTANT GUARD: _serial may not exist or may be None
+            ser = getattr(self, "_serial", None)
+            if ser is None:
+                self._fail_count = getattr(self, "_fail_count", 0) + 1
+                max_fail = getattr(self, "_max_fail_before_cooldown", 5)
+                cooldown = getattr(self, "_cooldown_seconds", 120)
+
+                # log only at first occurrence and when entering cooldown (avoid log spam)
+                if self._fail_count in (1, max_fail):
+                    self.logger.error(
+                        f"[{self.name}] serial port not initialized; cannot run {cmd!r}"
+                    )
+
+                if self._fail_count >= max_fail:
+                    self._cooldown_until = time.time() + cooldown
+                return ""
+
             last_err: Exception | None = None
-            for i in range(retries):
+
+            for attempt in range(retries):
                 try:
-                    if not self._serial.is_open:
-                        self._serial.open()
+                    if not ser.is_open:
+                        ser.open()
 
                     resp = func(self, cmd, *args, **kwargs)
 
@@ -98,48 +123,50 @@ def with_serial(func):
                         self._cooldown_until = 0.0
                         return resp
 
-                    # Empty / incomplete response -> treat like a soft timeout
-                    if i < retries - 1:
+                    # empty response -> retry
+                    if attempt < retries - 1:
                         self.logger.debug(
-                            f"[{self.name}] serial_comm attempt {i+1}/{retries} "
+                            f"[{self.name}] serial_comm attempt {attempt+1}/{retries} "
                             f"returned empty for {cmd!r}; retrying..."
                         )
                     else:
                         self.logger.error(
-                            f"[{self.name}] serial_comm empty response after "
-                            f"{retries} attempts for {cmd!r}"
+                            f"[{self.name}] serial_comm empty response after {retries} attempts for {cmd!r}"
                         )
 
                 except (serial.SerialTimeoutException, serial.SerialException, OSError) as err:
                     last_err = err
-                    # Only escalate to ERROR on the last attempt; warn before that
-                    level = logging.WARNING if i < retries - 1 else logging.ERROR
+                    level = logging.WARNING if attempt < retries - 1 else logging.ERROR
                     self.logger.log(
                         level,
-                        f"[{self.name}] serial_comm attempt {i+1}/{retries} failed for {cmd!r}: {err}",
+                        f"[{self.name}] serial_comm attempt {attempt+1}/{retries} failed for {cmd!r}: {err}",
                     )
                     try:
-                        if self._serial.is_open:
-                            self._serial.close()
+                        if ser.is_open:
+                            ser.close()
                     except Exception:
                         pass
 
-                # Backoff before next try
-                time.sleep(min(0.5 * (2 ** i), 3.0))
+                # backoff
+                time.sleep(min(0.5 * (2 ** attempt), 3.0))
 
-            # All attempts failed or empty
+            # All attempts failed or were empty
             self._fail_count = getattr(self, "_fail_count", 0) + 1
             max_fail = getattr(self, "_max_fail_before_cooldown", 5)
             cooldown = getattr(self, "_cooldown_seconds", 120)
+
             if self._fail_count >= max_fail:
                 self._cooldown_until = time.time() + cooldown
                 self.logger.error(
-                    f"[{self.name}] communication failing repeatedly; "
-                    f"backing off for {cooldown}s."
+                    f"[{self.name}] communication failing repeatedly; backing off for {cooldown}s."
                 )
+            elif last_err is not None:
+                self.logger.debug(f"[{self.name}] last serial error for {cmd!r}: {last_err}")
+
             return ""
+
         finally:
-            self._io_lock.release()
+            io_lock.release()
 
     return wrapper
 
@@ -191,6 +218,9 @@ class Thermo49C:
 
             # configure serial port and open it
             port = config[name]['port']
+            self._io_lock = threading.Lock()
+            self._serial: serial.Serial | None = None
+
             try:
                 self._io_lock = threading.Lock()
                 self._serial = serial.Serial(
@@ -209,8 +239,9 @@ class Thermo49C:
                 self._cooldown_until = 0.0           # unix timestamp until which we stay quiet
 
             except serial.SerialException as err:
-                self.logger.error(f"__init__ produced SerialException {err}")
-                pass
+                self.logger.error(f"[{self.name}] serial init failed for port={port!r}: {err}")
+                self._serial = None
+
             # sampling, aggregation, reporting/storage
             self.sampling_interval = config[name]['sampling_interval']
             self.reporting_interval = config[name]['reporting_interval']
