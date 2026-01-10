@@ -1,5 +1,5 @@
 file: mkndaq.yml
-version: 2025-12-03
+version: 2026-01-10
 
 # local root directory
 root: ~/Documents/mkndaq
@@ -60,7 +60,7 @@ COM3:
     stopbits: 1
     parity: N
     timeout: 1
-COM4:
+COM6:
     protocol: RS232     # don't change!
     baudrate: 9600
     bytesize: 8
@@ -76,42 +76,42 @@ COM5:
     timeout: 1
 
 # instrument specification
-# tei49c:
-    # type: Thermo 49C
-    # id: 49
-    # serial_number: 49C-58106-318
-    # port: COM4
-    # get_config:
-        # - date
-        # - time
-        # - mode
-        # - gas unit
-        # - range
-        # - avg time
-        # - temp comp
-        # - pres comp
-        # - format
-        # - lrec format
-        # - o3 coef
-        # - o3 bkg
-    # set_config:
-        # - set mode remote
-        # - set gas unit ppb
-        # - set range 1
-        # - set avg time 3
-        # - set temp comp on
-        # - set pres comp on
-        # - set format 00
-        # - set lrec format 00 02
-        # - set save params
-    # data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
-    # sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    # reporting_interval: 10
-    # data_path: tei49c
-    # staging_path: tei49c
-    # staging_zip: True
-    # remote_path: tei49c
-    # get_data: lrec              # warning: will be removed with v0.8.0
+tei49c:
+    type: Thermo 49C
+    id: 49
+    serial_number: 49C-58106-318
+    port: COM6
+    get_config:
+        - date
+        - time
+        - mode
+        - gas unit
+        - range
+        - avg time
+        - temp comp
+        - pres comp
+        - format
+        - lrec format
+        - o3 coef
+        - o3 bkg
+    set_config:
+        - set mode remote
+        - set gas unit ppb
+        - set range 1
+        - set avg time 3
+        - set temp comp on
+        - set pres comp on
+        - set format 00
+        - set lrec format 00 02
+        - set save params
+    data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
+    sampling_interval: 1        # minutes. How often should data be requested from instrument?
+    reporting_interval: 10
+    data_path: tei49c
+    staging_path: tei49c
+    staging_zip: True
+    remote_path: tei49c
+    get_data: lrec              # warning: will be removed with v0.8.0
 
 # tei49c-ps:
 #     type: Thermo 49C-PS
