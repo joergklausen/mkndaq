@@ -211,7 +211,8 @@ def probe_thermo49c_on_port(
         if ser is None:
             return (False, "serial init failed")
         # quick probe; avoid multiple retries while scanning
-        resp = inst.serial_comm("o3", retries=1)  # "o3" command as you described
+        serial_comm = getattr(inst, "serial_comm")
+        resp = serial_comm("o3", retries=1)  # "o3" command as you described
         _close_serial(ser)
 
         if not resp:
@@ -264,7 +265,8 @@ def probe_hmp110_on_port(
             return (False, "serial init failed")
 
         cmd = getattr(inst, "cmd", None) or f"SEND {cfg2[instrument_name].get('id')}\r\n"
-        resp = inst.serial_comm(cmd, retries=1)
+        serial_comm = getattr(inst, "serial_comm")
+        resp = serial_comm(cmd, retries=1)
         _cleanup_hmp_shared_port(port)
 
         if not resp:
