@@ -67,11 +67,12 @@ class NEPH:
             self.verbosity = config[name]['verbosity']
 
             # read instrument control properties for later use
-            self.serial_id: int = int(config[name]['serial_id'])
+            self.serial_id = config[name]['serial_id']
 
             # configure tcp/ip
-            self.sockaddr: tuple[str, int] = (str(config[name]['socket']['host']), int(config[name]['socket']['port']))
-            self.socktout: float = float(config[name]['socket']['timeout'])
+            self.sockaddr = (config[name]['socket']['host'],
+                             config[name]['socket']['port'])
+            self.socktout = config[name]['socket']['timeout']
             # self.__socksleep = config[name]['socket']['sleep']
             
             # flag to maintain state to prevent concurrent tcpip communication in a threaded setup
@@ -82,27 +83,21 @@ class NEPH:
                 self._protocol = config[name]['protocol']
             else:
                raise ValueError("Communication protocol not recognized.")
-            # data log (what the instrument should log internally)
-            data_log_cfg = {}
-            _inst_cfg = config.get(name)
-            if isinstance(_inst_cfg, dict):
-                _dl = _inst_cfg.get('data_log', {})
-                if isinstance(_dl, dict):
-                    data_log_cfg = _dl
 
-            self.data_log_parameters: list[int] = [int(x) for x in data_log_cfg.get('parameters', []) if x not in (None, '', 0)]
-            self.data_log_wavelengths: list[int] = [int(x) for x in data_log_cfg.get('wavelengths', []) if x not in (None, '')]
-            self.data_log_angles: list[int] = [int(x) for x in data_log_cfg.get('angles', []) if x not in (None, '')]
-            _dli = data_log_cfg.get('interval', 60)
-            self.data_log_interval: int | None = int(_dli) if _dli not in (None, '', 0) else None
+            # data log
+            # self.data_log_parameters = config[name]['data_log']['parameters']
+            # self.data_log_wavelengths = config[name]['data_log']['wavelengths']
+            # self.data_log_angles = config[name]['data_log']['angles']
+            # self.data_log_interval = config[name]['data_log']['interval']
 
             # sampling, aggregation, reporting/storage
-            self.sampling_interval: int = int(config[name]['sampling_interval'])
-            self.reporting_interval: int = int(config[name]['reporting_interval'])
+            self.sampling_interval = config[name]['sampling_interval']
+            self.reporting_interval = config[name]['reporting_interval']
+
             # zero and span check interval and durations
-            self.zero_span_check_interval: int = int(config[name]['zero_span_check_interval'])
-            self.zero_check_duration: int = int(config[name]['zero_check_duration'])
-            self.span_check_duration: int = int(config[name]['span_check_duration'])
+            self.zero_span_check_interval = config[name]['zero_span_check_interval']
+            self.zero_check_duration = config[name]['zero_check_duration']
+            self.span_check_duration = config[name]['span_check_duration']
             if self.zero_span_check_interval % 60 != 0:
                 raise ValueError(
                     f"zero_span_check_interval={self.zero_span_check_interval} must be a multiple of 60 minutes."
@@ -155,24 +150,9 @@ class NEPH:
                 dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
                 self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.", extra={"to_logfile": True})            
 
-
-                # apply configured internal logging parameter list (optional)
-                # if self.data_log_parameters:
-                #     cfg_after = self.set_data_log_config(
-                #         self.data_log_parameters,
-                #         wavelengths=(self.data_log_wavelengths or None),
-                #         angles=(self.data_log_angles or None),
-                #         clear_remaining=True,
-                #         verify=True,
-                #         verbosity=verbosity,
-                #     )
-                #     self.logger.info(
-                #         f"[{self.name}] data_log configuration applied ({len(self.data_log_parameters)} slots).",
-                #         extra={"to_logfile": True},
-                #     )
-                # # set datalog interval
-                # datalog_interval = self.set_datalog_interval(interval=(self.data_log_interval if self.data_log_interval is not None else self.sampling_interval), verbosity=verbosity)
-                # self.logger.info(f"[{self.name}] Datalog interval set to {datalog_interval} seconds.")
+                # set datalog interval
+                datalog_interval = self.set_datalog_interval()
+                self.logger.info(f"[{self.name}] Datalog interval set to {datalog_interval} seconds.")
 
                 # get logging config (=header ids)
                 cfg = self.get_data_log_config()[1:]  # drop the leading "number of fields"
@@ -820,8 +800,11 @@ class NEPH:
         try:
             response = int()
             if self._protocol=='acoem':
-                # Command 5 can set up to 500 index/value pairs in one request; use the bulk helper.
-                self.set_values({parameter_id: value}, verbosity=verbosity)
+                # payload = bytes([0,0,0,value])
+                payload = (value).to_bytes(4, byteorder='big')
+                message = self._acoem_construct_message(command=5, parameter_id=parameter_id, payload=payload)
+                self._tcpip_comm_wait_for_line()                
+                self._tcpip_comm(message=message, expect_response=False, verbosity=verbosity)
                 if verify:
                     time.sleep(0.1)
                     i = 0
@@ -841,47 +824,6 @@ class NEPH:
         except Exception as err:
             self.logger.error(err)
             return int()
-
-    def set_values(self, values: dict[int, int], *, verbosity: int = 0) -> None:
-        """A.3.6 Set Values (5): Set one or more instrument parameters in one request.
-
-        The message field contains index/value pairs, each 4 bytes, up to 500 indexes per request.
-
-        Args:
-            values: Mapping {parameter_id: value} to set.
-            verbosity: Verbosity for debugging/logging.
-        """
-        if not values:
-            return
-
-        try:
-            if self._protocol != 'acoem':
-                warnings.warn("Not implemented.")
-                return
-
-            # Encode as repeating 4-byte index + 4-byte value pairs.
-            parts: list[bytes] = []
-            for pid, val in values.items():
-                pid_i = int(pid)
-                val_i = int(val)
-                pid_b = pid_i.to_bytes(4, byteorder="big", signed=False)
-                val_b = val_i.to_bytes(4, byteorder="big", signed=(val_i < 0))
-                parts.append(pid_b + val_b)
-
-            msg_data = b"".join(parts)
-            if len(msg_data) > 4000:
-                raise ValueError(f"Set Values payload too large ({len(msg_data)} bytes). Split into smaller batches.")
-
-            # Construct packet manually (since _acoem_construct_message only supports a single parameter/value pair)
-            header = bytes([2, self.serial_id, 5, 3]) + len(msg_data).to_bytes(2, byteorder="big")
-            message = header + msg_data
-            message = message + self._acoem_checksum(message) + bytes([4])
-
-            self._tcpip_comm_wait_for_line()
-            self._tcpip_comm(message=message, expect_response=False, verbosity=verbosity)
-
-        except Exception as err:
-            self.logger.error(err)
 
     def get_data_log_config(self, verbosity: int=0, insert_4035_2002: bool=True) -> list:
         """
@@ -903,7 +845,6 @@ class NEPH:
         try:
             if self._protocol=='acoem':
                 message = self._acoem_construct_message(6)
-                self._tcpip_comm_wait_for_line()
                 response = self._tcpip_comm(message, verbosity=verbosity)
                 data_log_config = self._acoem_bytes2int(response=response, verbosity=verbosity)
                 if insert_4035_2002:
@@ -933,152 +874,46 @@ class NEPH:
     #         wavelength_index_id = wavelength_base + index_id
     #         angle_index_id = angle_base + index_id
 
-    def set_data_log_config(
-        self,
-        parameters: list[int],
-        wavelengths: list[int] | None = None,
-        angles: list[int] | None = None,
-        *,
-        clear_remaining: bool = True,
-        verify: bool = True,
-        verbosity: int = 0,
-    ) -> list[int]:
-        """Configure which parameters are logged by the internal data logger (ACOEM).
+    # def set_data_log_config(self, verify: bool=False, verbosity: int=0) -> 'list[int]':
+    #     """Pass datalog config to instrument. Verify configuration
 
-        This populates the 32 logging slots:
+    #     Args:
+    #         verify (bool, optional): Should the datalog configuration be queried and returned after setting it? Defaults to False.
+    #         verbosity (int, optional): _description_. Defaults to 0.
 
-          - DATALOG_PARAM_INDEX_1..32            (2004..2035)
-          - DATALOG_PARAM_WAVELENGTH_INDEX_1..32 (2037..2068)
-          - DATALOG_PARAM_ANGLE_INDEX_1..32      (2070..2101)
-
-        Notes:
-          - 4035 (CURRENT_OPERATION) and 2002 (LOGGING_PERIOD) are always logged by the instrument.
-            They do not need to be (and should not be) placed into the slot list.
-          - "wavelength" and "angle" values are index selectors (0 = all), not physical values.
-
-        Args:
-            parameters: Parameter IDs to be logged (max 32). Any 0/None entries are ignored.
-            wavelengths: Optional wavelength selector list (same length as parameters, or length 1 to broadcast).
-            angles: Optional angle selector list (same length as parameters, or length 1 to broadcast).
-            clear_remaining: If True, clear unused slots to 0.
-            verify: If True, query and return the current logging configuration afterwards (command 6).
-            verbosity: Verbosity for debugging/logging.
-
-        Returns:
-            Current logging configuration (command 6 response) if verify=True, else [].
-        """
+    #     Returns:
+    #         list[int]: List of parameters logged.
+    #     """
+    #     try:
+    #         data_log_parameter_indexes = range(2004, 2036)
+    #         data_log_parameters = iter(self.data_log_parameters)
+    #         for index in data_log_parameter_indexes:
+    #             self.set_value(index, next(data_log_parameters), verify=False, verbosity=2)
+    #         data_log_wavelength_indexes = range(2037, 2069)            
+    #         data_log_wavelengths = iter(self.data_log_wavelengths)
+    #         for index in data_log_wavelength_indexes:
+    #             self.set_value(index, next(data_log_wavelengths), verify=False)
+    #         data_log_angle_indexes = range(2070, 2102)
+    #         data_log_angles = iter(self.data_log_angles)
+    #         for index in data_log_angle_indexes:
+    #             self.set_value(index, next(data_log_angles), verify=False)
+    #         if verify:
+    #             return self.get_data_log_config(verbosity=verbosity)
+    #         else:
+    #             return list()
+    #     except Exception as err:
+    #         self.logger.error(err)
+    #         return list()
+    
+    def set_datalog_interval(self) -> int:
         try:
-            if self._protocol != 'acoem':
-                self.logger.warning(colorama.Fore.YELLOW + "Not implemented for aurora protocol." + colorama.Fore.GREEN)
-                return []
-
-            # Filter & validate the requested parameters
-            params_raw: list[int] = []
-            for p in parameters:
-                if p is None:
-                    continue
-                pi = int(p)
-                if pi <= 0:
-                    # treat <=0 as an empty slot and ignore (common in config lists)
-                    continue
-                if pi in (4035, 2002):
-                    continue  # always logged
-                params_raw.append(pi)
-
-            MAX_SLOTS = 32
-            if len(params_raw) > MAX_SLOTS:
-                raise ValueError(f"At most {MAX_SLOTS} parameters can be selected for logging (got {len(params_raw)}).")
-
-            # Duplicate detection (prevents wasting slots / mismatched header columns)
-            seen: set[int] = set()
-            dupes: set[int] = set()
-            for p in params_raw:
-                if p in seen:
-                    dupes.add(p)
-                seen.add(p)
-            if dupes:
-                raise ValueError(f"Duplicate parameter IDs in logging config: {sorted(dupes)}")
-
-            def _normalize_selectors(
-                values: list[int] | None,
-                length: int,
-                *,
-                fill: int = 0,
-                name: str = "selector",
-            ) -> list[int]:
-                if length <= 0:
-                    return []
-                if values is None:
-                    return [fill] * length
-                vals = [int(v) for v in values if v is not None]
-                if not vals:
-                    return [fill] * length
-                if len(vals) == 1 and length > 1:
-                    return vals * length
-                # pad/truncate
-                out = vals[:length]
-                if len(out) < length:
-                    out.extend([fill] * (length - len(out)))
-                return out
-
-            wl = _normalize_selectors(wavelengths, len(params_raw), fill=0, name="wavelength")
-            ang = _normalize_selectors(angles, len(params_raw), fill=0, name="angle")
-
-            # Parameter IDs for the slot arrays
-            PARAM_BASE = 2004
-            WL_BASE = 2037
-            ANG_BASE = 2070
-
-            # Build a single Set Values request (faster than per-slot socket calls)
-            values_to_set: dict[int, int] = {}
-            for slot in range(1, MAX_SLOTS + 1):
-                if slot <= len(params_raw):
-                    pid = params_raw[slot - 1]
-                    wli = wl[slot - 1]
-                    ai = ang[slot - 1]
-                else:
-                    if not clear_remaining:
-                        continue
-                    pid = 0
-                    wli = 0
-                    ai = 0
-
-                values_to_set[PARAM_BASE + (slot - 1)] = int(pid)
-                values_to_set[WL_BASE + (slot - 1)] = int(wli)
-                values_to_set[ANG_BASE + (slot - 1)] = int(ai)
-
-            self.set_values(values_to_set, verbosity=verbosity)
-
-            if verify:
-                time.sleep(0.2)
-                return self.get_data_log_config(verbosity=verbosity)
-            return []
+            datalog_interval = self.set_value(parameter_id=2002, value=self.sampling_interval)
+            return datalog_interval
 
         except Exception as err:
             self.logger.error(err)
-            return []
-
-    def set_datalog_interval(self, interval: int | None = None, *, verbosity: int = 0) -> int:
-        """Set the internal datalogging interval (ACOEM parameter 2002).
-
-        Args:
-            interval: Logging period in seconds. If None, uses config data_log.interval, falling back to sampling_interval.
-            verbosity: Verbosity for debugging/logging.
-
-        Returns:
-            The value echoed back by the instrument (seconds), or 0 on error.
-        """
-        try:
-            if interval is None:
-                interval = self.data_log_interval if self.data_log_interval is not None else 60
-            if interval is None:
-                raise ValueError("No valid datalog interval configured (data_log.interval)")
-            interval_i = int(interval)
-            return self.set_value(parameter_id=2002, value=interval_i, verify=True, verbosity=verbosity)
-        except Exception as err:
-            self.logger.error(err)
-            return 0
-
+            return int()
+        
     def get_logged_data(self, start: datetime, end: datetime, verbosity: int=0, raw: bool=False) -> 'list[dict]':
         """
         A.3.8 Requests all logged data over a specific date range.
@@ -1435,7 +1270,7 @@ class NEPH:
                 # define period to retrieve and update state variable
                 start = self._start_datalog
                 end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-                self._start_datalog = end - timedelta(seconds=self.sampling_interval)
+                self._start_datalog = end + timedelta(seconds=self.sampling_interval)
 
                 # retrieve data
                 self.logger.info(f"[{self.name}] .accumulate_new_data from {start} to {end}")
