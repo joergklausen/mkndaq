@@ -370,11 +370,11 @@ eaton-switch-2:
     socket:
         host: 192.168.3.120
 
-meteo?:
-    type: METEO
-    mac: 00-0E-C6-6E-09-92
+meteo:
+    type: MOXA Linuxbox
+    mac: 00-90-E8-77-88-C2
     socket:
-        host: 192.168.3.191         # linuxbox
+        host: 192.168.3.157         # linuxbox
     source: c:/ftproot/meteo        # directory where data can be found
     pattern: VRXA00
     data_path: meteo
