@@ -107,6 +107,23 @@ Description of changes :
 - No longer supports the Aurora Data Downloader. (!!)
 Note: When installing this new firmware Version, the Aurora 3000 may freeze for 20 minutes while it re configures the memory. Do not turn off.
 
+# Minix setup (v2026-01-13)
+## Initial setup
+- Set up a local administrator account 'admin' and a user account 'mkn'
+- Log into 'admin'
+    - Install Windows 11 updates
+    - Install Python 3.13.11
+    - Install Notepad++
+    - Install git for Windows
+    - Install WinSCP
+    - Install 7-zip
+    - Install VS Code System-wide, and the following extensions:
+        - Python with Pylance
+        - autoDocstring
+        - DataWrangler
+    - Install VS Code extensions for Python, Pylance
+    - Install MOXA UPort devices drivers (run find_serial_devices.py to identify devices on COM ports)
+
 
 ### References
 - [0] https://realpython.com/pyinstaller-python/#customizing-your-builds

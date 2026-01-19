@@ -1,5 +1,5 @@
 file: mkndaq.yml
-version: 2025-12-03
+version: 2026-01-19
 
 # local root directory
 root: ~/Documents/mkndaq
@@ -40,14 +40,14 @@ s3:
 
 # serial interface configuration
 COM1:
-    protocol: RS232     # don't change!
+    protocol: RS485     # don't change!
     baudrate: 9600
     bytesize: 8
     stopbits: 1
     parity: N
     timeout: 1
 COM2:
-    protocol: RS232     # don't change!
+    protocol: RS485     # don't change!
     baudrate: 9600
     bytesize: 8
     stopbits: 1
@@ -60,27 +60,27 @@ COM3:
     stopbits: 1
     parity: N
     timeout: 1
-COM4:
-    protocol: RS232     # don't change!
-    baudrate: 9600
-    bytesize: 8
-    stopbits: 1
-    parity: N
-    timeout: 1
-COM5:
-    protocol: RS485     # don't change!
-    baudrate: 19200
-    bytesize: 8
-    stopbits: 1
-    parity: N
-    timeout: 1
+# COM4:
+#     protocol: RS232     # don't change!
+#     baudrate: 9600
+#     bytesize: 8
+#     stopbits: 1
+#     parity: N
+#     timeout: 1
+# COM5:
+#     protocol: RS485     # don't change!
+#     baudrate: 19200
+#     bytesize: 8
+#     stopbits: 1
+#     parity: N
+#     timeout: 1
 
 # instrument specification
 tei49c:
     type: Thermo 49C
     id: 49
     serial_number: 49C-58106-318
-    port: COM4
+    port: COM3
     get_config:
         - date
         - time
@@ -292,7 +292,7 @@ fidas:
     mac: 00-18-7D-2D-CA-84
     serial_number: 6082
     socket:
-        host: 192.168.3.182
+        host: 0.0.0.0 #192.168.3.182
         port: 56790
         buffer_size: 8192
         timeout: 0.5

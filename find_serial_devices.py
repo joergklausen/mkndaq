@@ -9,7 +9,7 @@ This script intentionally reuses your existing drivers (Thermo49C + HMP110ASCII)
 matches your production protocol details.
 
 Usage (Windows):
-  py -3 tools\find_serial_ports.py --config dist\mkndaq.yml
+  py -3 tools\find_serial_devices.py --config dist\mkndaq.yml
 
 If you don’t pass --config, it will try "mkndaq.yml" and "dist/mkndaq.yml".
 """
