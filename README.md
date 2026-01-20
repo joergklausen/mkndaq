@@ -87,6 +87,9 @@ Update: Currently, data from /Data/sent are accessible as a netshare (mounted di
 
 #### Meteo
 Files are pushed by simple ftp to Minix and staged from there.
+Alternatively, files may be pulled locally using scp.
+
+scp admin@192.168.3.157:/home/moxa/data/VRXA00.* "%USERPROFILE%\Documents\mkndaq\data\meteo"
 
 #### Acoem NE-300
 Full control
