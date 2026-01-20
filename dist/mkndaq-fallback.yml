@@ -76,42 +76,42 @@ COM7:
     timeout: 1
 
 # instrument specification
-tei49c:
-    type: Thermo 49C
-    id: 49
-    serial_number: 49C-58106-318
-    port: COM6
-    get_config:
-        - date
-        - time
-        - mode
-        - gas unit
-        - range
-        - avg time
-        - temp comp
-        - pres comp
-        - format
-        - lrec format
-        - o3 coef
-        - o3 bkg
-    set_config:
-        - set mode remote
-        - set gas unit ppb
-        - set range 1
-        - set avg time 3
-        - set temp comp on
-        - set pres comp on
-        - set format 00
-        - set lrec format 00 02
-        - set save params
-    data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
-    sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 10
-    data_path: tei49c
-    staging_path: tei49c
-    staging_zip: True
-    remote_path: tei49c
-    get_data: lrec              # warning: will be removed with v0.8.0
+# tei49c:
+#     type: Thermo 49C
+#     id: 49
+#     serial_number: 49C-58106-318
+#     port: COM6
+#     get_config:
+#         - date
+#         - time
+#         - mode
+#         - gas unit
+#         - range
+#         - avg time
+#         - temp comp
+#         - pres comp
+#         - format
+#         - lrec format
+#         - o3 coef
+#         - o3 bkg
+#     set_config:
+#         - set mode remote
+#         - set gas unit ppb
+#         - set range 1
+#         - set avg time 3
+#         - set temp comp on
+#         - set pres comp on
+#         - set format 00
+#         - set lrec format 00 02
+#         - set save params
+#     data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
+#     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+#     reporting_interval: 10
+#     data_path: tei49c
+#     staging_path: tei49c
+#     staging_zip: True
+#     remote_path: tei49c
+#     get_data: lrec              # warning: will be removed with v0.8.0
 
 # tei49c-ps:
 #     type: Thermo 49C-PS
@@ -323,31 +323,31 @@ tapo:
     staging_zip: False
     remote_path: tapo
 
-hmp110-inlet:
-    type: Vaisala HMP110
-    id: 3     # mainfold
-    serial_number: U2110086  # aerosol inlet manyfold
-    port: COM7
-    data_header: dtm,T,RH,Td
-    sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 60
-    data_path: hmp110-inlet
-    staging_path: hmp110-inlet
-    staging_zip: True
-    remote_path: hmp110-inlet
+# hmp110-inlet:
+#     type: Vaisala HMP110
+#     id: 3     # mainfold
+#     serial_number: U2110086  # aerosol inlet manyfold
+#     port: COM7
+#     data_header: dtm,T,RH,Td
+#     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+#     reporting_interval: 60
+#     data_path: hmp110-inlet
+#     staging_path: hmp110-inlet
+#     staging_zip: True
+#     remote_path: hmp110-inlet
 
-hmp110-ae33:
-    type: Vaisala HMP110
-    id: 4     # inlet AE33
-    serial_number: U2110081  # inlet AE33
-    port: COM7
-    data_header: dtm,T,RH,Td
-    sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 60
-    data_path: hmp110-ae33
-    staging_path: hmp110-ae33
-    staging_zip: True
-    remote_path: hmp110-ae33
+# hmp110-ae33:
+#     type: Vaisala HMP110
+#     id: 4     # inlet AE33
+#     serial_number: U2110081  # inlet AE33
+#     port: COM7
+#     data_header: dtm,T,RH,Td
+#     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+#     reporting_interval: 60
+#     data_path: hmp110-ae33
+#     staging_path: hmp110-ae33
+#     staging_zip: True
+#     remote_path: hmp110-ae33
 
 test:
     remote_path: test
