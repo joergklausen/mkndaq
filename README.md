@@ -113,6 +113,10 @@ Note: When installing this new firmware Version, the Aurora 3000 may freeze for 
 # Minix setup (v2026-01-13)
 ## Initial setup
 - Set up a local administrator account 'admin' and a user account 'mkn'
+- Configure BIOS (enter with F11 at boot):
+    - Disable secure boot
+    - Under 'Advanced > Restore on AC power loss', set to 'Power On'.
+    - Set date and time, and timezone as UTC.
 - Log into 'admin'
     - Install Windows 11 updates
     - Install Python 3.13.11
