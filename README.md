@@ -129,8 +129,7 @@ Note: When installing this new firmware Version, the Aurora 3000 may freeze for 
         - autoDocstring
         - DataWrangler
     - Install VS Code extensions for Python, Pylance
-    - Install MOXA UPort devices drivers (run find_serial_devices.py to identify devices on COM ports)
-
+    - Install MOXA UPort devices drivers (run find_serial_devices.py to identify devices on COM ports); configure devices for HMP110 sensors (RS4852W, 19200, N, 8, 1, no parity)
 
 ### References
 - [0] https://realpython.com/pyinstaller-python/#customizing-your-builds
