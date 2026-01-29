@@ -41,13 +41,13 @@ s3:
 # serial interface configuration
 COM1:
     protocol: RS485     # don't change!
-    baudrate: 9600
+    baudrate: 19200
     bytesize: 8
     stopbits: 1
     parity: N
     timeout: 1
 COM2:
-    protocol: RS485     # don't change!
+    protocol: RS232     # don't change!
     baudrate: 9600
     bytesize: 8
     stopbits: 1
@@ -326,7 +326,7 @@ hmp110-inlet:
     type: Vaisala HMP110
     id: 3     # mainfold
     serial_number: U2110086  # aerosol inlet manyfold
-    port: COM5
+    port: COM1
     data_header: dtm,T,RH,Td
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     reporting_interval: 60
@@ -339,7 +339,7 @@ hmp110-ae33:
     type: Vaisala HMP110
     id: 4     # inlet AE33
     serial_number: U2110081  # inlet AE33
-    port: COM5
+    port: COM1
     data_header: dtm,T,RH,Td
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
     reporting_interval: 60
