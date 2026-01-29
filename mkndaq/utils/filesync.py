@@ -9,7 +9,7 @@ import colorama
 
 
 # %%
-def rsync(source: str, target: str, buckets: str = [None, "daily", "monthly"], days: int = 1, delay: int=3600) -> list:
+def rsync(source: str, target: str, buckets: str = "daily", days: int = 1, delay: int=3600) -> list:
     """Determine files under 'source' that are not present under 'target' and copy them over.
 
     Args:
@@ -79,6 +79,7 @@ def rsync(source: str, target: str, buckets: str = [None, "daily", "monthly"], d
 
     except Exception as err:
         print(err)
+        return []
 
 # %%
 
