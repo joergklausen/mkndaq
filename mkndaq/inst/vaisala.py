@@ -276,7 +276,7 @@ class HMP110ASCII:
             self.logger.error(f"[{self.name}] {err}")
 
     def accumulate_readings(self) -> None:
-        """Send lrec, append response to buffer, respecting cooldown.
+        """Request reading, parse and append response to buffer, respecting cooldown.
 
         Locking, retries and cooldown are handled by @with_serial on serial_comm().
         """
