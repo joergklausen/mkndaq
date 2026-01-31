@@ -6,7 +6,7 @@ CLI to pull meteo files from a remote Linux box via SSH/SFTP (password entered i
 
 Defaults
 --------
-host:              192.168.2.185
+host:              192.168.3.157
 user:              admin
 remote_path:        /home/moxa/data
 file_pattern:       VRXA00.*          (shell-style glob on remote filenames)
@@ -165,7 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Pull meteo files from a remote host via SSH/SFTP (password prompted).",
     )
 
-    p.add_argument("--host", default="192.168.2.185", help="Remote host (default: %(default)s)")
+    p.add_argument("--host", default="192.168.3.157", help="Remote host (default: %(default)s)")
     p.add_argument("--user", default="admin", help="SSH username (default: %(default)s)")
     p.add_argument("--port", type=int, default=22, help="SSH port (default: %(default)s)")
 
