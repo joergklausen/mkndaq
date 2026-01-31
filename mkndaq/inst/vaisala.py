@@ -196,6 +196,7 @@ class HMP110ASCII:
 
             # command to retrieve data
             self.cmd = f"SEND {self._id}\r\n"
+            self.logger.info(f"[{self.name}] command: {self.cmd!r}")
 
             # configure remote transfer
             self.remote_path = config[name]['remote_path']
