@@ -329,6 +329,7 @@ def main():
                 from mkndaq.inst.vaisala import HMP110ASCII
                 hmp110_inlet = HMP110ASCII(name='hmp110-inlet', config=cfg)
                 hmp110_inlet.setup_schedules()
+                schedule.every(fetch).seconds.do(run_threaded, hmp110_inlet.print_readings)
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
@@ -355,6 +356,7 @@ def main():
                 from mkndaq.inst.vaisala import HMP110ASCII
                 hmp110_ae33 = HMP110ASCII(name='hmp110-ae33', config=cfg)
                 hmp110_ae33.setup_schedules()
+                schedule.every(fetch).seconds.do(run_threaded, hmp110_ae33.print_readings)
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(

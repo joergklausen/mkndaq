@@ -12,8 +12,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+import colorama
 import schedule
 import serial
+
 # from pymodbus.client import ModbusSerialClient
 
 # Compile once at module import
@@ -293,6 +295,28 @@ class HMP110ASCII:
             self.logger.debug(f"[{self.name}] {response}")
         except Exception as err:
             self.logger.error(f"[{self.name}] {err}")
+
+
+    def print_readings(self) -> None:
+        """Log a one-shot HMP110 readout.
+
+        Locking and retries are handled by @with_serial on serial_comm().
+        """
+        # don't hammer the port while in cooldown
+        if getattr(self, "_cooldown_until", 0.0) and time.time() < self._cooldown_until:
+            return
+
+        try:
+            response = self.serial_comm(self.cmd)  # @with_serial handles locking
+            if not response:
+                return  # no data, nothing to append
+            csv_response = self._parse_reading(response)
+            self.logger.info(
+                    colorama.Fore.GREEN + f"[{self.name}] T, Td, RH: {csv_response}"
+                )
+        except Exception as err:
+            self.logger.error(colorama.Fore.RED + f"[{self.name}] print_readings: {err}")
+
 
     def _save_data(self) -> None:
         try:
