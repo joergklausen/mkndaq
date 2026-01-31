@@ -329,7 +329,6 @@ def main():
                 from mkndaq.inst.vaisala import HMP110ASCII
                 hmp110_inlet = HMP110ASCII(name='hmp110-inlet', config=cfg)
                 hmp110_inlet.setup_schedules()
-                schedule.every(fetch).seconds.do(run_threaded, hmp110_inlet.print_readings)
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
@@ -341,13 +340,8 @@ def main():
                     )
                 if sftp:
                     remote_path_data = (PurePosixPath(sftp.remote_path) / hmp110_inlet.remote_path).as_posix()
-                    remote_path_logs = (PurePosixPath(sftp.remote_path) / hmp110_inlet.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=str(hmp110_inlet.staging_path),
                                                   remote_path=remote_path_data,
-                                                  interval=hmp110_inlet.reporting_interval,
-                                                  delay_transfer=15,)
-                    sftp.setup_transfer_schedules(local_path=str(hmp110_inlet.staging_path),
-                                                  remote_path=remote_path_logs,
                                                   interval=hmp110_inlet.reporting_interval,
                                                   delay_transfer=15,)
                 logger.info(f"[hmp110-inlet] setup complete")
@@ -368,16 +362,25 @@ def main():
                     )
                 if sftp:
                     remote_path_data = (PurePosixPath(sftp.remote_path) / hmp110_ae33.remote_path).as_posix()
-                    remote_path_logs = (PurePosixPath(sftp.remote_path) / hmp110_ae33.remote_path).as_posix()
                     sftp.setup_transfer_schedules(local_path=str(hmp110_ae33.staging_path),
                                                   remote_path=remote_path_data,
                                                   interval=hmp110_ae33.reporting_interval,
                                                   delay_transfer=15,)
-                    sftp.setup_transfer_schedules(local_path=str(hmp110_ae33.staging_path),
-                                                  remote_path=remote_path_logs,
-                                                  interval=hmp110_ae33.reporting_interval,
-                                                  delay_transfer=15,)
-                logger.info(f"[hmp110-ae33] setup complete")
+
+            hmp110_sensors = []
+            if cfg.get("hmp110-inlet"):
+                hmp110_sensors.append(hmp110_inlet)
+            if cfg.get("hmp110-ae33"):
+                hmp110_sensors.append(hmp110_ae33)
+
+            def print_all_hmp110():
+                for inst in hmp110_sensors:
+                    inst.print_readings()
+
+            # Run as one job (threaded or not — either way they run sequentially)
+            schedule.every(fetch).seconds.do(run_threaded, print_all_hmp110)
+
+            logger.info(f"[hmp110-ae33] setup complete")
 
             if cfg.get('tapo', None):
                 from mkndaq.inst.tapo import Tapo
