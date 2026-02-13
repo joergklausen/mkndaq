@@ -375,7 +375,9 @@ meteo:
     mac: 00-90-E8-77-88-C2
     socket:
         host: 192.168.3.157         # linuxbox
-    source: /home/moxa/data        # directory where data can be found on linuxbox; c:/ftproot/meteo on Windows
+        usr: admin
+    key: ~/.ssh/linuxbox
+    source: /home/moxa/data        # directory where data can be found on linuxbox
     pattern: VRXA00
     data_path: meteo
     staging_path: meteo
