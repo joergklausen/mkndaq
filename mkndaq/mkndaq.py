@@ -350,7 +350,6 @@ def main():
                 from mkndaq.inst.vaisala import HMP110ASCII
                 hmp110_ae33 = HMP110ASCII(name='hmp110-ae33', config=cfg)
                 hmp110_ae33.setup_schedules()
-                schedule.every(fetch).seconds.do(run_threaded, hmp110_ae33.print_readings)
 
                 if s3fsc:
                     s3fsc.setup_transfer_schedules(
@@ -366,6 +365,7 @@ def main():
                                                   remote_path=remote_path_data,
                                                   interval=hmp110_ae33.reporting_interval,
                                                   delay_transfer=15,)
+                logger.info(f"[hmp110-ae33] setup complete")
 
             hmp110_sensors = []
             if cfg.get("hmp110-inlet"):
@@ -379,8 +379,6 @@ def main():
 
             # Run as one job (threaded or not — either way they run sequentially)
             schedule.every(fetch).seconds.do(run_threaded, print_all_hmp110)
-
-            logger.info(f"[hmp110-ae33] setup complete")
 
             if cfg.get('tapo', None):
                 from mkndaq.inst.tapo import Tapo
