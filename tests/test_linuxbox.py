@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import paramiko
 
+# Write very verbose SSH negotiation logs to a file
+paramiko.util.log_to_file("paramiko_ssh_debug.log", level=10)
 
 def _imports():
     # tolerate both layouts

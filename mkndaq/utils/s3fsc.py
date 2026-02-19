@@ -42,7 +42,7 @@ class S3Settings:
     bucket: str
     access_key: str
     secret_key: str
-    region: str = "us-east-1"
+    region: str = "eu-central-1"
     addressing_style: str = "path"   # 'path' or 'virtual'
     verify: Union[bool, str] = True  # bool or path to CA bundle
     use_proxies: bool = True         # False disables proxies for this client only
@@ -97,15 +97,15 @@ class S3FSC:
             raise ValueError("Missing 's3' section in config")
 
         endpoint = s3.get("endpoint_url", "")
-        bucket = s3.get("aws_s3_bucket_name", "")
-        region = s3.get("aws_region", "us-east-1")
-        ak = s3.get("aws_access_key_id", "")
-        sk_raw = s3.get("aws_secret_access_key", "")
+        bucket = s3.get("bucket_name", "")
+        region = s3.get("region", "us-east-1")
+        ak = s3.get("access_key", "")
+        sk_raw = s3.get("secret_key", "")
 
         if not all([endpoint, bucket, ak, sk_raw]):
             raise ValueError(
-                "Config.s3 must define endpoint_url, aws_s3_bucket_name, "
-                "aws_access_key_id, aws_secret_access_key"
+                "Config.s3 must define endpoint_url, bucket_name, "
+                "access_key, secret_key"
             )
 
         settings = S3Settings(
