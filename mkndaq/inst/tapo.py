@@ -195,7 +195,7 @@ class Tapo:
     # Public API used by mkndaq.py
     # ------------------------------------------------------------------
     def capture_snapshot(self) -> Optional[Path]:
-        """Capture a single JPEG snapshot and write it to self.staging_path."""
+        """Capture a single JPEG snapshot and write it to self.data_path and self.staging_path."""
         try:
             _, frame = self._grab_frame()
         except Exception:
@@ -216,6 +216,7 @@ class Tapo:
         else:
             ext = "png"
 
+        datafile = self.data_path / f"{self.name}-{ts}.{ext}"
         outfile = self.staging_path / f"{self.name}-{ts}.{ext}"
 
         # OpenCV imwrite parameters
@@ -229,12 +230,17 @@ class Tapo:
             comp = max(0, min(self.png_compression, 9))
             params = [int(cv2.IMWRITE_PNG_COMPRESSION), comp]
 
+        ok: bool = cv2.imwrite(str(datafile), frame, params)  # type: ignore[arg-type]
+        if not ok:
+            self.logger.error(f"[{self.name}] Failed to write snapshot to {outfile}.")
+            return None
+
         ok: bool = cv2.imwrite(str(outfile), frame, params)  # type: ignore[arg-type]
         if not ok:
             self.logger.error(f"[{self.name}] Failed to write snapshot to {outfile}.")
             return None
 
-        self.logger.info(f"[{self.name}] Saved Tapo snapshot to {outfile}", extra={"to_logfile": True})
+        self.logger.info(f"[{self.name}] Saved Tapo snapshot to {datafile} and {outfile}", extra={"to_logfile": True})
         return outfile
 
     def close(self) -> None:
