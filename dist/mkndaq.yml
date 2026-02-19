@@ -32,7 +32,7 @@ s3:
     region: 'eu-central-1'
     access_key: 'gawkenya_native'
     secret_key: ~/.secrets/s3-secret-key
-    default_prefix: mkn
+    default_prefix: mkn/incoming
     connect_timeout: 3
     read_timeout: 8
     max_attempts: 2
