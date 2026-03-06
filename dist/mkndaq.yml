@@ -216,7 +216,7 @@ ne300:
     protocol: acoem
     serial_id: 0
     serial_number: 23-0690
-    mac_number: 00:30:55:0A:78:78
+    mac_number: 00-30-55-0A-78-78
     socket:
         host: 192.168.3.149
         port: 32783
@@ -356,7 +356,7 @@ eaton-ups:
     type: EATON 9PX
     mac: 00-20-85-DE-37-27
     socket:
-        host: 192.168.3.141
+        host: 192.168.1.141
 
 eaton-switch-1:
     type: EATON ATS16N
@@ -394,6 +394,6 @@ axis-webcam:
 ne1601:
     type: NE1601 Modem
     serial_number: 
-    mac: 00:11:2B:04:07:07
+    mac: 00-11-2B-04-07-07
     socket:
         host: 192.168.1.1, 192.168.2.1
