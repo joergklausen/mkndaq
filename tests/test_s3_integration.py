@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import copy
 import os
-import time
-import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,153 +11,122 @@ from mkndaq.utils.s3fsc import S3FSC
 from mkndaq.utils.utils import load_config
 
 
-def _bool_from_env(name: str, default: bool = True) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() not in {"0", "false", "no", "off"}
+pytestmark = pytest.mark.integration
 
 
-def _int_from_env(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    try:
-        return int(raw.strip())
-    except ValueError:
-        return default
+@pytest.fixture(scope="module")
+def config_file() -> Path:
+    """Resolve the mkndaq configuration file for the integration test.
 
+    Search order:
+      1. ./mkndaq.yml
+      2. ./dist/mkndaq.yml
 
-@pytest.mark.integration
-def test_real_upload_roundtrip_with_mkndaq_yml(tmp_path: Path) -> None:
-    """S3 integration test (upload + head) against 2 endpoints.
-
-    This version stays *simple*:
-      - timeout/retry behavior is configured via S3FSC (botocore Config)
-      - the test only enforces an overall 30s budget via monotonic checks
-
-    Notes:
-      - The overall 30s budget relies on botocore connect/read timeouts to avoid hangs.
-        A truly "hard kill" timeout requires running the attempt in a separate process.
+    The test is intended to be launched from within the mkndaq project,
+    typically from VS Code on the remote machine.
     """
+    candidates = [Path("mkndaq.yml"), Path("dist/mkndaq.yml")]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
 
-    yml_path = "dist/mkndaq-fallback.yml"
-    if not Path(yml_path).expanduser().exists():
-        pytest.skip(f"Config file not found: {yml_path}.")
+    searched = ", ".join(str(p) for p in candidates)
+    pytest.skip(f"Could not find mkndaq configuration file. Searched: {searched}")
 
-    cfg = load_config(yml_path)
 
-    endpoint_urls = [
-        "https://servicedevt.meteoswiss.ch/",
-        "https://service.meteoswiss.ch/",
+@pytest.fixture(scope="module")
+def cfg(config_file: Path) -> dict[str, Any]:
+    """Load the mkndaq configuration used by the main application."""
+    cfg = load_config(config_file=str(config_file))
+
+    if not cfg.get("s3"):
+        pytest.skip("Missing 's3' section in mkndaq configuration.")
+    if not cfg.get("test"):
+        pytest.skip("Missing 'test' section in mkndaq configuration.")
+
+    return cfg
+
+
+@pytest.fixture(scope="module")
+def s3fsc(cfg: dict[str, Any]) -> S3FSC:
+    """Instantiate S3FSC exactly the way mkndaq.py does."""
+    return S3FSC(
+        config=cfg,
+        use_proxies=bool(cfg["s3"].get("use_proxies", True)),
+        addressing_style=cfg["s3"].get("addressing_style", "path"),
+        verify=cfg["s3"].get("verify", True),
+        default_prefix=cfg["s3"].get("default_prefix", ""),
+    )
+
+
+def _build_expected_key(cfg: dict[str, Any], key_prefix: str, filename: str) -> str:
+    """Build the expected S3 object key for the generated test file."""
+    parts = [
+        str(cfg["s3"].get("default_prefix", "")).strip("/"),
+        str(key_prefix).strip("/"),
+        filename,
     ]
+    return "/".join(part for part in parts if part)
 
-    # Optional env overrides
-    verify = _bool_from_env("S3_TLS_VERIFY", default=True)
-    default_prefix = os.getenv("S3_DEFAULT_PREFIX", "")
 
-    # Keep per-request timeouts low so the test predictably finishes < 30s.
-    # (These are passed into S3FSC -> botocore Config.)
-    connect_timeout = _int_from_env("S3_CONNECT_TIMEOUT", 3)
-    read_timeout = _int_from_env("S3_READ_TIMEOUT", 4)
-    max_attempts = _int_from_env("S3_MAX_ATTEMPTS", 1)
-    retry_mode = os.getenv("S3_RETRY_MODE", "standard")
+@pytest.fixture(scope="module")
+def local_test_file(cfg: dict[str, Any]) -> Path:
+    """Create a timestamped S3 test file under root/data/test.
 
-    deadline = time.monotonic() + 30.0
+    This intentionally behaves like another instrument source directory.
+    The file is kept locally after the test run.
+    """
+    root = Path(os.path.expanduser(str(cfg["root"]))).resolve()
+    test_dir = root / str(cfg["data"]) / str(cfg["test"]["staging_path"])
+    test_dir.mkdir(parents=True, exist_ok=True)
 
-    successes: list[dict[str, Any]] = []
-    failures: list[tuple[str, str]] = []
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H")
+    filename = f"mkn-s3-test-{stamp}.txt"
+    local_file = test_dir / filename
 
-    for endpoint_url in endpoint_urls:
-        if time.monotonic() > deadline:
-            failures.append((endpoint_url, "overall 30s time budget exhausted before starting this endpoint"))
-            continue
+    local_file.write_text(
+        "\n".join(
+            [
+                "mkndaq S3 integration test",
+                f"created_utc={datetime.now(timezone.utc).isoformat()}",
+                f"bucket={cfg['s3']['bucket_name']}",
+                f"default_prefix={cfg['s3'].get('default_prefix', '')}",
+                f"key_prefix={cfg['test']['remote_path']}",
+                f"local_file={local_file}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return local_file
 
-        cfg_local = copy.deepcopy(cfg)
-        cfg_local.setdefault("s3", {})
-        cfg_local["s3"]["endpoint_url"] = endpoint_url
-        cfg_local["s3"]["connect_timeout"] = connect_timeout
-        cfg_local["s3"]["read_timeout"] = read_timeout
-        cfg_local["s3"]["max_attempts"] = max_attempts
-        cfg_local["s3"]["retry_mode"] = retry_mode
 
-        # Build a tiny local file (kept for debugging in tmp_path)
-        date_suffix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-        endpoint_tag = (
-            endpoint_url.replace("https://", "")
-            .replace("http://", "")
-            .replace("/", "_")
-            .replace(":", "_")
-        )
-        local_path = tmp_path / f"hello.world-{endpoint_tag}-{date_suffix}.txt"
+def test_s3_upload_uses_same_path_as_mkndaq(
+    cfg: dict[str, Any],
+    s3fsc: S3FSC,
+    local_test_file: Path,
+) -> None:
+    """Upload a test file through the same S3 path logic as mkndaq.py.
 
-        msg = (
-            "Hello from S3 integration test\n"
-            f"Generated at {datetime.now(timezone.utc).isoformat()}\n"
-            f"Endpoint: {endpoint_url}\n"
-            f"Key Prefix: {default_prefix or cfg_local['s3'].get('default_prefix', '')}\n"
-            "\nYou can safely delete it.\n"
-        )
-        local_path.write_text(msg, encoding="utf-8")
+    The test creates a file below root/data/test and then uploads it via
+    S3FSC.transfer_files(..., key_prefix=cfg['test']['remote_path']).
+    With the provided mkndaq.yml, the expected object key is:
 
-        try:
-            s3 = S3FSC(
-                cfg_local,
-                use_proxies=False,  # bypass corporate proxies for this test
-                addressing_style="path",
-                verify=verify,
-                default_prefix=default_prefix if default_prefix else None,
-                connect_timeout=connect_timeout,
-                read_timeout=read_timeout,
-                max_attempts=max_attempts,
-                retry_mode=retry_mode,
-            )
+        mkn/incoming/test/mkn-s3-test-YYYYMMDDHH.txt
+    """
+    key_prefix = str(cfg["test"]["remote_path"])
+    local_dir = local_test_file.parent
+    expected_key = _build_expected_key(cfg, key_prefix=key_prefix, filename=local_test_file.name)
 
-            key = s3.upload(local_path)
-            head = s3.head(key)
+    s3fsc.transfer_files(
+        remove_on_success=False,
+        local_path=local_dir,
+        key_prefix=key_prefix,
+    )
 
-            http_status = head.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            content_length = head.get("ContentLength")
-            file_size = local_path.stat().st_size
+    assert str(local_test_file) in s3fsc.transfered_local
+    assert expected_key in s3fsc.transfered_remote
 
-            assert http_status == 200, f"Unexpected HTTP status for {endpoint_url}: {http_status}"
-            assert content_length == file_size, (
-                f"Content length mismatch for {endpoint_url}: {content_length} != {file_size}"
-            )
-
-            successes.append(
-                {
-                    "endpoint_url": endpoint_url,
-                    "key": key,
-                    "http_status": http_status,
-                    "content_length": content_length,
-                    "file_size": file_size,
-                }
-            )
-
-            # Optional best-effort cleanup
-            if _bool_from_env("S3_CLEANUP", default=False):
-                try:
-                    s3.delete(key)
-                except Exception:
-                    pass
-
-        except Exception as e:
-            failures.append((endpoint_url, f"{type(e).__name__}: {e}"))
-
-        if time.monotonic() > deadline:
-            break
-
-    if successes and failures:
-        details = "\n".join([f"- {ep}: {reason}" for ep, reason in failures])
-        warnings.warn(
-            "One or more endpoint_url targets failed in this integration test:\n" + details,
-            pytest.PytestWarning,
-        )
-
-    if not successes:
-        details = "\n".join([f"- {ep}: {reason}" for ep, reason in failures]) or "(no attempts made)"
-        pytest.fail(
-            "S3 integration test failed for all endpoint_url targets (30s overall budget).\n" + details,
-            pytrace=False,
-        )
+    head = s3fsc.head(expected_key)
+    assert head.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200
+    assert int(head.get("ContentLength", -1)) == local_test_file.stat().st_size
