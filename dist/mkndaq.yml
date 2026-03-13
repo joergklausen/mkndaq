@@ -33,8 +33,9 @@ s3:
     access_key: 'gawkenya_native'
     secret_key: ~/.secrets/s3-secret-key
     default_prefix: mkn/incoming
-    connect_timeout: 3
-    read_timeout: 8
+    use_proxies: False
+    connect_timeout: 20 # 3
+    read_timeout: 20 #8
     max_attempts: 2
     retry_mode: standard
 

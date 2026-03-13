@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import copy
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import boto3
 import pytest
 
 from mkndaq.utils.s3fsc import S3FSC
 from mkndaq.utils.utils import load_config
-
 
 pytestmark = pytest.mark.integration
 
@@ -130,3 +132,39 @@ def test_s3_upload_uses_same_path_as_mkndaq(
     head = s3fsc.head(expected_key)
     assert head.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200
     assert int(head.get("ContentLength", -1)) == local_test_file.stat().st_size
+
+
+def test_s3_upload_direct(cfg, local_test_file):
+    s3 = S3FSC(cfg)
+    key = s3.upload(local_test_file, key_prefix=cfg["test"]["remote_path"])
+    head = s3.head(key)
+    assert head["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+boto3.set_stream_logger("botocore", logging.DEBUG)
+
+def test_s3_put_object_probe(cfg, local_test_file):
+    cfg2 = copy.deepcopy(cfg)
+    cfg2["s3"]["addressing_style"] = "auto"   # or try "virtual"
+    # optional one-off TLS probe:
+    # cfg2["s3"]["verify"] = False
+
+    s3 = S3FSC(cfg2)
+
+    key = "/".join(
+        p.strip("/")
+        for p in [cfg2["s3"]["default_prefix"], cfg2["test"]["remote_path"], local_test_file.name]
+        if p
+    )
+
+    body = local_test_file.read_bytes()
+
+    resp = s3.s3_client.put_object(
+        Bucket=s3.settings.bucket,
+        Key=key,
+        Body=body,
+    )
+    assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+
+    head = s3.head(key)
+    assert head["ContentLength"] == len(body)

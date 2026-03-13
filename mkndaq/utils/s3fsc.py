@@ -127,12 +127,24 @@ class S3FSC:
 
         if s3_client is None:
             proxies = None if settings.use_proxies else {}
+            # cfg = BotoConfig(
+            #     s3={"addressing_style": settings.addressing_style},
+            #     proxies=proxies,
+            #     connect_timeout=settings.connect_timeout,
+            #     read_timeout=settings.read_timeout,
+            #     retries={"max_attempts": settings.max_attempts, "mode": settings.retry_mode},
+            # )
             cfg = BotoConfig(
-                s3={"addressing_style": settings.addressing_style},
+                s3={
+                    "addressing_style": settings.addressing_style,
+                    "payload_signing_enabled": False,
+                },
                 proxies=proxies,
                 connect_timeout=settings.connect_timeout,
                 read_timeout=settings.read_timeout,
                 retries={"max_attempts": settings.max_attempts, "mode": settings.retry_mode},
+                request_checksum_calculation="when_required",
+                response_checksum_validation="when_required",
             )
             self.s3_client = boto3.client(
                 "s3",
