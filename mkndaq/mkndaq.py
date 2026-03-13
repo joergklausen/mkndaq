@@ -367,18 +367,18 @@ def main():
                                                   delay_transfer=15,)
                 logger.info(f"[hmp110-ae33] setup complete")
 
-            hmp110_sensors = []
-            if cfg.get("hmp110-inlet"):
-                hmp110_sensors.append(hmp110_inlet)
-            if cfg.get("hmp110-ae33"):
-                hmp110_sensors.append(hmp110_ae33)
+            # hmp110_sensors = []
+            # if cfg.get("hmp110-inlet"):
+            #     hmp110_sensors.append(hmp110_inlet)
+            # if cfg.get("hmp110-ae33"):
+            #     hmp110_sensors.append(hmp110_ae33)
 
-            def print_all_hmp110():
-                for inst in hmp110_sensors:
-                    inst.print_readings()
+            # def print_all_hmp110():
+            #     for inst in hmp110_sensors:
+            #         inst.print_readings()
 
-            # Run as one job (threaded or not — either way they run sequentially)
-            schedule.every(fetch).seconds.do(run_threaded, print_all_hmp110)
+            # # Run as one job (threaded or not — either way they run sequentially)
+            # schedule.every(fetch).seconds.do(run_threaded, print_all_hmp110)
 
             if cfg.get('tapo', None):
                 from mkndaq.inst.tapo import Tapo
