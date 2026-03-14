@@ -54,6 +54,15 @@ class NEPH:
         """
         colorama.init(autoreset=True)
 
+        # Safe defaults so save/stage paths still work even if instrument
+        # interrogation fails part-way through initialization.
+        self._header: list[int] = [4035, 2002]
+        self._start_datalog = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        self._data = str()
+        self._file_timestamp_format = str()
+        self.data_file = str()
+        self._ready = False
+
         try:
             self.name = name
             self.type = config[name]['type']
@@ -155,25 +164,6 @@ class NEPH:
                 dtm_found, dtm_set = self.get_set_datetime(dtm=datetime.now(timezone.utc))            
                 self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.", extra={"to_logfile": True})            
 
-
-                # apply configured internal logging parameter list (optional)
-                # if self.data_log_parameters:
-                #     cfg_after = self.set_data_log_config(
-                #         self.data_log_parameters,
-                #         wavelengths=(self.data_log_wavelengths or None),
-                #         angles=(self.data_log_angles or None),
-                #         clear_remaining=True,
-                #         verify=True,
-                #         verbosity=verbosity,
-                #     )
-                #     self.logger.info(
-                #         f"[{self.name}] data_log configuration applied ({len(self.data_log_parameters)} slots).",
-                #         extra={"to_logfile": True},
-                #     )
-                # # set datalog interval
-                # datalog_interval = self.set_datalog_interval(interval=(self.data_log_interval if self.data_log_interval is not None else self.sampling_interval), verbosity=verbosity)
-                # self.logger.info(f"[{self.name}] Datalog interval set to {datalog_interval} seconds.")
-
                 # get logging config (=header ids)
                 cfg = self.get_data_log_config()[1:]  # drop the leading "number of fields"
 
@@ -182,15 +172,7 @@ class NEPH:
 
                 self.logger.info(f"[{self.name}] logging config reported: {self._header}.", extra={"to_logfile": True})
 
-            # datetime to keep track of retrievals from datalog
-            self._start_datalog = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-
-            # initialize data response
-            self._data = str()
-
-            # initialize other stuff
-            self._file_timestamp_format = str()
-            self.data_file = str()
+            self._ready = True
 
         except Exception as err:
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
@@ -518,7 +500,7 @@ class NEPH:
                     # Build shared metadata once per record
                     base: dict[Any, Any] = {
                         4035: current_operation,          # CURRENT_OPERATION (from record header byte)
-                        "logging_interval": logging_period,
+                        2002: logging_period,
                         "dtm": _safe_dtm(ts),
                     }
 
@@ -1435,7 +1417,7 @@ class NEPH:
                 # define period to retrieve and update state variable
                 start = self._start_datalog
                 end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-                self._start_datalog = end - timedelta(seconds=self.sampling_interval)
+                self._start_datalog = end
 
                 # retrieve data
                 self.logger.info(f"[{self.name}] .accumulate_new_data from {start} to {end}")
@@ -1485,7 +1467,7 @@ class NEPH:
             if os.path.exists(self.data_file):
                 header = str()
             else:
-                header_ids = ["dtm"] + [str(pid) for pid in self._header]
+                header_ids = ["dtm"] + [str(pid) for pid in getattr(self, "_header", [4035, 2002])]
                 header = ",".join(header_ids) + "\n"
 
             with open(file=self.data_file, mode='a') as fh:
