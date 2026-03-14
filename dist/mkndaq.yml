@@ -112,7 +112,6 @@ tei49c:
     staging_path: tei49c
     staging_zip: True
     remote_path: tei49c
-    # get_data: lrec              # warning: will be removed with v0.8.0
 
 # tei49c-ps:
 #     type: Thermo 49C-PS
@@ -324,7 +323,7 @@ tapo:
     remote_path: tapo
 
 hmp110-inlet:
-    type: Vaisala HMP110
+    type: Vaisala HMP110 C15A0C3A0
     id: 3     # mainfold
     serial_number: U2110086  # aerosol inlet manyfold
     port: COM1
@@ -337,7 +336,7 @@ hmp110-inlet:
     remote_path: hmp110-inlet
 
 hmp110-ae33:
-    type: Vaisala HMP110
+    type: Vaisala HMP110 C15A0C3A0
     id: 4     # inlet AE33
     serial_number: U2110081  # inlet AE33
     port: COM1
@@ -358,6 +357,35 @@ eaton-ups:
     mac: 00-20-85-DE-37-27
     socket:
         host: 192.168.1.141
+    
+    # power outlets
+    main-group: 
+        - Picarro pump
+        - TEI 49c
+    group1: 
+        - aerosol rack 
+            - NE300
+            - AE33
+            - Fidas
+            - HMP110
+            - Minix-2
+    group2: 
+        - right power rail
+            - ne1601 modem
+            - tp-link switch
+            - Minix monitor
+            - Piccaro monitor
+            - Linuxbox meteo
+            - camera
+            - air inlet blower
+        - left power rail
+            - Piccaro 
+            - 49i
+            - 49C-PS
+            - CO pump?
+            - extension cable
+            - Picarro calibration unit
+            - Piccaro inlet pump
 
 eaton-switch-1:
     type: EATON ATS16N
