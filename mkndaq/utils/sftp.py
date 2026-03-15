@@ -501,10 +501,22 @@ class SFTPClient:
                 final_local = local_dir / name
                 tmp_local = local_dir / f"{tmp_prefix}{name}{tmp_suffix}"
 
-                sftp.get(remote_file.as_posix(), tmp_local.as_posix())
-                if final_local.exists():
-                    continue
-                # tmp_local.replace(final_local)
+                try:
+                    sftp.get(remote_file.as_posix(), tmp_local.as_posix())
+                    if final_local.exists():
+                        try:
+                            tmp_local.unlink()
+                        except FileNotFoundError:
+                            pass
+                        continue
+                    tmp_local.replace(final_local)
+                except Exception:
+                    try:
+                        if tmp_local.exists():
+                            tmp_local.unlink()
+                    except Exception:
+                        pass
+                    raise
 
                 # Normalize stub-typed attributes (Paramiko stubs allow None)
                 raw_mtime = attr.st_mtime
