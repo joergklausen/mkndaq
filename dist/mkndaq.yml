@@ -411,7 +411,7 @@ meteo:
     socket:
         host: 192.168.3.157         # linuxbox
         usr: admin
-    key: ~/.ssh/linuxbox
+    key: ~/.ssh/linuxbox_ecdsa
     source: /home/moxa/data        # directory where data can be found on linuxbox
     pattern: VRXA00
     data_path: meteo

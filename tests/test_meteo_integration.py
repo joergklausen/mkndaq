@@ -100,8 +100,8 @@ def _import_meteo_class():
 def _resolve_config_path() -> Path:
     here = Path(__file__).resolve()
     candidates = [
-        Path.cwd() / "mkndaq.yml",
-        here.parents[1] / "mkndaq.yml" if len(here.parents) > 1 else None,
+        Path.cwd() / "./dist/mkndaq.yml",
+        here.parents[1] / "./dist/mkndaq.yml" if len(here.parents) > 1 else None,
         Path("/mnt/data") / "mkndaq.yml",
     ]
     for candidate in candidates:
