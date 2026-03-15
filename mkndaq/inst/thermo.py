@@ -778,6 +778,123 @@ class Thermo49i:
             return list()
 
 
+    def accumulate_lr00(self) -> None:
+        """Send lr00 command, append response to buffer; non-blocking lock."""
+        # Try to grab lock; return immediately if another job is using the IO channel.
+        if not self._io_lock.acquire(blocking=False):
+            return
+
+        try:
+            dtm = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            _ = self.serial_comm('lr00') if self._serial_com else self.tcpip_comm('lr00')
+            self._data += f"{dtm} {_}\n"
+            self.logger.debug(f"[{self.name}] {_[:60]}[...]")
+        except Exception as err:
+            self.logger.error(f"[{self.name}] {err}")
+        finally:
+            self._io_lock.release()
+
+
+    def get_all_lrec(self, save: bool=True) -> str:
+        """download entire buffer from instrument and save to file
+
+        :param bln save: Should data be saved to file? default=True
+        :return str response as decoded string
+        """
+        try:
+            data = ""
+            file = ""
+
+            # retrieve numbers of lrec stored in buffer
+            cmd = "no of lrec"
+            if self._serial_com:
+                no_of_lrec = int(self.serial_comm(cmd).split()[0])
+            else:
+                no_of_lrec = int(self.tcpip_comm(cmd).split()[0])
+            # no_of_lrec = int(re.findall(r"(\d+)", no_of_lrec)[0])
+
+            if save:
+                # generate the datafile name
+                dtm = datetime.now().strftime('%Y%m%d%H%M%S')
+                file = os.path.join(self.data_path,
+                                    f"{self.name}_all_lrec-{dtm}.dat")
+
+            # get current lrec format, then set lrec format
+            if self._serial_com:
+                lrec_format = self.serial_comm('lrec format')
+                _ = self.serial_comm('set lrec format 0')
+            else:
+                lrec_format = self.tcpip_comm('lrec format')
+                _ = self.tcpip_comm('set lrec format 0')
+            if not 'ok' in _:
+                self.logger.warning(f"{cmd} returned '{_}' instead of 'ok'.")
+
+            # retrieve all lrec records stored in buffer
+            index = no_of_lrec
+            retrieve = 100
+
+            while index > 0:
+                if index < retrieve:
+                    retrieve = index
+                cmd = f"lrec {str(index)} {str(retrieve)}"
+                self.logger.info(cmd)
+                if self._serial_com:
+                    data += f"{self.serial_comm(cmd)}\n"
+                else:
+                    data += f"{self.tcpip_comm(cmd)}\n"
+
+                # remove all the extra info in the string returned
+                # 05:26 07-19-22 flags 0C100400 o3 30.781 hio3 0.000 cellai 50927 cellbi 51732 bncht 29.9 lmpt 53.1 o3lt 0.0 flowa 0.435 flowb 0.000 pres 493.7
+                # data = data.replace("flags ", "")
+                # data = data.replace("hio3 ", "")
+                # data = data.replace("cellai ", "")
+                # data = data.replace("cellbi ", "")
+                # data = data.replace("bncht ", "")
+                # data = data.replace("lmpt ", "")
+                # data = data.replace("o3lt ", "")
+                # data = data.replace("flowa ", "")
+                # data = data.replace("flowb ", "")
+                # data = data.replace("pres ", "")
+                # data = data.replace("o3 ", "")
+
+                index = index - retrieve
+
+            if save:
+                # write .dat file
+                with open(file, "at", encoding='utf8') as fh:
+                    fh.write(f"{data}\n")
+                    fh.close()
+
+                # create zip file
+                archive = os.path.join(file.replace(".dat", ".zip"))
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as fh:
+                    fh.write(file, os.path.basename(file))
+
+            # restore lrec format
+            if self._serial_com:
+                _ = self.serial_comm(f'set {lrec_format}')
+            else:
+                _ = self.tcpip_comm(f'set {lrec_format}')
+
+            return data
+
+        except Exception as err:
+            self.logger.error(f"[{self.name}] {err}")
+            return ""
+
+
+    def get_o3(self) -> str:
+        try:
+            if self._serial_com:
+                return self.serial_comm('o3')
+            else:
+                return self.tcpip_comm('o3')
+
+        except Exception as err:
+            self.logger.error(f"[{self.name}] {err}")
+            return ""
+
+
     def print_o3(self) -> None:
         acquired = self._io_lock.acquire(blocking=False)
         if not acquired:
