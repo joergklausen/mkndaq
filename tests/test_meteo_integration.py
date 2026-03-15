@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Live integration tests for the METEO/linuxbox fetch path.
 
-These tests intentionally exercise the same path that `mkndaq.py` uses:
+These tests intentionally exercise the same path that ``mkndaq.py`` uses::
 
     mkndaq.py -> METEO.store_and_stage_files() ->
     METEO.fetch_new_bulletins() -> SFTPClient.download_files()
@@ -11,24 +11,21 @@ The tests are split into two steps:
   1. verify that the linuxbox can be reached with the configured SSH key
   2. verify that the fetch/archive/stage path transfers the most recent 3 VRXA00 files
 
-Run explicitly, for example:
+This file does **not** rely on environment variables. It expects the repository
+layout to provide ``mkndaq.yml`` and either the importable ``mkndaq`` package or
+flat copies of ``meteo.py`` and ``sftp.py`` next to the test or under ``/mnt/data``.
 
-    MKNDAQ_RUN_LIVE_INTEGRATION=1 pytest -q tests/test_meteo_integration.py -s
+Recommended explicit run:
 
-Optional environment variables:
-  * MKNDAQ_CONFIG     path to mkndaq.yml
-  * MKNDAQ_UPLOAD_DIR fallback directory containing flat meteo.py/sftp.py uploads
+    pytest -q tests/test_meteo_integration.py -m integration -s
 
-Note:
-  * The tests override only `root` and `logging.file` so that all downloaded data goes
-    into a temporary test directory, while the real linuxbox host/user/key/source from
-    mkndaq.yml remain unchanged.
+If your ``pytest.ini`` excludes integration tests by default (for example via
+``addopts = -m \"not integration\"``), running the file without ``-m integration``
+will deselect the tests. That is a pytest selection issue, not a test skip.
 """
 
 import copy
-import importlib
 import importlib.util
-import os
 import sys
 import types
 from datetime import datetime
@@ -52,6 +49,7 @@ def _ensure_package(name: str) -> None:
     sys.modules[name] = module
 
 
+
 def _load_module(module_name: str, path: Path):
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
@@ -62,13 +60,14 @@ def _load_module(module_name: str, path: Path):
     return module
 
 
+
 def _resolve_candidate_file(filename: str) -> Path:
-    upload_dir = Path(os.environ.get("MKNDAQ_UPLOAD_DIR", "/mnt/data")).expanduser()
+    here = Path(__file__).resolve()
     candidates = [
         Path.cwd() / filename,
-        Path(__file__).resolve().parent / filename,
-        Path(__file__).resolve().parents[1] / filename if len(Path(__file__).resolve().parents) > 1 else None,
-        upload_dir / filename,
+        here.parent / filename,
+        here.parents[1] / filename if len(here.parents) > 1 else None,
+        Path("/mnt/data") / filename,
     ]
     for candidate in candidates:
         if candidate and candidate.exists():
@@ -76,13 +75,12 @@ def _resolve_candidate_file(filename: str) -> Path:
     raise FileNotFoundError(f"Could not find {filename!r} in any expected location")
 
 
+
 def _import_meteo_class():
     try:
         from mkndaq.inst.meteo import METEO
-
         return METEO
     except ModuleNotFoundError as err:
-        # Fall back to the flat uploaded files if the real package is not importable
         if not (err.name or "").startswith("mkndaq"):
             raise
 
@@ -100,31 +98,20 @@ def _import_meteo_class():
 # ---------------------------------------------------------------------------
 
 def _resolve_config_path() -> Path:
-    env_path = os.environ.get("MKNDAQ_CONFIG")
-    candidates = []
-    if env_path:
-        candidates.append(Path(env_path).expanduser())
-    candidates.extend(
-        [
-            Path.cwd() / "mkndaq.yml",
-            Path(__file__).resolve().parents[1] / "mkndaq.yml" if len(Path(__file__).resolve().parents) > 1 else None,
-            _resolve_candidate_file("mkndaq.yml"),
-        ]
-    )
+    here = Path(__file__).resolve()
+    candidates = [
+        Path.cwd() / "mkndaq.yml",
+        here.parents[1] / "mkndaq.yml" if len(here.parents) > 1 else None,
+        Path("/mnt/data") / "mkndaq.yml",
+    ]
     for candidate in candidates:
         if candidate and candidate.exists():
             return candidate.resolve()
-    raise FileNotFoundError("Could not locate mkndaq.yml; set MKNDAQ_CONFIG explicitly")
+    raise FileNotFoundError("Could not locate mkndaq.yml in the repository or test upload locations")
 
 
 @pytest.fixture(scope="module")
-def live_enabled() -> None:
-    if os.environ.get("MKNDAQ_RUN_LIVE_INTEGRATION") != "1":
-        pytest.skip("Set MKNDAQ_RUN_LIVE_INTEGRATION=1 to run live linuxbox integration tests")
-
-
-@pytest.fixture(scope="module")
-def live_config(live_enabled, tmp_path_factory):
+def live_config(tmp_path_factory):
     cfg_path = _resolve_config_path()
     cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     cfg = copy.deepcopy(cfg)
@@ -174,6 +161,7 @@ def test_01_can_connect_to_linuxbox_and_list_remote_source(meteo_live):
     assert remote_names, f"Remote source directory is empty: {meteo_live.source}"
 
 
+
 def test_02_fetches_the_most_recent_three_vrxa00_files_via_meteo_pipeline(meteo_live):
     """Prime METEO state so only the latest 3 VRXA00 files are considered new, then run the real fetch/archive/stage path."""
     remote_attrs = _list_remote_vrxa00(meteo_live)
@@ -185,14 +173,11 @@ def test_02_fetches_the_most_recent_three_vrxa00_files_via_meteo_pipeline(meteo_
     latest_three = remote_attrs[:3]
     latest_names = {attr.filename for attr in latest_three}
 
-    # Use the same METEO state mechanism to mark every older file as already seen.
     older_names = {attr.filename for attr in remote_attrs if attr.filename not in latest_names}
     meteo_live._write_state(older_names)
 
-    # This is the exact entry point used by mkndaq.py.
     meteo_live.store_and_stage_files()
 
-    # Staging is raw for meteo (staging_zip: False in mkndaq.yml), but keep the check generic.
     if meteo_live._zip:
         staged_paths = {meteo_live.staging_path / f"{Path(name).stem}.zip" for name in latest_names}
     else:
