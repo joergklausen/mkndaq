@@ -1,20 +1,39 @@
 from __future__ import annotations
 
+"""Live integration test for LAN inventory vs. the mkndaq configuration.
+
+This test reads the normal ``mkndaq.yml`` file, extracts configured private IPv4
+instrument endpoints, derives the corresponding /24 LANs, scans them, and then
+compares the reachable IPs with what is declared in the YAML.
+
+This file does **not** rely on environment variables. It expects the repository
+layout to provide ``mkndaq.yml`` in a normal location such as the project root,
+``dist/``, ``configs/``, or the uploaded test area.
+
+Recommended explicit run:
+
+    pytest -q tests/test_network_inventory.py -m integration -s
+
+If your ``pytest.ini`` excludes integration tests by default (for example via
+``addopts = -m \"not integration\"``), running the file without
+``-m integration`` will deselect the test. That is a pytest selection issue,
+not a runtime skip inside this file.
+"""
+
 import concurrent.futures as cf
+from collections import defaultdict
 from dataclasses import dataclass
 import ipaddress
-import os
 from pathlib import Path
 import platform
 import shutil
 import socket
 import subprocess
-from collections import defaultdict
 
 import pytest
 import yaml
 
-pytestmark = [pytest.mark.integration]
+pytestmark = pytest.mark.integration
 
 HOST_KEYS = ("host", "ip", "ip_address", "address", "hostname")
 NESTED_HOST_CONTAINERS = ("socket", "tcp", "net", "network")
@@ -23,6 +42,10 @@ DEFAULT_CONFIG_CANDIDATES = (
     Path("mkndaq.yml"),
     Path("configs/mkndaq.yml"),
 )
+DEFAULT_MAX_WORKERS = 128
+DEFAULT_PING_TIMEOUT_MS = 300
+DEFAULT_TCP_TIMEOUT_S = 0.4
+DEFAULT_IGNORED_IPS: set[str] = set()
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,20 +55,23 @@ class Target:
     port: int | None = None
 
 
-def _find_config() -> Path:
-    env_path = os.getenv("MKNDAQ_CONFIG")
-    if env_path:
-        path = Path(env_path).expanduser()
-        if path.exists():
-            return path
-        raise FileNotFoundError(f"MKNDAQ_CONFIG does not exist: {path}")
-
+def _resolve_config_path() -> Path:
     here = Path(__file__).resolve()
+    candidates = [
+        Path.cwd() / "mkndaq.yml",
+        here.parent / "mkndaq.yml",
+        here.parents[1] / "mkndaq.yml" if len(here.parents) > 1 else None,
+        Path("/mnt/data") / "mkndaq.yml",
+    ]
+    for candidate in candidates:
+        if candidate and candidate.exists():
+            return candidate.resolve()
+
     for base in (here.parent,) + tuple(here.parents):
         for candidate in DEFAULT_CONFIG_CANDIDATES:
             path = base / candidate
             if path.exists():
-                return path
+                return path.resolve()
 
     searched = ", ".join(str(p) for p in DEFAULT_CONFIG_CANDIDATES)
     raise FileNotFoundError(f"Could not find mkndaq config. Searched for: {searched}")
@@ -91,7 +117,6 @@ def _parse_lan_ip(text: str) -> str | None:
     return str(ip)
 
 
-
 def _extract_targets(cfg: dict) -> list[Target]:
     targets: list[Target] = []
 
@@ -128,7 +153,6 @@ def _extract_targets(cfg: dict) -> list[Target]:
     return sorted(deduped.values(), key=lambda t: (ipaddress.ip_address(t.ip), t.name, t.port or -1))
 
 
-
 def _as_ipv4_network(value: str) -> ipaddress.IPv4Network:
     network = ipaddress.ip_network(value, strict=False)
     if not isinstance(network, ipaddress.IPv4Network):
@@ -137,15 +161,6 @@ def _as_ipv4_network(value: str) -> ipaddress.IPv4Network:
 
 
 def _derive_networks(configured_ips: set[str]) -> list[ipaddress.IPv4Network]:
-    override = os.getenv("MKNDAQ_SCAN_NETWORKS", "").strip()
-    if override:
-        networks: list[ipaddress.IPv4Network] = []
-        for item in override.split(","):
-            item = item.strip()
-            if item:
-                networks.append(_as_ipv4_network(item))
-        return sorted(set(networks), key=lambda n: (int(n.network_address), n.prefixlen))
-
     network_set: set[ipaddress.IPv4Network] = {
         _as_ipv4_network(f"{ip}/24")
         for ip in configured_ips
@@ -160,8 +175,7 @@ def _ping_command(ip: str, timeout_ms: int) -> list[str]:
     return ["ping", "-c", "1", "-W", str(max(1, timeout_ms // 1000)), ip]
 
 
-
-def _ping(ip: str, timeout_ms: int = 400) -> bool:
+def _ping(ip: str, timeout_ms: int = DEFAULT_PING_TIMEOUT_MS) -> bool:
     if shutil.which("ping") is None:
         raise RuntimeError("The 'ping' command is not available on PATH.")
 
@@ -174,14 +188,12 @@ def _ping(ip: str, timeout_ms: int = 400) -> bool:
     return result.returncode == 0
 
 
-
-def _tcp_probe(ip: str, port: int, timeout: float = 0.4) -> bool:
+def _tcp_probe(ip: str, port: int, timeout: float = DEFAULT_TCP_TIMEOUT_S) -> bool:
     try:
         with socket.create_connection((ip, port), timeout=timeout):
             return True
     except OSError:
         return False
-
 
 
 def _scan_networks(
@@ -203,13 +215,6 @@ def _scan_networks(
     return reachable
 
 
-
-def _env_truthy(name: str) -> bool:
-    value = os.getenv(name, "").strip().lower()
-    return value in {"1", "true", "yes", "on"}
-
-
-
 def _format_ip_report(title: str, ips: set[str], labels_by_ip: dict[str, list[str]] | None = None) -> list[str]:
     lines = [title]
     for ip in sorted(ips, key=lambda s: tuple(int(part) for part in s.split("."))):
@@ -221,12 +226,8 @@ def _format_ip_report(title: str, ips: set[str], labels_by_ip: dict[str, list[st
     return lines
 
 
-
 def test_configured_lan_inventory_matches_network_scan() -> None:
-    if not _env_truthy("MKNDAQ_RUN_NETWORK_TESTS"):
-        pytest.skip("Set MKNDAQ_RUN_NETWORK_TESTS=1 to enable LAN integration scanning.")
-
-    config_path = _find_config()
+    config_path = _resolve_config_path()
     cfg = _load_yaml(config_path)
     targets = _extract_targets(cfg)
 
@@ -241,33 +242,21 @@ def test_configured_lan_inventory_matches_network_scan() -> None:
             ports_by_ip[target.ip].add(target.port)
 
     networks = _derive_networks(configured_ips)
-    max_workers = int(os.getenv("MKNDAQ_SCAN_WORKERS", "128"))
-    ping_timeout_ms = int(os.getenv("MKNDAQ_PING_TIMEOUT_MS", "300"))
-    tcp_timeout_s = float(os.getenv("MKNDAQ_TCP_TIMEOUT_S", "0.4"))
-
     reachable_ips = _scan_networks(
         networks,
-        timeout_ms=ping_timeout_ms,
-        max_workers=max_workers,
+        timeout_ms=DEFAULT_PING_TIMEOUT_MS,
+        max_workers=DEFAULT_MAX_WORKERS,
     )
 
     # Fallback: some configured devices may block ICMP but still accept TCP.
     for ip, ports in ports_by_ip.items():
         if ip in reachable_ips:
             continue
-        if any(_tcp_probe(ip, port, timeout=tcp_timeout_s) for port in sorted(ports)):
+        if any(_tcp_probe(ip, port, timeout=DEFAULT_TCP_TIMEOUT_S) for port in sorted(ports)):
             reachable_ips.add(ip)
 
-    ignored_ips = {
-        _parse_lan_ip(item.strip())
-        for item in os.getenv("MKNDAQ_SCAN_IGNORE", "").split(",")
-        if item.strip()
-    }
-    ignored_ips.discard(None)
-    ignored_ips = {ip for ip in ignored_ips if ip is not None}
-
     configured_but_unreachable = configured_ips - reachable_ips
-    reachable_but_unconfigured = reachable_ips - configured_ips - ignored_ips
+    reachable_but_unconfigured = reachable_ips - configured_ips - DEFAULT_IGNORED_IPS
 
     if configured_but_unreachable or reachable_but_unconfigured:
         report: list[str] = [
@@ -300,8 +289,8 @@ def test_configured_lan_inventory_matches_network_scan() -> None:
             )
             report.append("")
 
-        if ignored_ips:
-            report.extend(_format_ip_report("Ignored IPs:", ignored_ips))
+        if DEFAULT_IGNORED_IPS:
+            report.extend(_format_ip_report("Ignored IPs:", DEFAULT_IGNORED_IPS))
             report.append("")
 
         pytest.fail("\n".join(report))
