@@ -41,6 +41,10 @@ s3:
     max_attempts: 2
     retry_mode: standard
 
+# console print interval
+'print_interval_seconds': 20
+
+
 # serial interface configuration
 COM1:
     protocol: RS485     # don't change!
