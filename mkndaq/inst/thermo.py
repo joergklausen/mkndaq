@@ -250,8 +250,8 @@ class Thermo49C:
             root = os.path.expanduser(config['root'])
             self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
             self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
-            # self.archive_path = os.path.join(root, config[name]['archive'])
             self._file_to_stage = ""
+            self.data_file = ""
             self._zip = config[name]['staging_zip']
 
             # configure remote transfer
@@ -418,8 +418,7 @@ class Thermo49C:
 
     def _save_data(self) -> None:
         try:
-            # data_file = ""
-            # self.data_file = ""
+            self.data_file = ""
             if self._data:
                 # create appropriate file name and write mode
                 now = datetime.now()
@@ -618,7 +617,7 @@ class Thermo49i:
             root = os.path.expanduser(config['root'])
             self.data_path = os.path.join(root, config['data'], config[name]['data_path'])
             self.staging_path = os.path.join(root, config['staging'], config[name]['staging_path'])
-            # self.archive_path = os.path.join(root, config[name]['archive'])
+            self.data_file = ""
 
             # configure remote transfer
             self.remote_path = config[name]['remote_path']
@@ -1061,6 +1060,7 @@ class Thermo49i:
     def _save_data(self) -> None:
         """Write accumulated data to a .dat file and clear the buffer."""
         try:
+            self.data_file = ""
             if self._data:
                 # create appropriate file name and write mode
                 now = datetime.now()
