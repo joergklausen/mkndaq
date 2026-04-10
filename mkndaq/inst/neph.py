@@ -483,8 +483,8 @@ class NEPH:
                 record_len = 16 + 4 * n_fields
                 if offset + record_len > len(body):
                     if verbosity > 0:
-                        self.logger.warning(
-                            f"Truncated logged-data record at offset={offset}, need {record_len} bytes, have {len(body) - offset}."
+                        self.logger.debug(
+                            f"Truncated record at offset={offset}, need {record_len} bytes, have {len(body) - offset}."
                         )
                     break
 
@@ -613,60 +613,6 @@ class NEPH:
                 break
         return
 
-    def _tcpip_recv_exact(self, sock: socket.socket, nbytes: int) -> bytes:
-        """Receive exactly ``nbytes`` from a socket or raise on premature EOF."""
-        chunks: list[bytes] = []
-        remaining = int(nbytes)
-        while remaining > 0:
-            chunk = sock.recv(remaining)
-            if not chunk:
-                raise ConnectionError(f"socket closed while expecting {remaining} more byte(s)")
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        return b"".join(chunks)
-
-    def _tcpip_recv_acoem_packet(self, sock: socket.socket, verbosity: int = 0) -> bytes:
-        """Receive one full ACOEM packet.
-
-        Packet layout:
-            STX SID CMD ETX LEN(2) BODY CHECKSUM EOT
-
-        The previous implementation stopped reading as soon as any ``0x04`` byte
-        appeared in the accumulated buffer. That is unsafe for binary payloads,
-        because ``0x04`` may legitimately occur inside timestamps or float bytes,
-        which truncates command-7 logged-data responses and creates artificial
-        timestamp gaps. Here we read the fixed header first, then the exact
-        number of bytes announced by the packet length.
-        """
-        # Skip any preamble until STX is found.
-        prefix = b""
-        while True:
-            b0 = sock.recv(1)
-            if not b0:
-                raise ConnectionError("socket closed before start-of-text byte was received")
-            if b0 == b"\x02":
-                break
-            prefix += b0
-
-        header_rest = self._tcpip_recv_exact(sock, 5)
-        packet = b"\x02" + header_rest
-
-        if packet[3] != 3:
-            raise ValueError(f"invalid ACOEM header: expected ETX=0x03 at byte 4, got {packet[3]!r}")
-
-        msg_len = int.from_bytes(packet[4:6], byteorder="big")
-        body_and_tail = self._tcpip_recv_exact(sock, msg_len + 2)  # checksum + EOT
-        packet += body_and_tail
-
-        if packet[-1] != 4:
-            raise ValueError(f"invalid ACOEM packet terminator: expected EOT=0x04, got {packet[-1]!r}")
-
-        if verbosity > 1:
-            self.logger.debug(
-                f"ACOEM packet received: prefix={len(prefix)} bytes, msg_len={msg_len}, total={len(packet)} bytes"
-            )
-        return packet
-
     def _tcpip_comm(self, message: bytes, expect_response: bool=True, verbosity: int=0) -> bytes:
         """
         Send and receive data using ACOEM protocol
@@ -704,20 +650,23 @@ class NEPH:
                 rcvd = b''
                 if expect_response:
                     if self._protocol=='acoem':
-                        rcvd = self._tcpip_recv_acoem_packet(s, verbosity=verbosity)
-                    elif self._protocol=='aurora':
-                        while not (rcvd.endswith(b'\r\n') or rcvd.endswith(b'\r\n\n')):
+                        while not b'\x04' in rcvd:
+                        # while not rcvd.endswith(b'\x04'):
                             data = s.recv(1024)
                             if not data:
                                 break
                             rcvd += data
-                        rcvd = rcvd.strip()
-                        # remove telnet-style preamble if present
-                        rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
+                    elif self._protocol=='aurora':
+                        while not (rcvd.endswith(b'\r\n') or rcvd.endswith(b'\r\n\n')):
+                            data = s.recv(1024)
+                            rcvd += data
                     else:
                         raise ValueError('Protocol not recognized.')
+                    rcvd = rcvd.strip()
+                    # remove pre-ambel
+                    rcvd = rcvd.replace(b'\xff\xfb\x01\xff\xfe\x01\xff\xfb\x03', b'')
 
-                    end = time.perf_counter()
+                    end = time.perf_counter()    
                     if verbosity>1:
                         self.logger.debug(f"response (bytes): {rcvd}")
                         self.logger.debug(f"time elapsed (s): {end - start:0.4f}")
@@ -1136,20 +1085,9 @@ class NEPH:
                         payload += self._acoem_datetime_to_timestamp(end)
                 else:
                     raise ValueError("start and/or end date not valid.")
-                if verbosity > 0:
-                    self.logger.info(f"[{self.name}] get_logged_data request: {start} -> {end}")
                 message = self._acoem_construct_message(command=7, payload=payload)
-                self._tcpip_comm_wait_for_line()
                 response = self._tcpip_comm(message, verbosity=verbosity)
                 data =  self._acoem_decode_logged_data(response=response, verbosity=verbosity)
-                if verbosity > 0:
-                    data_rows = [row for row in data if isinstance(row, dict) and 'dtm' in row]
-                    if data_rows:
-                        self.logger.info(
-                            f"[{self.name}] get_logged_data response: bytes={len(response)} rows={len(data_rows)} first={data_rows[0]['dtm']} last={data_rows[-1]['dtm']}"
-                        )
-                    else:
-                        self.logger.info(f"[{self.name}] get_logged_data response: bytes={len(response)} rows=0")
                 if raw:
                     return [{'raw': response}, {'data': data}]
                 return data
