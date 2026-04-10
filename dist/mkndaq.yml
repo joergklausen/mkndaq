@@ -315,8 +315,8 @@ tapo:
     type: Tapo C230 7785
     mac: 78-20-51-42-77-85
     ip_address: 192.168.200.164
-    username: ~/.tapo/tapo-account-username
-    password: ~/.tapo/tapo-account-password
+    username: ~/.secrets/tapo-account-username
+    password: ~/.secrets/tapo-account-password
     stream: 1
     image_format: png        # or: jpg
     jpeg_quality: 95         # only used if image_format = jpg
