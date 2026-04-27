@@ -165,10 +165,25 @@ class NEPH:
                 self.logger.info(f"[{self.name}] dtm found: {dtm_found} > dtm set: {dtm_set}.", extra={"to_logfile": True})            
 
                 # get logging config (=header ids)
-                cfg = self.get_data_log_config()[1:]  # drop the leading "number of fields"
-
-                # ensure 4035 and 2002 are present as the first two data columns after dtm
-                self._header = [4035, 2002] + [pid for pid in cfg if pid not in (4035, 2002)]
+                # Command 6 may fail or return an empty config while command 7 logged-data
+                # packets still contain a header record. Use command 6 when it is usable,
+                # otherwise fall back to the config file until the next logged-data packet
+                # updates self._header from its own header record.
+                cfg_raw = self.get_data_log_config(insert_4035_2002=False)
+                cfg = self._header_ids_from_data_log_config(cfg_raw)
+                if cfg:
+                    self._set_header_from_logged_keys(cfg, source="command 6 data-log config")
+                elif self.data_log_parameters:
+                    self._set_header_from_logged_keys(self.data_log_parameters, source="mkndaq.yml fallback")
+                    self.logger.warning(
+                        f"[{self.name}] command 6 returned no usable data-log config; "
+                        "using mkndaq.yml data_log.parameters until logged-data header is received."
+                    )
+                else:
+                    self.logger.warning(
+                        f"[{self.name}] command 6 returned no usable data-log config and "
+                        "mkndaq.yml has no data_log.parameters; using minimal NE300 header."
+                    )
 
                 self.logger.info(f"[{self.name}] logging config reported: {self._header}.", extra={"to_logfile": True})
 
@@ -406,6 +421,109 @@ class NEPH:
 
         return data
 
+    def _normalise_header_ids(self, parameter_ids: list[int] | None = None) -> list[int]:
+        """Return the DAQ data-column header, excluding the leading ``dtm`` column.
+
+        The NE300 logged-data records always expose ``4035`` (current operation)
+        and ``2002`` (logging period) as metadata in the record header. Keep them
+        first, then append the logged parameter IDs in the order supplied by the
+        instrument or by the fallback config.
+        """
+        header: list[int] = [4035, 2002]
+        for pid in parameter_ids or []:
+            try:
+                pid_i = int(pid)
+            except (TypeError, ValueError):
+                continue
+            if pid_i <= 0 or pid_i in header:
+                continue
+            header.append(pid_i)
+        return header
+
+    def _header_ids_from_data_log_config(self, data_log_config: list[int] | None) -> list[int]:
+        """Extract logged parameter IDs from a command-6 data-log config response.
+
+        Command 6 returns ``[n_fields, param_1, ..., param_n]``. Older code mixed
+        the count word with inserted metadata fields, which could leave only
+        ``4035`` and ``2002`` in ``self._header`` when command 6 returned an empty
+        or malformed response. This helper treats the first word as a count only
+        when it looks like a plausible count.
+        """
+        raw: list[int] = []
+        for item in data_log_config or []:
+            try:
+                raw.append(int(item))
+            except (TypeError, ValueError):
+                continue
+
+        if not raw:
+            return []
+
+        first = raw[0]
+        if 0 <= first <= 500:
+            if len(raw) == 1:
+                return []
+            if first != len(raw) - 1:
+                self.logger.warning(
+                    f"[{self.name}] command 6 data-log count mismatch: "
+                    f"reported {first}, received {len(raw) - 1} parameter IDs; using received IDs."
+                )
+            return raw[1:]
+
+        # Defensive fallback for callers that already stripped the count word.
+        return raw
+
+    def _set_header_from_logged_keys(self, parameter_ids: list[int] | None, *, source: str) -> None:
+        """Update ``self._header`` from actual or configured logged parameter IDs."""
+        new_header = self._normalise_header_ids(parameter_ids)
+        old_header = list(getattr(self, "_header", [4035, 2002]))
+
+        if new_header == old_header:
+            return
+
+        self._header = new_header
+        self.logger.info(
+            f"[{self.name}] data header set from {source}: "
+            f"{len(['dtm'] + self._header)} columns ({['dtm'] + [str(x) for x in self._header]})",
+            extra={"to_logfile": True},
+        )
+
+    def _format_logged_record(self, record: dict, sep: str = ",") -> str:
+        """Format one decoded ACOEM logged-data record using ``self._header`` order."""
+        if "dtm" not in record:
+            raise ValueError(f"decoded logged-data record has no 'dtm': {record!r}")
+
+        numeric_keys = [key for key in record if isinstance(key, int)]
+        logged_keys = [key for key in numeric_keys if key not in (4035, 2002)]
+        missing_from_header = [key for key in logged_keys if key not in self._header]
+        if missing_from_header:
+            self._set_header_from_logged_keys(
+                [*self._header, *missing_from_header],
+                source="decoded logged-data record",
+            )
+
+        values = [str(record["dtm"])]
+        values.extend(str(record.get(pid, "")) for pid in self._header)
+        return sep.join(values)
+
+    def _validate_buffer_against_header(self, sep: str = ",") -> None:
+        """Fail fast if the accumulated ACOEM rows do not match ``self._header``."""
+        if self._protocol != "acoem":
+            return
+
+        expected = 1 + len(getattr(self, "_header", [4035, 2002]))
+        for idx, line in enumerate(self._data.splitlines(), start=1):
+            if not line.strip():
+                continue
+            actual = len(line.split(sep))
+            if actual != expected:
+                raise ValueError(
+                    f"[{self.name}] refusing to write malformed NE300 data: "
+                    f"row {idx} has {actual} fields, header has {expected}. "
+                    f"Header={['dtm'] + [str(x) for x in self._header]}. "
+                    f"Row={line[:500]!r}"
+                )
+
     def _acoem_decode_logged_data(
         self,
         response: bytes,
@@ -494,6 +612,7 @@ class NEPH:
                     # Header record: parameter IDs
                     # NOTE: header timestamp / logging_period are often 0 / undefined -> do NOT decode dtm here.
                     keys = [int.from_bytes(f, byteorder="big") for f in fields]
+                    self._set_header_from_logged_keys(keys, source="logged-data packet")
                     if verbosity > 1:
                         self.logger.debug(f"Header record: n_fields={n_fields}, keys={keys}")
                 else:
@@ -598,9 +717,7 @@ class NEPH:
         """
         result = []
         for d in data:
-            dtm_value = d.pop('dtm')
-            values = [str(dtm_value)] + [str(value) for key, value in d.items()]
-            result.append(sep.join(values))
+            result.append(self._format_logged_record(d, sep=sep))
 
         return '\n'.join(result)
 
@@ -865,7 +982,7 @@ class NEPH:
         except Exception as err:
             self.logger.error(err)
 
-    def get_data_log_config(self, verbosity: int=0, insert_4035_2002: bool=True) -> list:
+    def get_data_log_config(self, verbosity: int=0, insert_4035_2002: bool=False) -> list:
         """
         A.3.7 Return the list of parameter IDs currently being logged. 
         It is sent with zero message data length.
@@ -877,10 +994,12 @@ class NEPH:
 
         Args:
             verbosity (int, optional): Verbosity. Defaults to 0.
-            insert_4035_2002 (bool, optional): If True, ensure that 4035 and 2002 are included in the returned list. Defaults to True.
+            insert_4035_2002 (bool, optional): If True, return normalized DAQ header IDs with
+                4035 and 2002 inserted first and the command-6 count word removed. Defaults to False.
 
         Returns:
-            list: Parameter IDs (integers) currently being logged
+            list: Raw command-6 response ``[n_fields, param_1, ...]`` by default, or normalized
+            DAQ header IDs when ``insert_4035_2002=True``.
         """
         try:
             if self._protocol=='acoem':
@@ -889,10 +1008,7 @@ class NEPH:
                 response = self._tcpip_comm(message, verbosity=verbosity)
                 data_log_config = self._acoem_bytes2int(response=response, verbosity=verbosity)
                 if insert_4035_2002:
-                    if 4035 not in data_log_config:
-                        data_log_config.insert(1, 4035)
-                    if 2002 not in data_log_config:
-                        data_log_config.insert(2, 2002)
+                    return self._normalise_header_ids(self._header_ids_from_data_log_config(data_log_config))
                 return data_log_config
             else:
                 self.logger.warning(colorama.Fore.YELLOW + "Not implemented." + colorama.Fore.GREEN)
@@ -1424,11 +1540,16 @@ class NEPH:
                 self._tcpip_comm_wait_for_line()            
                 data = self.get_logged_data(start=start, end=end, verbosity=verbosity)
 
-                # prepare result
+                # prepare result in exactly the same order as the file header
                 for d in data:
-                    values = [str(d.pop('dtm'))] + [str(value) for key, value in d.items()]
-                    tmp.append(sep.join(values))
-                data = '\n'.join(tmp) + '\n'
+                    if "communication_error" in d:
+                        self.logger.error(f"[{self.name}] logged-data communication error: {d['communication_error']}")
+                        continue
+                    if "values_raw" in d or "fields_raw" in d:
+                        self.logger.error(f"[{self.name}] logged-data record could not be decoded with a header: {d!r}")
+                        continue
+                    tmp.append(self._format_logged_record(d, sep=sep))
+                data = ('\n'.join(tmp) + '\n') if tmp else ''
 
             elif self._protocol=='aurora':
                 data = self._tcpip_comm(f"***D\r".encode()).decode()
@@ -1454,6 +1575,8 @@ class NEPH:
                 self.logger.info(f"[{self.name}] no data to save (skipping file creation).")
                 self.data_file = str()
                 return None
+
+            self._validate_buffer_against_header()
 
             now = datetime.now()
             timestamp = now.strftime(self._file_timestamp_format)
@@ -1481,6 +1604,7 @@ class NEPH:
             return self.data_file
 
         except Exception as err:
+            self.data_file = str()
             self.logger.error(colorama.Fore.RED + f"{err}" + colorama.Fore.GREEN)
 
     def _stage_file(self):
