@@ -101,6 +101,11 @@ def parse_args() -> argparse.Namespace:
         default=0.0,
         help="Optional sleep in seconds between record chunk requests. Default: 0",
     )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress per-chunk progress messages. Final file messages are still printed.",
+    )
     return parser.parse_args()
 
 
@@ -190,14 +195,23 @@ def download_records(
     count: int,
     chunk_size: int,
     sleep: float = 0.0,
+    quiet: bool = False,
 ) -> list[str]:
     chunk_size = max(1, min(int(chunk_size), MAX_RECORDS_PER_QUERY))
     records_back = int(count)
+    requested_so_far = 0
     lines: list[str] = []
 
     while records_back > 0:
         n = min(chunk_size, records_back)
         cmd = f"{record_type} {records_back} {n}"
+        if not quiet:
+            print(
+                f"{record_type.upper()}: requesting {n} record(s) starting at record {records_back} "
+                f"({requested_so_far}/{count} requested so far)...",
+                flush=True,
+            )
+
         response = command(send, cmd)
 
         if has_error(response):
@@ -212,6 +226,15 @@ def download_records(
 
         lines.extend(got)
         records_back -= n
+        requested_so_far += n
+
+        if not quiet:
+            print(
+                f"{record_type.upper()}: received {len(got)} line(s) from this chunk; "
+                f"{len(lines)} line(s) accumulated; {requested_so_far}/{count} record(s) requested.",
+                flush=True,
+            )
+
         if sleep > 0:
             time.sleep(sleep)
 
@@ -262,6 +285,11 @@ def main() -> int:
 
             available = discover_count(send, record_type)
             count = requested_count(args, record_type, available)
+            print(
+                f"{record_type.upper()}: instrument reports {available} stored record(s); "
+                f"downloading {count} record(s) in chunks of up to {min(max(int(args.chunk_size), 1), MAX_RECORDS_PER_QUERY)}.",
+                flush=True,
+            )
             if count == 0:
                 print(f"No {record_type.upper()} records available.")
                 continue
@@ -272,6 +300,7 @@ def main() -> int:
                 count=count,
                 chunk_size=args.chunk_size,
                 sleep=args.sleep,
+                quiet=args.quiet,
             )
 
             outdir = Path(instrument.data_path)
