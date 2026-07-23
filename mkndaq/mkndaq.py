@@ -115,14 +115,14 @@ def main():
                         delay_transfer=2,
                         remove_on_success=False,
                     )
-                # if sftp:
-                #     remote_path_data = (PurePosixPath(sftp.remote_path) / tei49c.remote_path).as_posix()
-                #     sftp.setup_transfer_schedules(
-                #         local_path=str(tei49c.staging_path),
-                #         remote_path=remote_path_data,
-                #         interval=tei49c.reporting_interval,
-                #         delay_transfer=15,
-                #     )
+                if sftp:
+                    remote_path_data = (PurePosixPath(sftp.remote_path) / tei49c.remote_path).as_posix()
+                    sftp.setup_transfer_schedules(
+                        local_path=str(tei49c.staging_path),
+                        remote_path=remote_path_data,
+                        interval=tei49c.reporting_interval,
+                        delay_transfer=15,
+                    )
 
                 schedule.every(fetch).seconds.do(run_threaded, tei49c.print_o3)
                 logger.info(f"[tei49c] setup complete")
