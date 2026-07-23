@@ -84,41 +84,41 @@ COM3:
 #     timeout: 1
 
 # instrument specification
-tei49c:
-    type: Thermo 49C
-    id: 49
-    serial_number: 49C-58106-318
-    port: COM3
-    get_config:
-        - date
-        - time
-        - mode
-        - gas unit
-        - range
-        - avg time
-        - temp comp
-        - pres comp
-        - format
-        - lrec format
-        - o3 coef
-        - o3 bkg
-    set_config:
-        - set mode remote
-        - set gas unit ppb
-        - set range 1
-        - set avg time 3
-        - set temp comp on
-        - set pres comp on
-        - set format 00
-        - set lrec format 00 02
-        - set save params
-    data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
-    sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 60
-    data_path: tei49c
-    staging_path: tei49c
-    staging_zip: True
-    remote_path: tei49c
+# tei49c:
+#     type: Thermo 49C
+#     id: 49
+#     serial_number: 49C-58106-318
+#     port: COM3
+#     get_config:
+#         - date
+#         - time
+#         - mode
+#         - gas unit
+#         - range
+#         - avg time
+#         - temp comp
+#         - pres comp
+#         - format
+#         - lrec format
+#         - o3 coef
+#         - o3 bkg
+#     set_config:
+#         - set mode remote
+#         - set gas unit ppb
+#         - set range 1
+#         - set avg time 3
+#         - set temp comp on
+#         - set pres comp on
+#         - set format 00
+#         - set lrec format 00 02
+#         - set save params
+#     data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
+#     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+#     reporting_interval: 60
+#     data_path: tei49c
+#     staging_path: tei49c
+#     staging_zip: True
+#     remote_path: tei49c
 
 # tei49c-ps:
 #     type: Thermo 49C-PS
@@ -175,48 +175,48 @@ tei49c:
 #         - 0
 #     duration_minutes: 15
 
-tei49i:
-    type: Thermo 49i
-    mac: 00-06-3B-20-36-A1
-    id: 49
-    serial_number: 49I-B1NAA-12103910681
-    socket:
-        host: 192.168.3.190
-        port: 9880
-        timeout: 5
-        sleep: 0.5
-    get_config:
-        - date
-        - time
-        - mode
-        - gas unit
-        - temp comp
-        - pres comp
-        - range
-        - format
-        - avg time
-        - lrec per
-        - lrec format
-        - o3 coef
-        - o3 bkg
-    set_config:
-        - set mode remote
-        - set gas unit ppb
-        - set temp comp on
-        - set pres comp on
-        - set range 1
-        - set format 00
-        - set avg time 3        # must be compatible with lrec per
-        - set lrec per 1        # must correspond to sampling_interval
-        - set lrec format 0     # ASCII no labels
-        - set save params
-    get_data: lr00
-    sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 60
-    data_path: tei49i
-    staging_path: tei49i
-    staging_zip: True
-    remote_path: tei49i
+# tei49i:
+#     type: Thermo 49i
+#     mac: 00-06-3B-20-36-A1
+#     id: 49
+#     serial_number: 49I-B1NAA-12103910681
+#     socket:
+#         host: 192.168.3.190
+#         port: 9880
+#         timeout: 5
+#         sleep: 0.5
+#     get_config:
+#         - date
+#         - time
+#         - mode
+#         - gas unit
+#         - temp comp
+#         - pres comp
+#         - range
+#         - format
+#         - avg time
+#         - lrec per
+#         - lrec format
+#         - o3 coef
+#         - o3 bkg
+#     set_config:
+#         - set mode remote
+#         - set gas unit ppb
+#         - set temp comp on
+#         - set pres comp on
+#         - set range 1
+#         - set format 00
+#         - set avg time 3        # must be compatible with lrec per
+#         - set lrec per 1        # must correspond to sampling_interval
+#         - set lrec format 0     # ASCII no labels
+#         - set save params
+#     get_data: lr00
+#     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+#     reporting_interval: 60
+#     data_path: tei49i
+#     staging_path: tei49i
+#     staging_zip: True
+#     remote_path: tei49i
 
 ne300:
     type: NE300
@@ -274,43 +274,43 @@ g2401:
     staging_zip: True
     remote_path: g2401
 
-ae33:
-    type: Magee AE33
-    id: 169
-    serial_number: AE33-S10-01394
-    mac: C4-00-AD-D8-0A-AC
-    socket:
-        host: 192.168.3.137
-        port: 8002
-        timeout: 0.5
-        sleep: 0.5
-    get_config:
-        - HELLO
-    set_datetime: False             # Should date and time be set when initializing the instrument?
-    sampling_interval: 1            # minutes. How often should data be requested from instrument?
-    reporting_interval: 60
-    data_path: ae33
-    staging_path: ae33
-    staging_zip: True
-    remote_path: ae33
+# ae33:
+#     type: Magee AE33
+#     id: 169
+#     serial_number: AE33-S10-01394
+#     mac: C4-00-AD-D8-0A-AC
+#     socket:
+#         host: 192.168.3.137
+#         port: 8002
+#         timeout: 0.5
+#         sleep: 0.5
+#     get_config:
+#         - HELLO
+#     set_datetime: False             # Should date and time be set when initializing the instrument?
+#     sampling_interval: 1            # minutes. How often should data be requested from instrument?
+#     reporting_interval: 60
+#     data_path: ae33
+#     staging_path: ae33
+#     staging_zip: True
+#     remote_path: ae33
 
-fidas:
-    type: FIDAS
-    mac: 00-18-7D-2D-CA-84
-    serial_number: 6082
-    socket:
-        host: 0.0.0.0 #192.168.3.182
-        port: 56790
-        buffer_size: 8192
-        timeout: 0.5
-        sleep: 0.5
-    raw_record_interval: 5             # seconds. How often should data be read from instrument?
-    aggregation_period: 1            # minutes. What aggregate of data should be stored?
-    reporting_interval: 60
-    data_path: fidas
-    staging_path: fidas
-    # staging_zip: True
-    remote_path: fidas
+# fidas:
+#     type: FIDAS
+#     mac: 00-18-7D-2D-CA-84
+#     serial_number: 6082
+#     socket:
+#         host: 0.0.0.0 #192.168.3.182
+#         port: 56790
+#         buffer_size: 8192
+#         timeout: 0.5
+#         sleep: 0.5
+#     raw_record_interval: 5             # seconds. How often should data be read from instrument?
+#     aggregation_period: 1            # minutes. What aggregate of data should be stored?
+#     reporting_interval: 60
+#     data_path: fidas
+#     staging_path: fidas
+#     # staging_zip: True
+#     remote_path: fidas
 
 tapo:
     type: Tapo C230 7785
