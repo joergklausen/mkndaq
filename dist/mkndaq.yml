@@ -17,15 +17,15 @@ data: data
 staging: staging
 
 # file transfer
-# sftp:
-#     host: sftp.meteoswiss.ch
-#     usr: gaw_mkn
-#     remote: '.'
-#     key: ~/.ssh/mkn-ed25519-20260508
-#     # key: ~/.ssh/private-open-ssh-4096-mkn.ppk
-#     proxy:
-#         socks5:             # proxy url (leave empty if no proxy is used)
-#         port: 1080
+sftp:
+    host: sftp.meteoswiss.ch
+    usr: gaw_mkn
+    remote: '.'
+    key: ~/.ssh/mkn-ed25519-20260508
+    # key: ~/.ssh/private-open-ssh-4096-mkn.ppk
+    proxy:
+        socks5:             # proxy url (leave empty if no proxy is used)
+        port: 1080
 
 s3:
     endpoint_url: 'https://service.meteoswiss.ch/'
