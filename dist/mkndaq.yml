@@ -1,5 +1,5 @@
 file: mkndaq.yml
-version: 2026-01-19
+version: 2026-07-23
 
 # local root directory
 root: ~/Documents/mkndaq
@@ -17,15 +17,15 @@ data: data
 staging: staging
 
 # file transfer
-sftp:
-    host: sftp.meteoswiss.ch
-    usr: gaw_mkn
-    remote: '.'
-    key: ~/.ssh/mkn-ed25519-20260508
-    # key: ~/.ssh/private-open-ssh-4096-mkn.ppk
-    proxy:
-        socks5:             # proxy url (leave empty if no proxy is used)
-        port: 1080
+# sftp:
+#     host: sftp.meteoswiss.ch
+#     usr: gaw_mkn
+#     remote: '.'
+#     key: ~/.ssh/mkn-ed25519-20260508
+#     # key: ~/.ssh/private-open-ssh-4096-mkn.ppk
+#     proxy:
+#         socks5:             # proxy url (leave empty if no proxy is used)
+#         port: 1080
 
 s3:
     endpoint_url: 'https://service.meteoswiss.ch/'
@@ -114,7 +114,7 @@ tei49c:
         - set save params
     data_header: pcdate pctime time date o3 flags cellai cellbi bncht lmpt o3lt flowa flowb pres
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 10
+    reporting_interval: 60
     data_path: tei49c
     staging_path: tei49c
     staging_zip: True
@@ -212,7 +212,7 @@ tei49i:
         - set save params
     get_data: lr00
     sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 10
+    reporting_interval: 60
     data_path: tei49i
     staging_path: tei49i
     staging_zip: True
@@ -288,7 +288,7 @@ ae33:
         - HELLO
     set_datetime: False             # Should date and time be set when initializing the instrument?
     sampling_interval: 1            # minutes. How often should data be requested from instrument?
-    reporting_interval: 10
+    reporting_interval: 60
     data_path: ae33
     staging_path: ae33
     staging_zip: True
