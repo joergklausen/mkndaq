@@ -1,0 +1,95 @@
+script: c:/users/mkn/Documents/git/mkndaq/__main__.py
+activate virtual environment and run script
+2026-07-28T08:20:24, INFO, root, [mkndaq] started, version=0.9.5, config=./dist/mkndaq.yml
+2026-07-28T08:20:26, INFO, root, [s3] enabled
+2026-07-28T08:20:26, INFO, mkndaq.mkndaq.utils.sftp, Initialize SFTPClient
+2026-07-28T08:20:26, INFO, root, [sftp] enabled
+2026-07-28T08:20:26, INFO, mkndaq.mkndaq.inst.g2401, [g2401] Initializing Picarro G2401 (S/N: 3293-CFKADS2320)
+2026-07-28T08:20:26, INFO, root, [g2401] setup complete
+2026-07-28T08:20:26, INFO, mkndaq.mkndaq.inst.meteo, [meteo] Initializing
+2026-07-28T08:20:26, INFO, mkndaq.mkndaq.utils.sftp, Initialize SFTPClient
+2026-07-28T08:20:37, ERROR, mkndaq.mkndaq.inst.meteo, [meteo] store_and_stage_files: No existing session
+2026-07-28T08:20:37, INFO, root, [meteo] setup complete
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, [ne300] Initializing NE300 (S/N: 23-0690)
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, zero/span checks disabled.
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, [ne300] get_id: {'id': 'ACOEM Aurora NE-300 Sub-Type: 0 Range: 0 Build: 309 Branch: 0'}
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, [ne300] id reported: '{'id': 'ACOEM Aurora NE-300 Sub-Type: 0 Range: 0 Build: 309 Branch: 0'}'.
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, [ne300] firmware version reported: [309, 0].
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, [ne300] current operation reported: 'ambient'.
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, [ne300] dtm found: 2026-07-28 08:20:36 > dtm set: 2026-07-28 08:20:36.
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, [ne300] data header set from command 6 data-log config: 40 columns (['dtm', '4035', '2002', '2635000', '2525000', '2450000', '2635090', '2525090', '2450090', '5001', '5002', '5003', '5004', '5005', '5006', '5010', '26635000', '26525000', '26450000', '13525000', '15635000', '15525000', '15450000', '11635000', '11525000', '11450000', '11635090', '11525090', '11450090', '6007', '6008', '6001', '6002', '6003', '6635000', '6525000', '6450000', '6635090', '6525090', '6450090'])
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.neph, [ne300] logging config reported: [4035, 2002, 2635000, 2525000, 2450000, 2635090, 2525090, 2450090, 5001, 5002, 5003, 5004, 5005, 5006, 5010, 26635000, 26525000, 26450000, 13525000, 15635000, 15525000, 15450000, 11635000, 11525000, 11450000, 11635090, 11525090, 11450090, 6007, 6008, 6001, 6002, 6003, 6635000, 6525000, 6450000, 6635090, 6525090, 6450090].
+2026-07-28T08:20:37, INFO, root, [ne300] setup complete
+2026-07-28T08:20:37, INFO, mkndaq.mkndaq.inst.vaisala, [hmp110-inlet] Initializing HMP110 (S/N: U2110086)
+2026-07-28T08:20:37, ERROR, mkndaq.mkndaq.inst.vaisala, [hmp110-inlet] __init__ produced SerialException could not open port 'COM1': PermissionError(13, 'Access is denied.', None, 5)
+2026-07-28T08:20:37, ERROR, mkndaq.mkndaq.inst.vaisala, [hmp110-inlet] __init__ failed: could not open port 'COM1': PermissionError(13, 'Access is denied.', None, 5)
+Traceback (most recent call last):
+  File "c:\users\mkn\Documents\git\mkndaq\mkndaq\inst\vaisala.py", line 121, in __init__
+    self._serial = serial.Serial(
+                   ~~~~~~~~~~~~~^
+        port=port,
+        ^^^^^^^^^^
+    ...<5 lines>...
+        write_timeout=write_timeout,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\serial\serialwin32.py", line 33, in __init__
+    super(Serial, self).__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\serial\serialutil.py", line 244, in __init__
+    self.open()
+    ~~~~~~~~~^^
+  File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\serial\serialwin32.py", line 64, in open
+    raise SerialException("could not open port {!r}: {!r}".format(self.portstr, ctypes.WinError()))
+serial.serialutil.SerialException: could not open port 'COM1': PermissionError(13, 'Access is denied.', None, 5)
+2026-07-28T08:20:37, ERROR, root, could not open port 'COM1': PermissionError(13, 'Access is denied.', None, 5)
+Traceback (most recent call last):
+  File "c:\users\mkn\Documents\git\mkndaq\mkndaq\mkndaq.py", line 329, in main
+    hmp110_inlet = HMP110ASCII(name='hmp110-inlet', config=cfg)
+  File "c:\users\mkn\Documents\git\mkndaq\mkndaq\inst\vaisala.py", line 121, in __init__
+    self._serial = serial.Serial(
+                   ~~~~~~~~~~~~~^
+        port=port,
+        ^^^^^^^^^^
+    ...<5 lines>...
+        write_timeout=write_timeout,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\serial\serialwin32.py", line 33, in __init__
+    super(Serial, self).__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\serial\serialutil.py", line 244, in __init__
+    self.open()
+    ~~~~~~~~~^^
+  File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\serial\serialwin32.py", line 64, in open
+    raise SerialException("could not open port {!r}: {!r}".format(self.portstr, ctypes.WinError()))
+serial.serialutil.SerialException: could not open port 'COM1': PermissionError(13, 'Access is denied.', None, 5)
+2026-07-28T08:20:41, ERROR, paramiko.transport, Exception (client): Error reading SSH protocol banner
+2026-07-28T08:20:41, ERROR, paramiko.transport, Traceback (most recent call last):
+2026-07-28T08:20:41, ERROR, paramiko.transport,   File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\paramiko\transport.py", line 2363, in _check_banner
+2026-07-28T08:20:41, ERROR, paramiko.transport,     buf = self.packetizer.readline(timeout)
+2026-07-28T08:20:41, ERROR, paramiko.transport,   File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\paramiko\packet.py", line 395, in readline
+2026-07-28T08:20:41, ERROR, paramiko.transport,     buf += self._read_timeout(timeout)
+2026-07-28T08:20:41, ERROR, paramiko.transport,            ~~~~~~~~~~~~~~~~~~^^^^^^^^^
+2026-07-28T08:20:41, ERROR, paramiko.transport,   File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\paramiko\packet.py", line 673, in _read_timeout
+2026-07-28T08:20:41, ERROR, paramiko.transport,     raise socket.timeout()
+2026-07-28T08:20:41, ERROR, paramiko.transport, TimeoutError
+2026-07-28T08:20:41, ERROR, paramiko.transport,
+2026-07-28T08:20:41, ERROR, paramiko.transport, During handling of the above exception, another exception occurred:
+2026-07-28T08:20:41, ERROR, paramiko.transport,
+2026-07-28T08:20:41, ERROR, paramiko.transport, Traceback (most recent call last):
+2026-07-28T08:20:41, ERROR, paramiko.transport,   File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\paramiko\transport.py", line 2179, in run
+2026-07-28T08:20:41, ERROR, paramiko.transport,     self._check_banner()
+2026-07-28T08:20:41, ERROR, paramiko.transport,     ~~~~~~~~~~~~~~~~~~^^
+2026-07-28T08:20:41, ERROR, paramiko.transport,   File "c:\users\mkn\Documents\git\mkndaq\.venv\Lib\site-packages\paramiko\transport.py", line 2367, in _check_banner
+2026-07-28T08:20:41, ERROR, paramiko.transport,     raise SSHException(
+2026-07-28T08:20:41, ERROR, paramiko.transport,         "Error reading SSH protocol banner" + str(e)
+2026-07-28T08:20:41, ERROR, paramiko.transport,     )
+2026-07-28T08:20:41, ERROR, paramiko.transport, paramiko.ssh_exception.SSHException: Error reading SSH protocol banner
+2026-07-28T08:20:41, ERROR, paramiko.transport,
+2026-07-28T08:20:48, INFO, mkndaq.mkndaq.inst.g2401, [g2401] CO2 425.544 ppm  CH4 1.947 ppm  CO 0.129 ppm
+2026-07-28T08:20:57, INFO, mkndaq.mkndaq.inst.neph, [ne300] ssp|bssp (Mm-1) r: 34.6295|5.4104 g: 48.3558|6.6929 b: 57.7650|7.2508
+2026-07-28T08:21:08, INFO, mkndaq.mkndaq.inst.g2401, [g2401] CO2 425.213 ppm  CH4 1.947 ppm  CO 0.124 ppm
+2026-07-28T08:21:17, INFO, mkndaq.mkndaq.inst.neph, [ne300] ssp|bssp (Mm-1) r: 34.5333|5.3884 g: 48.2174|6.6761 b: 57.6715|7.2187

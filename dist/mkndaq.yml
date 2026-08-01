@@ -218,43 +218,43 @@ COM3:
 #     staging_zip: True
 #     remote_path: tei49i
 
-ne300:
-    type: NE300
-    protocol: acoem
-    serial_id: 0
-    serial_number: 23-0690
-    mac_number: 00-30-55-0A-78-78
-    socket:
-        host: 192.168.3.149
-        port: 32783
-        timeout: 5
-        sleep: 0.5
-    data_log:
-        parameters: [1635000, 1525000, 1450000, 1635090, 1525090, 1450090,
-                     2635000, 2525000, 2450000, 2635090, 2525090, 2450090,
-                     3635000, 3525000, 3450000, 3635090, 3525090, 3450090,]
-        wavelengths: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]   # optional, defaults to 0
-        angles:      [0, 0, 0, 0, 0, 0]   # optional, defaults to 0
-        interval: 60                      # optional; if set, overrides sampling_interval for 2002
-        # parameters: [1000000, 2000000, 3000000, 6000000, 7000000, 8000000,
-        #              11000000, 12000000, 13000000, 14000000, 15000000, 16000000,
-        #              17000000, 18000000, 19000000, 20000000, 21000000, 26000000,
-        #              5001, 5002, 5003, 5004, 5005, 5006,
-        #              5010, 6007, 6008, 6001, 6002, 6003,
-        #              4035, 4036]
-        # wavelengths: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
-        # angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
-        # interval: 60
-    sampling_interval: 5            # minutes. logger retrieval interval
-    reporting_interval: 60
-    data_path: ne300
-    staging_path: ne300
-    staging_zip: True
-    remote_path: ne300
-    verbosity: 2                    # 0: silent, 1: medium, 2: full
-    zero_span_check_interval: 0   # set this to 4380 (=73 hrs) for production; 0 to disable
-    zero_check_duration: 20         # set this to 20 for production
-    span_check_duration: 20         # set this to 20 for production
+# ne300:
+#     type: NE300
+#     protocol: acoem
+#     serial_id: 0
+#     serial_number: 23-0690
+#     mac_number: 00-30-55-0A-78-78
+#     socket:
+#         host: 192.168.3.149
+#         port: 32783
+#         timeout: 5
+#         sleep: 0.5
+#     data_log:
+#         parameters: [1635000, 1525000, 1450000, 1635090, 1525090, 1450090,
+#                      2635000, 2525000, 2450000, 2635090, 2525090, 2450090,
+#                      3635000, 3525000, 3450000, 3635090, 3525090, 3450090,]
+#         wavelengths: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]   # optional, defaults to 0
+#         angles:      [0, 0, 0, 0, 0, 0]   # optional, defaults to 0
+#         interval: 60                      # optional; if set, overrides sampling_interval for 2002
+#         # parameters: [1000000, 2000000, 3000000, 6000000, 7000000, 8000000,
+#         #              11000000, 12000000, 13000000, 14000000, 15000000, 16000000,
+#         #              17000000, 18000000, 19000000, 20000000, 21000000, 26000000,
+#         #              5001, 5002, 5003, 5004, 5005, 5006,
+#         #              5010, 6007, 6008, 6001, 6002, 6003,
+#         #              4035, 4036]
+#         # wavelengths: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
+#         # angles: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
+#         # interval: 60
+#     sampling_interval: 5            # minutes. logger retrieval interval
+#     reporting_interval: 60
+#     data_path: ne300
+#     staging_path: ne300
+#     staging_zip: True
+#     remote_path: ne300
+#     verbosity: 2                    # 0: silent, 1: medium, 2: full
+#     zero_span_check_interval: 0   # set this to 4380 (=73 hrs) for production; 0 to disable
+#     zero_check_duration: 20         # set this to 20 for production
+#     span_check_duration: 20         # set this to 20 for production
 
 g2401:
     type: Picarro G2401
@@ -329,31 +329,31 @@ tapo:
     staging_zip: False
     remote_path: tapo
 
-hmp110-inlet:
-    type: Vaisala HMP110 C15A0C3A0
-    id: 3     # mainfold
-    serial_number: U2110086  # aerosol inlet manyfold
-    port: COM1
-    data_header: dtm,T,RH,Td
-    sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 60
-    data_path: hmp110-inlet
-    staging_path: hmp110-inlet
-    staging_zip: True
-    remote_path: hmp110-inlet
+# hmp110-inlet:
+#     type: Vaisala HMP110 C15A0C3A0
+#     id: 3     # mainfold
+#     serial_number: U2110086  # aerosol inlet manyfold
+#     port: COM1
+#     data_header: dtm,T,RH,Td
+#     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+#     reporting_interval: 60
+#     data_path: hmp110-inlet
+#     staging_path: hmp110-inlet
+#     staging_zip: True
+#     remote_path: hmp110-inlet
 
-hmp110-ae33:
-    type: Vaisala HMP110 C15A0C3A0
-    id: 4     # inlet AE33
-    serial_number: U2110081  # inlet AE33
-    port: COM1
-    data_header: dtm,T,RH,Td
-    sampling_interval: 1        # minutes. How often should data be requested from instrument?
-    reporting_interval: 60
-    data_path: hmp110-ae33
-    staging_path: hmp110-ae33
-    staging_zip: True
-    remote_path: hmp110-ae33
+# hmp110-ae33:
+#     type: Vaisala HMP110 C15A0C3A0
+#     id: 4     # inlet AE33
+#     serial_number: U2110081  # inlet AE33
+#     port: COM1
+#     data_header: dtm,T,RH,Td
+#     sampling_interval: 1        # minutes. How often should data be requested from instrument?
+#     reporting_interval: 60
+#     data_path: hmp110-ae33
+#     staging_path: hmp110-ae33
+#     staging_zip: True
+#     remote_path: hmp110-ae33
 
 test:
     remote_path: test
